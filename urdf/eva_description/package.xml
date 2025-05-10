@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>eva_description</name>
+  <version>1.0.0</version>
+  <description>
+    <p>URDF Description package for E.V.A_URDF</p>
+    <p>This package contains configuration data, 3D models and launch files
+for E.V.A_URDF robot</p>
+  </description>
+  <author>TODO</author>
+  <maintainer email="TODO@email.com" />
+  <license>BSD</license>
+  
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
