@@ -13,6 +13,7 @@
     "urdf-loader": "^0.12.5"
   },
   "devDependencies": {
+    "buffer": "^6.0.3",
     "parcel": "^2.14.0"
   }
 }
