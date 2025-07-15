@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Franka Research 3",
+    "serial": "FR3-001",
+    "model": "fr3"
+  },
+  {
+    "name": "EVA Automata",
+    "serial": "EV4.13U01-2016-001",
+    "model": "EVA V4 Industrial Robot"
+  },
+  {
+    "name": "UR5e",
+    "serial": "UR5-XYZ",
+    "model": "ur5"
+  }
+]

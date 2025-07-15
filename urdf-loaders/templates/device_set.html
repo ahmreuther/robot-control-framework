@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<h2>OPC UA Address Space</h2>
+<p>Click on the summaries to expand or collapse the tree view:</p>
+<ul class="tree" id="myUL">
+    {% macro render_nodes(node) %}
+<li class="{{ 'has-children' if node.Children else 'leaf-node' }}">
+    {% set id = node.Attributes.NodeId.Identifier %}
+    {% set prefix = 's' if id is string else 'i' %}
+    {% if node.Children %}
+    <details>
+        <summary
+            data-node-id="ns={{node.Attributes.NodeId.NamespaceIndex}};{{ prefix }}={{ id }}"
+            data-pictogram="{{ node.Pictogram }}"
+            data-name="{{node.Attributes.BrowseName.NamespaceIndex}}:{{ node.Attributes.BrowseName.Name }}"
+            data-description="{{ node.Attributes.Description }}"
+            data-displayname="{{ node.Attributes.DisplayName }}"
+            data-nodeclass="{{ node.Attributes.NodeClass }}"
+            data-userwritemask="{{ node.Attributes.UserWriteMask }}"
+            data-access-level="{{ node.Attributes.AccessLevel }}"
+            data-array-dimensions="{{ node.Attributes.ArrayDimensions }}"
+            data-data-type="{{ node.DataTypeName }}"
+            data-historizing="{{ node.Attributes.Historizing }}"
+            data-event-notifier="{{ node.Attributes.EventNotifier }}"
+            data-value="{{ node.Attributes.Value }}"
+            data-minimum-sampling-interval="{{ node.Attributes.MinimumSamplingInterval }}"
+            data-user-access-level="{{ node.Attributes.UserAccessLevel }}"
+            data-role-permissions="{{ node.Attributes.RolePermissions }}">
+            {{ node.Pictogram }} {{ node.Name }}
+        </summary>
+        <ul>
+            {% for child in node.Children %}
+                {{ render_nodes(child) }}
+            {% endfor %}
+        </ul>
+    </details>
+    {% else %}
+        <span
+            data-node-id="ns={{node.Attributes.NodeId.NamespaceIndex}};{{ prefix }}={{ id }}"
+            data-pictogram="{{ node.Pictogram }}"
+            data-name="{{node.Attributes.BrowseName.NamespaceIndex}}:{{ node.Attributes.BrowseName.Name }}"
+            data-description="{{ node.Attributes.Description }}"
+            data-displayname="{{ node.Attributes.DisplayName }}"
+            data-nodeclass="{{ node.Attributes.NodeClass }}"
+            data-userwritemask="{{ node.Attributes.UserWriteMask }}"
+            data-access-level="{{ node.Attributes.AccessLevel }}"
+            data-array-dimensions="{{ node.Attributes.ArrayDimensions }}"
+            data-data-type="{{ node.DataTypeName }}"
+            data-historizing="{{ node.Attributes.Historizing }}"
+            data-event-notifier="{{ node.Attributes.EventNotifier }}"
+            data-value="{{ node.Attributes.Value }}"
+            data-minimum-sampling-interval="{{ node.Attributes.MinimumSamplingInterval }}"
+            data-user-access-level="{{ node.Attributes.UserAccessLevel }}"
+            data-role-permissions="{{ node.Attributes.RolePermissions }}">
+            {{ node.Pictogram }} {{ node.Name }}
+        </span>
+    {% endif %}
+</li>
+{% endmacro %}
+
+   {% if items is defined and items %}
+    {{ render_nodes(items) }}
+{% endif %}
+
+</ul>
+
+<div id="infoBox" style="display:none; position: fixed; top: 100px; right: 20px; background: white; border: 1px solid black; padding: 10px; z-index: 100;">
+</div>
+
+<script src="static/script.js"></script>
+</body>
+</html>
