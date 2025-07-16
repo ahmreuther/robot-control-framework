@@ -103,8 +103,8 @@ export default
 
         const ik = urdfRobotToIKRoot(this.robot);
         ik.clearDoF();
-        quat.fromEuler(ik.quaternion, - 90, 0, 0);
-        ik.position[1] -= 0.5;
+        // quat.fromEuler(ik.quaternion, - 90, 0, 0);
+        // ik.position[1] -= 0.5;
         ik.setMatrixNeedsUpdate();
         ik.updateMatrix();
         ik.updateMatrixWorld();
@@ -114,48 +114,64 @@ export default
 
         const base_link = ik.find(l => l.name === 'base_link');
         const base_link_position = new Vector3();
-        base_link.getWorldPosition(base_link_position);
-        console.log("Base Link Position: ", base_link_position);
+        // base_link.getWorldPosition(base_link_position);
+        // console.log("Base Link Position: ", base_link_position);
 
         const tool_point = ik.find(l => l.name === 'tool_point');
-        const tool_point_position = new Vector3();
-        tool_point.getWorldPosition(tool_point_position);
-        console.log("Tool Point Position: ", tool_point_position);
+        // const tool_point_position = new Vector3();
+        // tool_point.getWorldPosition(tool_point_position);
+        // console.log("Tool Point Position: ", tool_point_position);
 
         goal.name = tool_point.name;
 
-        const position = new Vector3();
-        const rotation = new Quaternion();
-        this.targetObject.getWorldPosition(position);
-        this.targetObject.getWorldQuaternion(rotation);
+        // const position = new Vector3();
+        // const rotation = new Quaternion();
+        // this.targetObject.getWorldPosition(position);
+        // this.targetObject.getWorldQuaternion(rotation);
+        // console.log("Target Position: ", this.targetObject.position);
 
-        goal.setWorldPosition(...position);
-        goal.setWorldQuaternion(...rotation);
+        // goal.setPosition(...position);
+        goal.setPosition(...this.targetObject.position);
+        goal.setQuaternion(...this.targetObject.quaternion);
+        // this.targetObject.e
 
-        goal.setMatrixNeedsUpdate();
-        goal.setMatrixWorldNeedsUpdate();
+        // goal.setMatrixNeedsUpdate();
+        // goal.setMatrixWorldNeedsUpdate();
 
         goal.makeClosure(tool_point);
+        goal.setDoF([DOF.X, DOF.Y, DOF.Z, DOF.EX, DOF.EY, DOF.EZ]);
 
-        const temp2 = new Vector3();
-        goal.getWorldPosition(temp2);
-        console.log("Goal Position: ", temp2);
+        // const temp2 = new Vector3();
+        // goal.getWorldPosition(temp2);
+        // console.log("Goal Position: ", temp2);
+
+        console.log("goal: ", goal);
+        console.log("tool point: ", tool_point);
 
 
         const solver = new Solver(ik);
 
-        // solver.maxIterations = 10;
+        // solver.maxIterations = 100;
         // solver.translationErrorClamp = 0.25;
-        // solver.rotationErrorClamp = 9999999*0.25;
-        // solver.restPoseFactor = 0.01;
+        // solver.rotationErrorClamp = 0.25;
+        // solver.restPoseFactor = 0.1;
         // solver.divergeThreshold = 0.5;
+        // solver.stallThreshold = 1e-3;
 
         solver.updateStructure();
 
 
         const temp = solver.solve();
-
         console.log(SOLVE_STATUS_NAMES[temp]);
+        ik.updateMatrixWorld(true);
+
+        console.log("New IK: ", ik);
+        console.log("new tool point: ", tool_point);
+        const tool_point_position = new Vector3();
+        tool_point.getWorldPosition(tool_point_position);
+        console.log("Tool Point Position: ", tool_point_position);
+
+        setUrdfFromIK(this.robot, ik);
 
         // goal.makeClosure(tool);
         // tool.updateMatrixWorld();
@@ -167,52 +183,5 @@ export default
 
 
         this.redraw();
-
-        // const urdf = this.robot
-        // // console.log(urdf)
-        // const ik = urdfRobotToIKRoot(urdf);
-        // setIKFromUrdf(ik, urdf);
-
-        // // make the root fixed
-        // ik.clearDoF();
-        // quat.fromEuler(ik.quaternion, - 90, 0, 0);
-        // ik.position[1] -= 0.5;
-        // ik.setMatrixNeedsUpdate();
-
-        // // start the joints off at reasonable angles
-        // urdf.setJointValue('arm_joint2', - Math.PI / 2);
-        // urdf.setJointValue('arm_joint3', Math.PI);
-        // urdf.setJointValue('arm_joint4', Math.PI);
-        // // urdf.setJointValue( 'joint_5', - Math.PI / 4 );
-        // setIKFromUrdf(ik, urdf);
-
-        // const tool = ik.find(l => l.name === 'tool_point');
-        // const link = urdf.links.tool_point;
-
-        // const goal = new Goal()
-        // goal.name = link.name;
-        // tool.getWorldPosition(goal.position);
-        // tool.getWorldQuaternion(goal.quaternion);
-
-        // goal.makeClosure(tool);
-
-        // // setUrdfFromIK(urdf, ik);
-        // ik.updateMatrix();
-
-        // console.log(ik);
-
-        // const solver = new Solver(ik);
-        // solver.maxIterations = 3;
-        // solver.translationErrorClamp = 0.25;
-        // solver.rotationErrorClamp = 0.25;
-        // solver.restPoseFactor = 0.01;
-        // solver.divergeThreshold = 0.05;
-        // const temp = solver.solve();
-
-        // console.log(SOLVE_STATUS_NAMES[temp]);
-
-        // this.scene.add(urdfRoot, ikHelper, drawThroughIkHelper);
-        // this.scene.add(urdfRoot);
-        // this.redraw();
     }
 }
