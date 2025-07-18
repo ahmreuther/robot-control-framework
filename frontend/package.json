@@ -8,7 +8,7 @@
     "build": "parcel build"
   },
   "dependencies": {
-    "@ai-in-process-automation/closed-chain-ik": "^0.0.3",
+    "closed-chain-ik": "github:gkjohnson/closed-chain-ik-js#v0.0.5",
     "three": "^0.176.0",
     "urdf-loader": "^0.12.5"
   },

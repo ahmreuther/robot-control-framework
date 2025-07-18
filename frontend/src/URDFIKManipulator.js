@@ -1,186 +1,116 @@
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
-import { Goal, Link, SOLVE_STATUS, SOLVE_STATUS_NAMES, Joint, DOF, setUrdfFromIK, setIKFromUrdf, urdfRobotToIKRoot, Solver, IKRootsHelper } from '@ai-in-process-automation/closed-chain-ik';
-import { quat } from 'gl-matrix';
+import { Goal, SOLVE_STATUS, DOF, setUrdfFromIK, setIKFromUrdf, urdfRobotToIKRoot, Solver, SOLVE_STATUS } from '@ai-in-process-automation/closed-chain-ik';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { Group, Mesh, BoxGeometry, MeshBasicMaterial, Object3D, Vector3, Quaternion } from 'three';
+import { Group } from 'three';
 
 export default
     class URDFIKManipulator extends URDFManipulator {
     constructor(...args) {
         super(...args);
-        console.log("TEST");
 
-        let controls = this.controls;
-        // let robot = this.robot;
-        // let ik = null;
+        const controls = this.controls;
 
+        // controls
         const transformControls = new TransformControls(this.camera, this.renderer.domElement);
         transformControls.setSpace('world');
         transformControls.addEventListener('change', () => this.redraw());
+        transformControls.setSpace( 'local' );
         this.scene.add(transformControls.getHelper());
 
         const targetObject = new Group();
-        // targetObject.position.set( 0, 1, 1 );
         this.world.add(targetObject);
         transformControls.attach(targetObject);
-        this.targetObject = targetObject;
 
+        // members
+        this.transformControls = transformControls;
+        this.targetObject = targetObject;
+        this.ikRoot = null;
+        this.goal = null;
+        this.helper = null;
+        this.solver = null;
+
+        // events
         transformControls.addEventListener('dragging-changed', function (event) {
             controls.enabled = !event.value;
+        });
+
+        transformControls.addEventListener('change', () => this.solve());
+        transformControls.addEventListener('mouseUp', () => this.resetGoal());
+
+        this.addEventListener('urdf-processed', () => this.init());
+        this.addEventListener('angle-change', () => {
+
+            setIKFromUrdf(this.ikRoot, this.robot);
+            this.resetGoal();
 
         });
 
-        // transformControls.addEventListener('change', function (event) {
-        //     console.log("2");
-        //     console.log(this.ik);
-        //     if (this.ik === null) {
-        //         urdfRobotToIKRoot(this.ik, this.robot
-        //         );
-        //     }
-        //     setUrdfFromIK(this.robot, this.ik);
-        // });
-        this.transformControls = transformControls;
-        // this.targetObject = targetObject;
-
-        // transformControls.addEventListener('mouseUp', () => {
-
-        //     const ik = urdfRobotToIKRoot(this.robot);
-        //     setUrdfFromIK(this.robot, ik);
-
-        //     const tool = ik.find(l => l.name === 'tool_point');
-
-        //     const goal = new Goal()
-        //     goal.name = tool.name;
-        //     console.log(this.robot);
-        //     tool.getWorldPosition(goal.position);
-        //     tool.getWorldQuaternion(goal.quaternion);
-
-        //     // goal.makeClosure(tool);
-        //     // tool.updateMatrixWorld();
-        //     // targetObject.local
-        //     console.log(goal.position);
-        //     targetObject.position.set(...goal.position);
-        //     targetObject.quaternion.set(...goal.quaternion);
-        //     console.log(targetObject.position);
-
-
-        //     // const solver = new Solver(this.robot.links.base_link);
-
-        //     // const temp = solver.solve();
-        //     // console.log(temp);
-
-
-
-        //     setUrdfFromIK(this.robot, ik);
-        //     this.redraw();
-        // });
     }
 
     _loadUrdf(pkg, urdf) {
         super._loadUrdf(pkg, urdf);
     }
 
-    test() {
+    init() {
 
-        // this.ik = urdfRobotToIKRoot(this.robot);
-        // console.log("1");
-        // console.log(this.ik);
+        const robot = this.robot;
+        robot.updateMatrixWorld( true );
 
-        // setIKFromUrdf(this.ik, this.robot);
-        // setUrdfFromIK(this.robot, this.ik);
-
-        // const tool = this.ik.find(l => l.name === 'tool_point');
-
-        const goal = new Goal();
-        // goal.name = tool.name;
-        // console.log(this.robot);
-        // tool.getWorldPosition(goal.position);
-        // tool.getWorldQuaternion(goal.quaternion);
-
-        // console.log(this.robot.links.tool_point.position);
-
-        // this.transformControls.attach(this.robot.links.tool_point);
-
-        const ik = urdfRobotToIKRoot(this.robot);
+        // init ik root
+        // clear the degrees of freedom to lock the root of the model
+        const ik = urdfRobotToIKRoot(robot);
+        setUrdfFromIK(robot, ik);
         ik.clearDoF();
-        // quat.fromEuler(ik.quaternion, - 90, 0, 0);
-        // ik.position[1] -= 0.5;
-        ik.setMatrixNeedsUpdate();
-        ik.updateMatrix();
-        ik.updateMatrixWorld();
+        this.ikRoot = ik;
 
+        // setUrdfFromIK(robot, ik);
+        setIKFromUrdf(ik, robot)
 
-        console.log(ik);
-
-        const base_link = ik.find(l => l.name === 'base_link');
-        const base_link_position = new Vector3();
-        // base_link.getWorldPosition(base_link_position);
-        // console.log("Base Link Position: ", base_link_position);
-
-        const tool_point = ik.find(l => l.name === 'tool_point');
-        // const tool_point_position = new Vector3();
-        // tool_point.getWorldPosition(tool_point_position);
-        // console.log("Tool Point Position: ", tool_point_position);
-
-        goal.name = tool_point.name;
-
-        // const position = new Vector3();
-        // const rotation = new Quaternion();
-        // this.targetObject.getWorldPosition(position);
-        // this.targetObject.getWorldQuaternion(rotation);
-        // console.log("Target Position: ", this.targetObject.position);
-
-        // goal.setPosition(...position);
-        goal.setPosition(...this.targetObject.position);
-        goal.setQuaternion(...this.targetObject.quaternion);
-        // this.targetObject.e
-
-        // goal.setMatrixNeedsUpdate();
-        // goal.setMatrixWorldNeedsUpdate();
-
+        // init the goal
+        const tool_point = ik.find(c => c.name === 'tool_point');
+        const goal = new Goal();
         goal.makeClosure(tool_point);
-        goal.setDoF([DOF.X, DOF.Y, DOF.Z, DOF.EX, DOF.EY, DOF.EZ]);
+        tool_point.getWorldPosition(goal.position);
+        tool_point.getWorldQuaternion(goal.quaternion);
+        goal.setMatrixNeedsUpdate();
+        this.goal = goal;
+        this.solver = new Solver(ik);
 
-        // const temp2 = new Vector3();
-        // goal.getWorldPosition(temp2);
-        // console.log("Goal Position: ", temp2);
-
-        console.log("goal: ", goal);
-        console.log("tool point: ", tool_point);
-
-
-        const solver = new Solver(ik);
-
-        // solver.maxIterations = 100;
-        // solver.translationErrorClamp = 0.25;
-        // solver.rotationErrorClamp = 0.25;
-        // solver.restPoseFactor = 0.1;
-        // solver.divergeThreshold = 0.5;
-        // solver.stallThreshold = 1e-3;
-
-        solver.updateStructure();
+        this.resetGoal();
+    }
 
 
-        const temp = solver.solve();
-        console.log(SOLVE_STATUS_NAMES[temp]);
-        ik.updateMatrixWorld(true);
+    resetGoal() {
+        // reset the goal
+        const ik = this.ikRoot;
+        const goal = this.goal;
+        const tool_point = ik.find(c => c.name === 'tool_point');
+        tool_point.getWorldPosition( goal.position );
+        tool_point.getWorldQuaternion( goal.quaternion );
+        goal.setMatrixNeedsUpdate();
 
-        console.log("New IK: ", ik);
-        console.log("new tool point: ", tool_point);
-        const tool_point_position = new Vector3();
-        tool_point.getWorldPosition(tool_point_position);
-        console.log("Tool Point Position: ", tool_point_position);
+        const targetObject = this.targetObject;
+        targetObject.position.set( ...goal.position );
+        targetObject.quaternion.set( ...goal.quaternion );
 
-        setUrdfFromIK(this.robot, ik);
+        this.redraw();
+    }
 
-        // goal.makeClosure(tool);
-        // tool.updateMatrixWorld();
-        // targetObject.local
-        // console.log(goal.position);
-        // this.targetObject.position.set(...goal.position);
-        // this.targetObject.quaternion.set(...goal.quaternion);
-        // console.log(this.targetObject.position);
+    solve() {
+        const goal = this.goal;
+        const ik = this.ikRoot;
+        const robot = this.robot;
 
+        // set the goal and ik
+        goal.setPosition( ...this.targetObject.position );
+        goal.setQuaternion( ...this.targetObject.quaternion );
+        setIKFromUrdf(ik, robot);
+
+        // solve
+        const result = this.solver.solve();
+        if (!result.includes(SOLVE_STATUS.DIVERGED)) {
+            setUrdfFromIK(robot, ik);
+        }
 
         this.redraw();
     }
