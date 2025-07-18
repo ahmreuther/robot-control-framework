@@ -1,5 +1,5 @@
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
-import { Goal, SOLVE_STATUS, DOF, setUrdfFromIK, setIKFromUrdf, urdfRobotToIKRoot, Solver, SOLVE_STATUS } from '@ai-in-process-automation/closed-chain-ik';
+import { Goal, SOLVE_STATUS, DOF, setUrdfFromIK, setIKFromUrdf, urdfRobotToIKRoot, Solver, SOLVE_STATUS } from 'closed-chain-ik';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { Group } from 'three';
 
