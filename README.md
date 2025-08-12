@@ -71,18 +71,14 @@ Für die Entwicklung benötigst du:
 Wechsle ins Backend-Verzeichnis:
 ```bash
 cd Backend
-uv venv                      # virtuelle Umgebung (optional)
-uv sync                      # installiert Abhängigkeiten aus pyproject.toml
-# oder: uv pip install -r requirements.txt
-cp .env.example .env         # Beispiel-Konfiguration kopieren
 uv run main.py               # Backend starten
 ```
 
-### 1. Backend einrichten
+### 2. Frontend einrichten
 Frontend starten:
 
 ```bash
 cd frontend
 npm install
-npm run start
+npm run start               # Frontend starten
 ```
