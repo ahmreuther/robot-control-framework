@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "closed-chain-ik": "github:gkjohnson/closed-chain-ik-js#v0.0.5",
+    "serve-static": "^2.2.0",
     "three": "^0.176.0",
     "urdf-loader": "^0.12.5"
   },

@@ -62,9 +62,9 @@ const setColor = color => {
 };
 
 
-ikMove.onclick = function() {
-    viewer.test();
-};
+// ikMove.onclick = function() {
+//     viewer.test();
+// };
 
 // Events
 // toggle checkbox
@@ -378,7 +378,7 @@ const updateList = () => {
             const urdf = e.target.getAttribute('urdf');
             const color = e.target.getAttribute('color');
 
-            viewer.up = '-Z';
+            viewer.up = '+Z';
             document.getElementById('up-select').value = viewer.up;
             
             viewer.urdf = urdf;

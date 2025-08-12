@@ -1,7 +1,7 @@
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
 import { Goal, SOLVE_STATUS, DOF, setUrdfFromIK, setIKFromUrdf, urdfRobotToIKRoot, Solver, SOLVE_STATUS } from 'closed-chain-ik';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { Group } from 'three';
+import { Group, SphereGeometry, MeshBasicMaterial, Mesh, OrthographicCamera } from 'three';
 
 export default
     class URDFIKManipulator extends URDFManipulator {
@@ -17,7 +17,14 @@ export default
         transformControls.setSpace('local');
         this.scene.add(transformControls.getHelper());
 
+
         const targetObject = new Group();
+
+        const geometry = new SphereGeometry(0.005, 32, 16);
+        const material = new MeshBasicMaterial({ color: 0xffff00 });
+        const sphere = new Mesh(geometry, material); 
+        targetObject.add(sphere);
+
         this.world.add(targetObject);
         let transformControlsEnabled = true;
         transformControls.attach(targetObject);
