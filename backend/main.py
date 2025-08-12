@@ -399,7 +399,7 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
 
 # --- Static File Serving & Startpunkt ---
 
-app.mount("/static", StaticFiles(directory=STATIC_IMAGE_DIR), name="static")
+# app.mount("/static", StaticFiles(directory=STATIC_IMAGE_DIR), name="static")
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="root")
 
 if __name__ == "__main__":
