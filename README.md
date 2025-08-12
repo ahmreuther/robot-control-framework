@@ -1,19 +1,5 @@
 # WebSkillComposition
 
-
-Zum starten in backend:
-```bash
-uv run main.py
-```
-
-Zum starten in frontend:
-```bash
-npm run start
-```
-
-
-# WebSkillComposition
-
 **WebSkillComposition** ist ein webbasiertes System zur skill-basierten Steuerung von Industrierobotern.  
 Es besteht aus einem **Python-Backend** zur OPC UA-Anbindung und einem **Web-Frontend** mit Inverse- und Vorwärtskinematik-Logik.  
 Ziel ist es, Roboter wie **Franka Research 3**, **EVA Automata** und **UR5e** über eine einheitliche Weboberfläche steuern zu können.
