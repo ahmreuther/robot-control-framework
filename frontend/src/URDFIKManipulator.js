@@ -61,10 +61,6 @@ export default
                 case 'q':
                     transformControls.setSpace(transformControls.space === 'local' ? 'world' : 'local');
                     break;
-                case 'f':
-                    controls.target.set(0, 0, 0);
-                    controls.update();
-                    break;
                 case 't':
                     if (transformControlsEnabled) {
                         transformControls.detach();

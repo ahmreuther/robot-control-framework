@@ -133,7 +133,6 @@ Diese Shortcuts ermöglichen eine flüssige Bedienung, ohne ständig UI-Elemente
 | **Q** | Umschalten zwischen **Welt-** und **lokalem Koordinatensystem** für Transformationen |
 | **W** | Transformationsmodus auf **Translation** setzen |
 | **E** | Transformationsmodus auf **Rotation** setzen |
-| **F** | Kamera-Zielpunkt auf `(0, 0, 0)` zurücksetzen |
 | **T** | IK-Interface für die Manipulation des Endeffektors **ein- oder ausblenden** |
 
 ---
