@@ -62,12 +62,6 @@ const setColor = color => {
 };
 
 
-// ikMove.onclick = function() {
-//     viewer.test();
-// };
-
-// Events
-// toggle checkbox
 limitsToggle.addEventListener('click', () => {
     limitsToggle.classList.toggle('checked');
     viewer.ignoreLimits = limitsToggle.classList.contains('checked');
@@ -87,6 +81,7 @@ collisionToggle.addEventListener('click', () => {
 
 autocenterToggle.addEventListener('click', () => {
     autocenterToggle.classList.toggle('checked');
+    
     viewer.noAutoRecenter = !autocenterToggle.classList.contains('checked');
 });
 
@@ -402,5 +397,7 @@ document.addEventListener('WebComponentsReady', () => {
     viewer.addEventListener('urdf-processed', e => updateAngles());
     updateLoop();
     viewer.camera.position.set(-5.5, 3.5, 5.5);
+    autocenterToggle.classList.remove('checked');
+    viewer.noAutoRecenter = true;
 
 });
