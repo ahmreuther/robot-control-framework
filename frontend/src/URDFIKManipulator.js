@@ -14,11 +14,12 @@ export default
         const transformControls = new TransformControls(this.camera, this.renderer.domElement);
         transformControls.setSpace('world');
         transformControls.addEventListener('change', () => this.redraw());
-        transformControls.setSpace( 'local' );
+        transformControls.setSpace('local');
         this.scene.add(transformControls.getHelper());
 
         const targetObject = new Group();
         this.world.add(targetObject);
+        let transformControlsEnabled = true;
         transformControls.attach(targetObject);
 
         // members
@@ -37,6 +38,42 @@ export default
         transformControls.addEventListener('change', () => this.solve());
         transformControls.addEventListener('mouseUp', () => this.resetGoal());
 
+        transformControls.addEventListener('mouseDown', () => controls.enabled = false);
+        transformControls.addEventListener('mouseUp', () => controls.enabled = true);
+
+        window.addEventListener('keydown', e => {
+
+            switch (e.key) {
+
+                case 'w':
+                    transformControls.setMode('translate');
+                    break;
+                case 'e':
+                    transformControls.setMode('rotate');
+                    break;
+                case 'q':
+                    transformControls.setSpace(transformControls.space === 'local' ? 'world' : 'local');
+                    break;
+                case 'f':
+                    controls.target.set(0, 0, 0);
+                    controls.update();
+                    break;
+                case 't':
+                    if (transformControlsEnabled) {
+                        transformControls.detach();
+                        transformControlsEnabled = false;
+                        this.scene.remove(transformControls.getHelper());
+                    } else {
+                        transformControls.attach(this.targetObject);
+                        transformControlsEnabled = true;
+                        this.scene.add(transformControls.getHelper());
+                    }
+                    break;
+
+            }
+        });
+
+
         this.addEventListener('urdf-processed', () => this.init());
         this.addEventListener('angle-change', () => {
 
@@ -54,7 +91,7 @@ export default
     init() {
 
         const robot = this.robot;
-        robot.updateMatrixWorld( true );
+        robot.updateMatrixWorld(true);
 
         // init ik root
         // clear the degrees of freedom to lock the root of the model
@@ -85,13 +122,13 @@ export default
         const ik = this.ikRoot;
         const goal = this.goal;
         const tool_point = ik.find(c => c.name === 'tool_point');
-        tool_point.getWorldPosition( goal.position );
-        tool_point.getWorldQuaternion( goal.quaternion );
+        tool_point.getWorldPosition(goal.position);
+        tool_point.getWorldQuaternion(goal.quaternion);
         goal.setMatrixNeedsUpdate();
 
         const targetObject = this.targetObject;
-        targetObject.position.set( ...goal.position );
-        targetObject.quaternion.set( ...goal.quaternion );
+        targetObject.position.set(...goal.position);
+        targetObject.quaternion.set(...goal.quaternion);
 
         this.redraw();
     }
@@ -102,8 +139,8 @@ export default
         const robot = this.robot;
 
         // set the goal and ik
-        goal.setPosition( ...this.targetObject.position );
-        goal.setQuaternion( ...this.targetObject.quaternion );
+        goal.setPosition(...this.targetObject.position);
+        goal.setQuaternion(...this.targetObject.quaternion);
         setIKFromUrdf(ik, robot);
 
         // solve
