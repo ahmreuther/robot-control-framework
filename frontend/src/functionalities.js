@@ -1269,7 +1269,10 @@ if (homeIcon) {
     homeIcon.addEventListener('click', () => {
         const viewer = document.querySelector('urdf-viewer');
         if (viewer && viewer.camera) {
-            viewer.camera.position.set(-0.5, 1.1, 0.8);
+            
+            viewer.dispatchEvent(new Event('reset-angles'));
+            
+            
         }
     });
 }

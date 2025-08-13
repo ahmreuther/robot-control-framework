@@ -79,6 +79,55 @@ export default
 
         this.addEventListener('urdf-processed', () => this.init());
 
+        this.addEventListener('reset-angles', () => {
+            const robot = this.robot;
+            if (!robot) return;
+
+            const deg_to_rad = deg => deg * Math.PI / 180;
+
+            const jointNames = Object.keys(robot.joints);
+            const urdfName = (robot.robotName || robot.name || '').toLowerCase();
+
+            if (urdfName.includes('eva_description')) {
+                robot.setJointValue(jointNames[1], 0);
+                robot.setJointValue(jointNames[2], deg_to_rad(-90));
+                robot.setJointValue(jointNames[3], 0);
+                robot.setJointValue(jointNames[4], deg_to_rad(-90));
+                robot.setJointValue(jointNames[5], 0);
+
+            } else if (urdfName.includes('ur5')) {
+                robot.setJointValue(jointNames[1], -1.57);
+                robot.setJointValue(jointNames[2], 1.57);
+                robot.setJointValue(jointNames[3], 0);
+                robot.setJointValue(jointNames[4], 0);
+                robot.setJointValue(jointNames[5], 0);
+
+            } else if (urdfName.includes('fr3')) {
+                robot.setJointValue(jointNames[0], 0);
+                robot.setJointValue(jointNames[1], 0);
+                robot.setJointValue(jointNames[2], 0);
+                robot.setJointValue(jointNames[3], 0);
+                robot.setJointValue(jointNames[4], deg_to_rad(-90));
+                robot.setJointValue(jointNames[5], 0);
+                robot.setJointValue(jointNames[6], deg_to_rad(90));
+                robot.setJointValue(jointNames[7], deg_to_rad(-45));
+                robot.setJointValue(jointNames[8], 0);
+
+            } else {
+                // Default: alle auf 0
+                for (let i = 1; i < jointNames.length; ++i) {
+                    robot.setJointValue(jointNames[i], 0.0);
+                }
+            }
+
+            // Pose übernehmen und IK/Goal synchronisieren
+            robot.updateMatrixWorld(true);
+            this.dispatchEvent(new Event('angle-change')); // ruft setIKFromUrdf + resetGoal() auf
+        });
+
+
+
+
         this.addEventListener('angle-change', () => {
 
             setIKFromUrdf(this.ikRoot, this.robot);
@@ -91,6 +140,9 @@ export default
     _loadUrdf(pkg, urdf) {
         super._loadUrdf(pkg, urdf);
     }
+
+
+
 
 
 
@@ -118,7 +170,6 @@ export default
         // Setze die Gelenkwinkel für typische Start-Posen je nach URDF
         const jointNames = Object.keys(robot.joints);
         const urdfName = robot.name ? robot.robotName.toLowerCase() : '';
-        console.log('URDF Name:', urdfName);
         if (urdfName.includes('eva_description')) {
             robot.setJointValue(jointNames[1], 0);
             robot.setJointValue(jointNames[2], deg_to_rad(-90));
