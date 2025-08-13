@@ -45,8 +45,19 @@ export default
         transformControls.addEventListener('change', () => this.solve());
         transformControls.addEventListener('mouseUp', () => this.resetGoal());
 
-        transformControls.addEventListener('mouseDown', () => controls.enabled = false);
-        transformControls.addEventListener('mouseUp', () => controls.enabled = true);
+        transformControls.addEventListener('mouseDown', () => {
+            controls.enabled = false;
+            this.dispatchEvent(new Event("manipulate-start"));
+
+
+        }
+
+        );
+        transformControls.addEventListener('mouseUp', () => {
+
+            controls.enabled = true;
+            this.dispatchEvent(new Event("manipulate-end"));
+        });
 
         window.addEventListener('keydown', e => {
 

@@ -16,7 +16,7 @@ let hasRoboticsNamespace = null
 
 function loadDeviceSet(opcUaUrl) {
     const encodedUrl = encodeURIComponent(opcUaUrl);
-    fetch(`/device_set_rendered?url=${encodedUrl}`)
+    fetch(`http://127.0.0.1:8000/device_set_rendered?url=${encodedUrl}`)
         .then(res => res.text())
         .then(html => {
             document.getElementById('info-content').innerHTML = html;
@@ -241,21 +241,29 @@ window.addEventListener('load', () => {
                     if (unit === "C81") {
                         // Wert ist in Radiant, viewer erwartet Radiant → direkt übernehmen
                         // (Falls du im Viewer Grad erwartest, dann value = value * 180 / Math.PI)
-                    } else {
+                    } 
+                    
+                    else if (unit === null) {
+                        // Wert ist in Radiant, viewer erwartet Radiant → direkt übernehmen
+                        // (Falls du im Viewer Grad erwartest, dann value = value * 180 / Math.PI)
+                    }
+                    else {
                         // Wert ist in Grad, für den Viewer in Radiant umrechnen
                         value = value * Math.PI / 180;
                     }
 
                     const match = axisName.match(/(\d+)$/);  // "Axis_3" → 3
                     if (match) {
-                        const idx = parseInt(match[1], 10) - 1;
+                        const idx = parseInt(match[1], 10) - 0;
                         const jointName = jointNames[idx];    // → z. B. "joint2"
+                        console.log(idx, jointNames);
                         if (jointName) {
                             jointValuesRad[jointName] = value;
                         }
                     }
                 }
                 const success = viewer.setJointValues(jointValuesRad);
+                console.log(jointValuesRad);
                 if (!success) {
                     console.warn("⚠️ viewer.setJointValues() hat keine Änderung bewirkt.");
                 } else {
@@ -419,6 +427,7 @@ infoToggleBtn.style.display = "none";
 document.getElementById('connect-opc-ua').addEventListener('click', function () {
     const urlInput = document.getElementById('opc-ua-url');
     const url = urlInput.value.trim();
+    console.log(url);
 
     if (!url) {
         alert('Please enter a valid OPC UA Server URL.');
@@ -580,7 +589,7 @@ document.addEventListener("click", function (e) {
         if (selectedNodeId && connectedUrl) {
             const encodedUrl = encodeURIComponent(connectedUrl);
             const encodedNodeId = encodeURIComponent(selectedNodeId);
-            fetch(`/references?url=${encodedUrl}&nodeid=${encodedNodeId}`)
+            fetch(`http://127.0.0.1:8000/references?url=${encodedUrl}&nodeid=${encodedNodeId}`)
                 .then(res => res.json())
                 .then(refs => {
                     if (Array.isArray(refs)) {
@@ -636,7 +645,7 @@ document.addEventListener("click", async function (e) {
             const encodedUrl = encodeURIComponent(connectedUrl);
             const nodeId = encodeURIComponent(summary.dataset.nodeId);
             // (Du kannst hier einen Spinner im summary/ul anzeigen, wenn du willst)
-            const resp = await fetch(`/subtree_children?url=${encodedUrl}&nodeid=${nodeId}`);
+            const resp = await fetch(`http://127.0.0.1:8000/subtree_children?url=${encodedUrl}&nodeid=${nodeId}`);
             const html = await resp.text();
 
             // Parsen im staging-div
@@ -1133,7 +1142,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
             const jointsString = JSON.stringify(jointValuesRad);
 
-            const nodeId = "ns=4;s=Go To";
+            const nodeId = "ns=2;s=Go To"; // Franka: ns=2;s=Go To, EVA: ns=4;s=Go To
             const payload = {
                 nodeId: nodeId,
                 inputs: {
@@ -1188,7 +1197,7 @@ function refreshSelectedNode() {
         }
         const encodedUrl = encodeURIComponent(connectedUrl);
         const encodedNodeId = encodeURIComponent(selectedNodeId);
-        fetch(`/node_rendered?url=${encodedUrl}&nodeid=${encodedNodeId}&children_depth=1`)
+        fetch(`http://127.0.0.1:8000/node_rendered?url=${encodedUrl}&nodeid=${encodedNodeId}&children_depth=1`)
             .then(res => res.text())
             .then(html => {
                 // HTML-Fragment parsen

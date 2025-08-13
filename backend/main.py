@@ -2,6 +2,7 @@ import os
 import json
 import uvicorn
 from fastapi import FastAPI, WebSocket, Request, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from asyncua import ua
@@ -13,10 +14,21 @@ from modules.GetAddressSpace import collect_node_details
 # --- App Setup ---
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:1234",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 clients: dict[str, OPCUAClient] = {}
 
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_IMAGE_DIR = os.path.join(STATIC_DIR, "static")
 templates = Jinja2Templates(directory="templates")
 
 # --- Hilfsfunktionen ---

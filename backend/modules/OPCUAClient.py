@@ -59,7 +59,7 @@ class SubHandler:
 
             if self.unit_type is None:
                 try:
-                    unit_node = await paramset.get_child("3:ActualPosition")
+                    unit_node = await paramset.get_child("4:ActualPosition")
                     unit_node = await unit_node.get_child("0:EngineeringUnits")
                     self.unit_type = await unit_node.read_value()
                 except Exception as e:
@@ -286,7 +286,7 @@ class OPCUAClient:
         """
         Sucht unter "Axes" alle Achsen, abonniert deren ActualPosition.
         """
-        axes_node = await self.find_child_by_browse_name_recursive(["0:Objects"], "3:Axes")
+        axes_node = await self.find_child_by_browse_name_recursive(["0:Objects"], "4:Axes")
         if not axes_node:
             print(f"[{self.name}] ⚠️ Kein 'Axes'-Knoten gefunden.")
             return
@@ -298,8 +298,8 @@ class OPCUAClient:
         actual_position_nodes = []
         for axis in axis_nodes:
             try:
-                paramset = await axis.get_child("0:ParameterSet")
-                actual_pos = await paramset.get_child("3:ActualPosition")
+                paramset = await axis.get_child("3:ParameterSet")
+                actual_pos = await paramset.get_child("4:ActualPosition")
                 actual_position_nodes.append(actual_pos)
             except Exception as e:
                 print(f"[{self.name}] ⚠️ Fehler bei {axis}: {e}")
@@ -445,14 +445,14 @@ class OPCUAClient:
         """
         try:
             # Suche MotionDevice und Model im Address Space
-            manufacturer = await self.find_child_by_browse_name_recursive(["0:Objects","2:DeviceSet","0:MotionDeviceSystem","3:MotionDevices"], "2:Manufacturer")
+            manufacturer = await self.find_child_by_browse_name_recursive(["0:Objects","2:DeviceSet","2:MotionDeviceSystem","4:MotionDevices"], "2:Manufacturer")
             if not manufacturer:
                 print(f"[{self.name}] ❌ Kein '2:Manufacturer'-Knoten gefunden.")
                 return
             man_val = await manufacturer.read_value()
             man_val=man_val.Text if hasattr(man_val, 'Text') else str(man_val)
 
-            model = await self.find_child_by_browse_name_recursive(["0:Objects","2:DeviceSet","0:MotionDeviceSystem","3:MotionDevices"], "2:Model")
+            model = await self.find_child_by_browse_name_recursive(["0:Objects","2:DeviceSet","2:MotionDeviceSystem","4:MotionDevices"], "2:Model")
             if not model:
                 print(f"[{self.name}] ❌ Kein '2:ManModelufacturer'-Knoten gefunden.")
                 return
