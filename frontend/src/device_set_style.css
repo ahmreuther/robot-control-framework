@@ -124,10 +124,12 @@
   font-weight: 300;
   padding: 8px 12px;
   border-radius: 5px;
-  width: 100%; /* volle Breite des Parent-Containers */
+  width: 100%;
+  /* volle Breite des Parent-Containers */
   min-width: 0;
   box-sizing: border-box;
-  margin-bottom: 0; /* Abstand wird jetzt über gap geregelt */
+  margin-bottom: 0;
+  /* Abstand wird jetzt über gap geregelt */
 }
 
 #opc-ua input[type="text"]::placeholder {
@@ -144,10 +146,13 @@
 
 #opc-ua #opc-ua-input-container {
   display: flex;
-  flex-direction: column; /* vertikal anordnen */
+  flex-direction: column;
+  /* vertikal anordnen */
   align-items: stretch;
-  gap: 18px; /* mehr vertikaler Abstand zwischen Input und Buttons */
-  margin: 10px 0; /* Abstand nach oben und unten */
+  gap: 18px;
+  /* mehr vertikaler Abstand zwischen Input und Buttons */
+  margin: 10px 0;
+  /* Abstand nach oben und unten */
 }
 
 #opc-ua label {
@@ -341,7 +346,7 @@ body,
   display: flex;
   flex-direction: column;
   transition: width 1.4s ease;
-    overflow-y: auto;
+  overflow-y: auto;
 
 
 }
@@ -463,9 +468,10 @@ body,
   padding: 2px 0;
   border-bottom: 1px dotted #ddd;
 }
+
 #clear-log-btn {
-   padding: 4px 8px;
-   font-size: 13px;
+  padding: 4px 8px;
+  font-size: 13px;
 }
 
 #robot-stats-box {
@@ -519,6 +525,7 @@ body,
 }
 
 #robot-position-value,
+#robot-tcp-value,
 #robot-mode-value {
   font-family: monospace;
   color: #b2ff59;
@@ -792,149 +799,158 @@ input:checked+.slider:before {
 
 #refresh-info-box:focus {
   outline: none;
-  box-shadow: 0 0 5px rgba(255,255,255,0.8);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
 }
+
 #refresh-info-box:focus:not(:focus-visible) {
   box-shadow: none;
 }
 
 
 #tab-subscriptions table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
 }
-#tab-subscriptions th, #tab-subscriptions td {
-    border: 1px solid #ddd;
-    padding: 6px 10px;
-    font-size: 15px;
+
+#tab-subscriptions th,
+#tab-subscriptions td {
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  font-size: 15px;
 }
+
 #tab-subscriptions th {
-    background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 
 #tab-references table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
 }
-#tab-references th, #tab-references td {
-    border: 1px solid #ddd;
-    padding: 6px 10px;
-    font-size: 15px;
+
+#tab-references th,
+#tab-references td {
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  font-size: 15px;
 }
+
 #tab-references th {
-    background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 #robot-dashboard {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    margin: 15px 0;
-    transition: 0.5s opacity ease;
-    overflow: hidden;
-    padding-right: 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 15px 0;
+  transition: 0.5s opacity ease;
+  overflow: hidden;
+  padding-right: 10px;
 }
 
-#robot-dashboard > * {
-    margin: 5px 0;
+#robot-dashboard>* {
+  margin: 5px 0;
 }
 
 #robot-dashboard #toggle-robot-dashboard {
-    margin-top: 0;
-    margin-bottom: 10px;
-    text-align: right;
-    transition: 0.1s opacity linear;
-    border-top: 1px solid white;
-    padding-top: 5px;
+  margin-top: 0;
+  margin-bottom: 10px;
+  text-align: right;
+  transition: 0.1s opacity linear;
+  border-top: 1px solid white;
+  padding-top: 5px;
 }
 
 #robot-dashboard #toggle-robot-dashboard:hover {
-    text-decoration: underline;
-    cursor: pointer;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 #robot-dashboard #toggle-robot-dashboard:before {
-    content: "hide Physical Twin Dashboard";
-    font-size: 12px;
-    font-weight: normal;
+  content: "hide Physical Twin Dashboard";
+  font-size: 12px;
+  font-weight: normal;
 }
 
 /* hidden state */
 #robot-dashboard.hidden #toggle-robot-dashboard:before {
-    content: "show Physical Twin Dashboard";
+  content: "show Physical Twin Dashboard";
 }
 
-#robot-dashboard.hidden > *:not(#toggle-robot-dashboard) {
-    display: none;
+#robot-dashboard.hidden>*:not(#toggle-robot-dashboard) {
+  display: none;
 }
 
 #robot-dashboard.hidden #toggle-robot-dashboard {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 /* Dashboard entry rows */
 #robot-dashboard .dashboard-row {
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    font-size: 15px;
-    padding: 1px 1px;
-    color: #fff;
-    opacity: 0.95;
-    line-height: 1.4;
-    font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 15px;
+  padding: 1px 1px;
+  color: #fff;
+  opacity: 0.95;
+  line-height: 1.4;
+  font-weight: bold;
 }
 
 /* Optionales Icon oder Label */
 #robot-dashboard .dashboard-label {
-    font-weight: 400;
-    min-width: 160px;
-    color: #ffffff;
+  font-weight: 400;
+  min-width: 160px;
+  color: #ffffff;
 }
 
 /* Wert oder Liste */
 #robot-dashboard .dashboard-value,
 #robot-dashboard .dashboard-row span,
 #robot-dashboard .dashboard-row ul {
-    flex: 1;
-    margin-left: 0;
-    color: rgba(255, 255, 255, 0.85);
+  flex: 1;
+  margin-left: 0;
+  color: rgba(255, 255, 255, 0.85);
 }
+
 #robot-dashboard .dashboard-row span {
-    padding-left: 6px; 
+  padding-left: 6px;
 }
 
 /* Waypoints */
 #robot-dashboard ul#robot-waypoints-list {
-    list-style: disc inside;
-    margin: 0;
-    padding-left: 15px;
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.85);
-    line-height: 1.4;
+  list-style: disc inside;
+  margin: 0;
+  padding-left: 15px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
 }
 
 /* Home Icon Animation */
 #home-icon svg {
   stroke: white;
-  transition: transform 0.18s cubic-bezier(.4,2,.6,1), filter 0.18s cubic-bezier(.4,2,.6,1);
+  transition: transform 0.18s cubic-bezier(.4, 2, .6, 1), filter 0.18s cubic-bezier(.4, 2, .6, 1);
 }
+
 #home-icon:active svg {
   transform: scale(0.82) rotate(-8deg);
   filter: drop-shadow(0 0 8px #1976d2) brightness(1.3);
 }
+
 #home-icon {
   cursor: pointer;
 }
 
 /* Responsive fallback */
 @media (max-width: 700px) {
-    #robot-dashboard {
-        display: none;
-    }
+  #robot-dashboard {
+    display: none;
+  }
 }
-

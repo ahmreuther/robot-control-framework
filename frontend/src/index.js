@@ -32,25 +32,25 @@ const RAD2DEG = 1 / DEG2RAD;
 let sliders = {};
 
 const params = {
-	solve: true,
-	displayMesh: true,
-	displayIk: true,
-	displayGoals: true,
-	displayShadows: true,
-	model: 'ATHLETE',
-	webworker: true,
+    solve: true,
+    displayMesh: true,
+    displayIk: true,
+    displayGoals: true,
+    displayShadows: true,
+    model: 'EVA',
+    webworker: true,
 };
 
 const solverOptions = {
-	useSVD: false,
-	maxIterations: 3,
-	divergeThreshold: 0.05,
-	stallThreshold: 1e-4,
-	translationErrorClamp: 0.25,
-	rotationErrorClamp: 0.25,
-	translationConvergeThreshold: 1e-3,
-	rotationConvergeThreshold: 1e-5,
-	restPoseFactor: 0.025,
+    useSVD: false,
+    maxIterations: 3,
+    divergeThreshold: 0.05,
+    stallThreshold: 1e-4,
+    translationErrorClamp: 0.25,
+    rotationErrorClamp: 0.25,
+    translationConvergeThreshold: 1e-3,
+    rotationConvergeThreshold: 1e-5,
+    restPoseFactor: 0.025,
 };
 
 // Global Functions
@@ -81,7 +81,7 @@ collisionToggle.addEventListener('click', () => {
 
 autocenterToggle.addEventListener('click', () => {
     autocenterToggle.classList.toggle('checked');
-    
+
     viewer.noAutoRecenter = !autocenterToggle.classList.contains('checked');
 });
 
@@ -124,14 +124,14 @@ viewer.addEventListener('angle-change', e => {
 
 viewer.addEventListener('joint-mouseover', e => {
 
-    const j = document.querySelector(`li[joint-name="${ e.detail }"]`);
+    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
     if (j) j.setAttribute('robot-hovered', true);
 
 });
 
 viewer.addEventListener('joint-mouseout', e => {
 
-    const j = document.querySelector(`li[joint-name="${ e.detail }"]`);
+    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
     if (j) j.removeAttribute('robot-hovered');
 
 });
@@ -139,7 +139,7 @@ viewer.addEventListener('joint-mouseout', e => {
 let originalNoAutoRecenter;
 viewer.addEventListener('manipulate-start', e => {
 
-    const j = document.querySelector(`li[joint-name="${ e.detail }"]`);
+    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
     if (j) {
         j.scrollIntoView({ block: 'nearest' });
         window.scrollTo(0, 0);
@@ -182,8 +182,8 @@ viewer.addEventListener('urdf-processed', () => {
 
             const li = document.createElement('li');
             li.innerHTML =
-            `
-            <span title="${ joint.name }">${ joint.name }</span>
+                `
+            <span title="${joint.name}">${joint.name}</span>
             <input type="range" value="0" step="0.0001"/>
             <input type="number" step="0.0001" />
             `;
@@ -227,6 +227,8 @@ viewer.addEventListener('urdf-processed', () => {
                     input.min = joint.limit.lower * degMultiplier;
                     input.max = joint.limit.upper * degMultiplier;
                 }
+
+
             };
 
             switch (joint.jointType) {
@@ -236,7 +238,7 @@ viewer.addEventListener('urdf-processed', () => {
                 case 'revolute':
                     break;
                 default:
-                    li.update = () => {};
+                    li.update = () => { };
                     input.remove();
                     slider.remove();
 
@@ -264,6 +266,7 @@ viewer.addEventListener('urdf-processed', () => {
 document.addEventListener('WebComponentsReady', () => {
 
     viewer.loadMeshFunc = (path, manager, done) => {
+
 
         const ext = path.split(/\./g).pop().toLowerCase();
         switch (ext) {
@@ -326,32 +329,27 @@ document.addEventListener('WebComponentsReady', () => {
 
 // init 2D UI and animation
 const updateAngles = () => {
-
-    if (!viewer.setJointValue) return;
+    if (!viewer.setJointValue || !viewer.robot || !viewer.robot.joints) return;
 
     // reset everything to 0 first
-    const resetJointValues = viewer.angles;
-    for (const name in resetJointValues) resetJointValues[name] = 0;
-    viewer.setJointValues(resetJointValues);
+    // const resetJointValues = viewer.angles;
+    // for (const name in resetJointValues) resetJointValues[name] = 0;
+    // viewer.setJointValues(resetJointValues);
+
+
 
     // animate the legs
     const time = Date.now() / 3e2;
     for (let i = 1; i <= 6; i++) {
-
         const offset = i * Math.PI / 3;
         const ratio = Math.max(0, Math.sin(time + offset));
-
-        viewer.setJointValue(`HP${ i }`, THREE.MathUtils.lerp(30, 0, ratio) * DEG2RAD);
-        viewer.setJointValue(`KP${ i }`, THREE.MathUtils.lerp(90, 150, ratio) * DEG2RAD);
-        viewer.setJointValue(`AP${ i }`, THREE.MathUtils.lerp(-30, -60, ratio) * DEG2RAD);
-
-        viewer.setJointValue(`TC${ i }A`, THREE.MathUtils.lerp(0, 0.065, ratio));
-        viewer.setJointValue(`TC${ i }B`, THREE.MathUtils.lerp(0, 0.065, ratio));
-
-        viewer.setJointValue(`W${ i }`, window.performance.now() * 0.001);
-
+        viewer.setJointValue(`HP${i}`, THREE.MathUtils.lerp(30, 0, ratio) * DEG2RAD);
+        viewer.setJointValue(`KP${i}`, THREE.MathUtils.lerp(90, 150, ratio) * DEG2RAD);
+        viewer.setJointValue(`AP${i}`, THREE.MathUtils.lerp(-30, -60, ratio) * DEG2RAD);
+        viewer.setJointValue(`TC${i}A`, THREE.MathUtils.lerp(0, 0.065, ratio));
+        viewer.setJointValue(`TC${i}B`, THREE.MathUtils.lerp(0, 0.065, ratio));
+        viewer.setJointValue(`W${i}`, window.performance.now() * 0.001);
     }
-
 };
 
 const updateLoop = () => {
@@ -375,7 +373,7 @@ const updateList = () => {
 
             viewer.up = '+Z';
             document.getElementById('up-select').value = viewer.up;
-            
+
             viewer.urdf = urdf;
             animToggle.classList.add('checked');
             setColor(color);

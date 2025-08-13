@@ -1,7 +1,7 @@
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
 import { Goal, SOLVE_STATUS, DOF, setUrdfFromIK, setIKFromUrdf, urdfRobotToIKRoot, Solver, SOLVE_STATUS } from 'closed-chain-ik';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { Group, SphereGeometry, MeshBasicMaterial, Mesh, OrthographicCamera } from 'three';
+import { Group, SphereGeometry, MeshBasicMaterial, Mesh } from 'three';
 
 export default
     class URDFIKManipulator extends URDFManipulator {
@@ -22,7 +22,7 @@ export default
 
         const geometry = new SphereGeometry(0.005, 32, 16);
         const material = new MeshBasicMaterial({ color: 0xffff00 });
-        const sphere = new Mesh(geometry, material); 
+        const sphere = new Mesh(geometry, material);
         targetObject.add(sphere);
 
         this.world.add(targetObject);
@@ -78,6 +78,7 @@ export default
 
 
         this.addEventListener('urdf-processed', () => this.init());
+
         this.addEventListener('angle-change', () => {
 
             setIKFromUrdf(this.ikRoot, this.robot);
@@ -91,9 +92,20 @@ export default
         super._loadUrdf(pkg, urdf);
     }
 
+
+
+
+
     init() {
 
+        function deg_to_rad(deg) {
+            var pi = Math.PI;
+            return deg * (pi / 180);
+        }
+
         const robot = this.robot;
+
+
         robot.updateMatrixWorld(true);
 
         // init ik root
@@ -102,6 +114,39 @@ export default
         setUrdfFromIK(robot, ik);
         ik.clearDoF();
         this.ikRoot = ik;
+
+        // Setze die Gelenkwinkel für typische Start-Posen je nach URDF
+        const jointNames = Object.keys(robot.joints);
+        const urdfName = robot.name ? robot.robotName.toLowerCase() : '';
+        console.log('URDF Name:', urdfName);
+        if (urdfName.includes('eva_description')) {
+            robot.setJointValue(jointNames[1], 0);
+            robot.setJointValue(jointNames[2], deg_to_rad(-90));
+            robot.setJointValue(jointNames[3], 0);
+            robot.setJointValue(jointNames[4], deg_to_rad(-90));
+            robot.setJointValue(jointNames[5], 0);
+        } else if (urdfName.includes('ur5')) {
+            robot.setJointValue(jointNames[1], -1.57);
+            robot.setJointValue(jointNames[2], 1.57);
+            robot.setJointValue(jointNames[3], 0);
+            robot.setJointValue(jointNames[4], 0);
+            robot.setJointValue(jointNames[5], 0);
+        } else if (urdfName.includes('fr3')) {
+            robot.setJointValue(jointNames[0], 0);
+            robot.setJointValue(jointNames[1], 0);
+            robot.setJointValue(jointNames[2], 0);
+            robot.setJointValue(jointNames[3], 0);
+            robot.setJointValue(jointNames[4], deg_to_rad(-90));
+            robot.setJointValue(jointNames[5], 0);
+            robot.setJointValue(jointNames[6], deg_to_rad(90));
+            robot.setJointValue(jointNames[7], deg_to_rad(-45));
+            robot.setJointValue(jointNames[8], 0);
+        } else {
+            // Default: alle auf 0
+            for (let i = 1; i < jointNames.length; ++i) {
+                robot.setJointValue(jointNames[i], 0.0);
+            }
+        }
 
         // setUrdfFromIK(robot, ik);
         setIKFromUrdf(ik, robot)
@@ -115,8 +160,9 @@ export default
         goal.setMatrixNeedsUpdate();
         this.goal = goal;
         this.solver = new Solver(ik);
-
         this.resetGoal();
+
+
     }
 
 
@@ -150,6 +196,7 @@ export default
         const result = this.solver.solve();
         if (!result.includes(SOLVE_STATUS.DIVERGED)) {
             setUrdfFromIK(robot, ik);
+            this.dispatchEvent(new Event('angle-change'));
         }
 
         this.redraw();

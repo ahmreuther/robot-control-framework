@@ -169,11 +169,11 @@ window.addEventListener('load', () => {
 
             if (data.startsWith("x|robotinfo:")) {
                 try {
-                    
+
                     const payload = JSON.parse(data.slice("x|robotinfo:".length));
                     if (payload.manufacturer) {
                         const manuField = document.getElementById('robot-manufacturer');
-                        if (manuField) manuField.textContent =payload.manufacturer;
+                        if (manuField) manuField.textContent = payload.manufacturer;
                     }
                     if (payload.model) {
                         const modelField = document.getElementById('robot-model');
@@ -511,7 +511,7 @@ opcUaSyncToggle.addEventListener('change', function () {
         logMessageToBox('❌ Kein OPC UA Robotik Server verbunden.');
         return;
     }
-   
+
     opcUaSyncEnabled = this.checked;
     const url = document.getElementById('opc-ua-url').value.trim();
     if (opcUaSyncEnabled) {
@@ -1041,11 +1041,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const animToggle = document.getElementById('do-animate');
 
     viewer.camera.position.set(-0.5, 1.1, 0.8);
-    // Setze alle Achsen auf 0, dynamisch nach Achsanzahl
-   
-        
-  
-    
+
 
     if (!viewer || !animToggle) {
         console.warn('URDF Viewer nicht gefunden.');
@@ -1089,6 +1085,14 @@ window.addEventListener('DOMContentLoaded', () => {
             if (statusField) {
                 statusField.textContent = jointValues.join(', ');
             }
+            const TCPField = document.getElementById('robot-tcp-value');
+
+            if (TCPField) {
+                TCPField.textContent = 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', ');
+
+            }
+
+
         }
 
         updateRevoluteJointStatus();
