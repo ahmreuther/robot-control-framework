@@ -233,6 +233,7 @@ window.addEventListener('load', () => {
 
                 // Prüfe Einheit und wandle ggf. um
                 const unit = anglesMsg.unit;
+                console.log("Unit:", unit);
                 const jointValuesRad = {};
                 for (const axisName in anglesMsg.angles) {
                     let value = anglesMsg.angles[axisName];
@@ -818,7 +819,7 @@ document.getElementById('context-subscribe').addEventListener('click', function 
     }
 
     const nodeClass = selectedNodeElement.dataset.nodeclass;
-    if (nodeClass !== "1") {
+    if (nodeClass !== "2") {
         alert("❌ Diese Node ist keine Variable (NodeClass ≠ 2).");
         return;
     }
@@ -840,7 +841,7 @@ document.getElementById('context-unsubscribe').addEventListener('click', functio
     }
 
     const nodeClass = selectedNodeElement.dataset.nodeclass;
-    if (nodeClass !== "1") {
+    if (nodeClass !== "2") {
         alert("❌ Diese Node ist keine Variable (NodeClass ≠ 2).");
         return;
     }
@@ -1142,7 +1143,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
             const jointsString = JSON.stringify(jointValuesRad);
 
-            const nodeId = "ns=2;s=Go To"; // Franka: ns=2;s=Go To, EVA: ns=4;s=Go To
+            const nodeId = "ns=3;i=19390"; // Franka: ns=2;s=Go To, EVA: ns=4;s=Go To, UR5e: ns=3;i=19390
             const payload = {
                 nodeId: nodeId,
                 inputs: {

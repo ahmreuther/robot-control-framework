@@ -31,6 +31,30 @@ class SubHandler:
         if self.websocket:
             asyncio.create_task(self._process_datachange(node, val))
 
+    def encode_eu_to_jsonable(unit):
+        """
+        Wandelt ua.EUInformation in etwas JSON-fähiges um.
+        Fällt ansonsten auf str(unit) zurück.
+        """
+        try:
+            # asyncua importiert als ua.EUInformation
+            from asyncua import ua
+            if isinstance(unit, ua.EUInformation):
+                disp = getattr(unit.DisplayName, "Text", str(unit.DisplayName))
+                desc = getattr(unit.Description, "Text", str(unit.Description))
+                return {
+                    "unitId": getattr(unit, "UnitId", None),
+                    "namespaceUri": getattr(unit, "NamespaceUri", None),
+                    "displayName": disp,
+                    "description": desc,
+                }
+        except Exception:
+            pass
+        # einfache Typen durchreichen
+        if isinstance(unit, (str, int, float)) or unit is None:
+            return unit
+        return str(unit)
+
     async def _process_datachange(self, node, val):
         try:
             if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
@@ -59,7 +83,7 @@ class SubHandler:
 
             if self.unit_type is None:
                 try:
-                    unit_node = await paramset.get_child("4:ActualPosition")
+                    unit_node = await paramset.get_child("3:ActualPosition")
                     unit_node = await unit_node.get_child("0:EngineeringUnits")
                     self.unit_type = await unit_node.read_value()
                 except Exception as e:
@@ -74,6 +98,7 @@ class SubHandler:
 
             if len(self.latest_values) >= self.get_expected_count():
                 msg = {"angles": self.latest_values, "unit": self.unit_type}
+                print(f"[{self.name}] Achswerte gesammelt: {self.latest_values}")
                 print(f"[Axes-Sub] DataChange: {json.dumps(msg)}")
                 await self.websocket.send_text(f"x|angles:{json.dumps(msg)}")
 
@@ -286,7 +311,7 @@ class OPCUAClient:
         """
         Sucht unter "Axes" alle Achsen, abonniert deren ActualPosition.
         """
-        axes_node = await self.find_child_by_browse_name_recursive(["0:Objects"], "4:Axes")
+        axes_node = await self.find_child_by_browse_name_recursive(["0:Objects"], "3:Axes")
         if not axes_node:
             print(f"[{self.name}] ⚠️ Kein 'Axes'-Knoten gefunden.")
             return
@@ -298,8 +323,8 @@ class OPCUAClient:
         actual_position_nodes = []
         for axis in axis_nodes:
             try:
-                paramset = await axis.get_child("3:ParameterSet")
-                actual_pos = await paramset.get_child("4:ActualPosition")
+                paramset = await axis.get_child("2:ParameterSet")
+                actual_pos = await paramset.get_child("3:ActualPosition")
                 actual_position_nodes.append(actual_pos)
             except Exception as e:
                 print(f"[{self.name}] ⚠️ Fehler bei {axis}: {e}")
@@ -445,14 +470,14 @@ class OPCUAClient:
         """
         try:
             # Suche MotionDevice und Model im Address Space
-            manufacturer = await self.find_child_by_browse_name_recursive(["0:Objects","2:DeviceSet","2:MotionDeviceSystem","4:MotionDevices"], "2:Manufacturer")
+            manufacturer = await self.find_child_by_browse_name_recursive(["0:Objects","2:DeviceSet","3:MotionDeviceSystem","3:MotionDevices"], "2:Manufacturer")
             if not manufacturer:
                 print(f"[{self.name}] ❌ Kein '2:Manufacturer'-Knoten gefunden.")
                 return
             man_val = await manufacturer.read_value()
             man_val=man_val.Text if hasattr(man_val, 'Text') else str(man_val)
 
-            model = await self.find_child_by_browse_name_recursive(["0:Objects","2:DeviceSet","2:MotionDeviceSystem","4:MotionDevices"], "2:Model")
+            model = await self.find_child_by_browse_name_recursive(["0:Objects","2:DeviceSet","3:MotionDeviceSystem","3:MotionDevices"], "2:Model")
             if not model:
                 print(f"[{self.name}] ❌ Kein '2:ManModelufacturer'-Knoten gefunden.")
                 return
