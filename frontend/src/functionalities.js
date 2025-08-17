@@ -255,7 +255,7 @@ window.addEventListener('load', () => {
 
                     const match = axisName.match(/(\d+)$/);  // "Axis_3" → 3
                     if (match) {
-                        const idx = parseInt(match[1], 10) - 0;
+                        const idx = parseInt(match[1], 10) - 1;
                         const jointName = jointNames[idx];    // → z. B. "joint2"
                         console.log(idx, jointNames);
                         if (jointName) {
@@ -1143,7 +1143,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
             const jointsString = JSON.stringify(jointValuesRad);
 
-            const nodeId = "ns=3;i=19390"; // Franka: ns=2;s=Go To, EVA: ns=4;s=Go To, UR5e: ns=3;i=19390
+            const nodeId = "ns=3;i=20"; // Franka: ns=2;s=Go To, EVA: ns=4;s=Go To, UR5e: ns=3;i=20
             const payload = {
                 nodeId: nodeId,
                 inputs: {
