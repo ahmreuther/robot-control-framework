@@ -10,6 +10,8 @@ let selectedNodeId = null;
 let selectedNodeElement = null; // wird beim Rechtsklick gesetzt
 let showSubscriptionsTabOnNextCustom = false; // Flag für den nächsten Tab-Wechsel
 let hasRoboticsNamespace = null
+let gotoMethodNodeId = null;
+
 
 
 
@@ -169,7 +171,6 @@ window.addEventListener('load', () => {
 
             if (data.startsWith("x|robotinfo:")) {
                 try {
-
                     const payload = JSON.parse(data.slice("x|robotinfo:".length));
                     if (payload.manufacturer) {
                         const manuField = document.getElementById('robot-manufacturer');
@@ -179,10 +180,18 @@ window.addEventListener('load', () => {
                         const modelField = document.getElementById('robot-model');
                         if (modelField) modelField.textContent = ' ' + payload.model;
                     }
+
+                    // >>> NEU: GoTo-NodeId übernehmen und pro-URL cachen
+                    if (payload.gotoMethodNodeId) {
+                        gotoMethodNodeId = payload.gotoMethodNodeId;
+                        const urlKey = connectedUrl || getLastOpcUaUrl() || "";
+                        if (urlKey) localStorage.setItem(`gotoNodeId:${urlKey}`, gotoMethodNodeId);
+                    }
                 } catch (e) {
                     console.warn("Event parse error", e);
                 }
             }
+
 
 
 
@@ -242,8 +251,8 @@ window.addEventListener('load', () => {
                     if (unit === "C81") {
                         // Wert ist in Radiant, viewer erwartet Radiant → direkt übernehmen
                         // (Falls du im Viewer Grad erwartest, dann value = value * 180 / Math.PI)
-                    } 
-                    
+                    }
+
                     else if (unit === null) {
                         // Wert ist in Radiant, viewer erwartet Radiant → direkt übernehmen
                         // (Falls du im Viewer Grad erwartest, dann value = value * 180 / Math.PI)
@@ -1143,7 +1152,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
             const jointsString = JSON.stringify(jointValuesRad);
 
-            const nodeId = "ns=3;i=20"; // Franka: ns=2;s=Go To, EVA: ns=4;s=Go To, UR5e: ns=3;i=20
+            // Franka: ns=2;s=Go To, EVA: ns=4;s=Go To, UR5e: ns=3;i=20
+            let nodeId = gotoMethodNodeId || localStorage.getItem(`gotoNodeId:${connectedUrl}`);
+            console.log("📦 Aktuelle NodeId für Go To:", nodeId);
+            if (!nodeId) {
+                logMessageToBox('⚠️ "Go To"-Methode noch nicht bekannt. Bitte verbinden oder erneut versuchen.');
+                return; // alternativ: hier per WS einen "resolveMethod" Trigger schicken
+            }
+
             const payload = {
                 nodeId: nodeId,
                 inputs: {
@@ -1279,10 +1295,10 @@ if (homeIcon) {
     homeIcon.addEventListener('click', () => {
         const viewer = document.querySelector('urdf-viewer');
         if (viewer && viewer.camera) {
-            
+
             viewer.dispatchEvent(new Event('reset-angles'));
-            
-            
+
+
         }
     });
 }

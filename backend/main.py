@@ -298,13 +298,8 @@ async def try_read_model(client: OPCUAClient):
     if not client.is_robotics_server:
         return 
     try:
-        node = await client.find_child_by_browse_name_recursive(
-            ["0:Objects", "2:DeviceSet", "0:MotionDeviceSystem", "3:MotionDevices"], "2:Model"
-        )
-        if node:
-            val = await node.read_value()
-            return val.Text if hasattr(val, 'Text') else str(val)
-        return "None"
+        
+        return await client.read_model()
     except Exception as e:
         return f"❌ Model read error: {e}"
 
@@ -313,12 +308,8 @@ async def try_read_serialnumber(client: OPCUAClient):
     if not client.is_robotics_server:
         return 
     try:
-        node = await client.find_child_by_browse_name_recursive(
-            ["0:Objects", "2:DeviceSet", "0:MotionDeviceSystem", "3:MotionDevices"], "2:SerialNumber")
-        if node:
-            val = await node.read_value()
-            return val.Text if hasattr(val, 'Text') else str(val)
-        return "None"
+        
+        return await client.read_serial_number()
     except Exception as e:
         return f"❌ SerialNumber read error: {e}"
 
