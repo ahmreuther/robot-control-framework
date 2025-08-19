@@ -11,9 +11,137 @@ let selectedNodeElement = null; // wird beim Rechtsklick gesetzt
 let showSubscriptionsTabOnNextCustom = false; // Flag für den nächsten Tab-Wechsel
 let hasRoboticsNamespace = null
 let gotoMethodNodeId = null;
+let axisToJointMap = null;      // { "Axis_1": "joint_name", ... }
+let lastAnglesMsg = null;       // zuletzt empfangene x|angles-Nachricht (inkl. unit)
 
+function isRevolute(j) {
+    const t = (j && (j.jointType || j._jointType || j.type) || '').toString().toLowerCase();
+    return t === 'revolute';
+}
+function getRevoluteJointsWithAngles() {
+    if (!viewer || !viewer.robot || !viewer.robot.joints) return [];
+    const out = [];
+    const joints = viewer.robot.joints;
+    for (const name in joints) {
+        const j = joints[name];
+        if (isRevolute(j)) {
+            const ang = Array.isArray(j.jointValue) ? j.jointValue[0] : j.angle;
+            out.push({ name, angleRad: Number(ang) || 0 });
+        }
+    }
+    return out;
+}
+function unitIsRadians(unit) {
+    if (!unit) return true;
+    if (typeof unit === 'string') {
+        const s = unit.toLowerCase();
+        return s === 'c81' || s.includes('rad');
+    }
+    if (typeof unit === 'object') {
+        const id = String(unit.unitId ?? '').toLowerCase();
+        const disp = String(unit.displayName ?? '').toLowerCase();
+        const desc = String(unit.description ?? '').toLowerCase();
+        return id === 'c81' || disp.includes('rad') || desc.includes('rad');
+    }
+    return false;
+}
+function sortAxisNames(names) {
+    return [...names].sort((a, b) => {
+        const ma = String(a).match(/(\d+)$/);
+        const mb = String(b).match(/(\d+)$/);
+        if (ma && mb) return Number(ma[1]) - Number(mb[1]);
+        return a.localeCompare(b);
+    });
+}
+// kleinste Winkeldifferenz in (-π, π]
+function wrapDiffRad(a, b) {
+    let d = a - b;
+    d = (d + Math.PI) % (2 * Math.PI);
+    if (d < 0) d += 2 * Math.PI;
+    return d - Math.PI;
+}
 
+// beste Zuordnung per Permutation (n klein ⇒ ok)
+function computeBestAxisToJointMap(axisNames, opcAnglesRad, urdfJoints) {
+    const n = Math.min(axisNames.length, urdfJoints.length);
+    let bestPerm = null;
+    let bestScore = Infinity;
 
+    function backtrack(path, used, depth, acc) {
+        if (acc >= bestScore) return;
+        if (depth === n) { bestPerm = path.slice(); bestScore = acc; return; }
+        for (let i = 0; i < urdfJoints.length; i++) {
+            if (used[i]) continue;
+            const diff = Math.abs(wrapDiffRad(opcAnglesRad[depth], urdfJoints[i].angleRad));
+            used[i] = true; path.push(i);
+            backtrack(path, used, depth + 1, acc + diff);
+            path.pop(); used[i] = false;
+        }
+    }
+    backtrack([], Array(urdfJoints.length).fill(false), 0, 0);
+
+    const map = {};
+    for (let k = 0; k < n; k++) {
+        map[axisNames[k]] = urdfJoints[bestPerm[k]].name;
+    }
+    return map;
+}
+
+// Cache-Key pro URL + URDF
+function cacheKeyForAxisMap() {
+    const urdfSrc = (viewer && viewer.getAttribute && viewer.getAttribute('urdf')) || '';
+    return `axisMap:${connectedUrl || ''}:${urdfSrc}`;
+}
+function loadAxisMapFromCache() {
+    try { axisToJointMap = JSON.parse(localStorage.getItem(cacheKeyForAxisMap())); }
+    catch { }
+    if (axisToJointMap && typeof axisToJointMap === 'object') return true;
+    axisToJointMap = null; return false;
+}
+function saveAxisMapToCache() {
+    try { localStorage.setItem(cacheKeyForAxisMap(), JSON.stringify(axisToJointMap || {})); } catch { }
+}
+function clearAxisMap() {
+    axisToJointMap = null;
+    try { localStorage.removeItem(cacheKeyForAxisMap()); } catch { }
+}
+
+// zentrale Anwendung: OPC-UA angles -> Viewer
+function applyAnglesToViewer(anglesMsg) {
+    if (!viewer || !viewer.robot) return false;
+
+    // 1) OPC-Achsen & Werte in rad aufbereiten
+    const axes = sortAxisNames(Object.keys(anglesMsg.angles));
+    const asRad = unitIsRadians(anglesMsg.unit);
+    const opcAnglesRad = axes.map(a => {
+        const v = Number(anglesMsg.angles[a]) || 0;
+        return asRad ? v : v * Math.PI / 180;
+    });
+
+    // 2) URDF Revolute Joints
+    const urdfJoints = getRevoluteJointsWithAngles();
+    if (!urdfJoints.length) {
+        console.warn("⚠️ Keine revolute Joints im URDF gefunden.");
+        return false;
+    }
+
+    // 3) Mapping laden/ermitteln
+    if (!axisToJointMap && !loadAxisMapFromCache()) {
+        axisToJointMap = computeBestAxisToJointMap(axes, opcAnglesRad, urdfJoints);
+        saveAxisMapToCache();
+        console.log("🧭 Zuordnung Achsen→Joints:", axisToJointMap);
+    }
+
+    // 4) Werte setzen
+    const jointValuesRad = {};
+    for (let i = 0; i < axes.length; i++) {
+        const jointName = axisToJointMap[axes[i]];
+        if (jointName) jointValuesRad[jointName] = opcAnglesRad[i];
+    }
+    const ok = viewer.setJointValues(jointValuesRad);
+    if (!ok) console.warn("⚠️ viewer.setJointValues() ohne Wirkung.");
+    return ok;
+}
 
 
 function loadDeviceSet(opcUaUrl) {
@@ -225,61 +353,14 @@ window.addEventListener('load', () => {
                     console.warn("❌ Fehler beim Parsen der Achsdaten:", dictStr, e);
                     return;
                 }
-                lastOpcUaAngles = anglesMsg.angles; // Merke letzten Stand
+                lastAnglesMsg = anglesMsg;
 
-                if (isManipulating) {
-                    // Optional: speichere die letzte Nachricht für später, falls du sie nach Drag-End noch anwenden willst
-                    lastOpcUaAngles = anglesMsg.angles;
-                    return;
-                }
+                if (isManipulating) return; // während Drag keine Fremdwerte setzen
 
-                // Mapping zu tatsächlichen jointNames im viewer
-                if (!viewer || !viewer.angles) {
-                    console.warn("⚠️ URDF-Viewer oder Gelenkwinkel nicht verfügbar.");
-                    return;
-                }
-                const jointNames = Object.keys(viewer.angles);
-
-                // Prüfe Einheit und wandle ggf. um
-                const unit = anglesMsg.unit;
-                console.log("Unit:", unit);
-                const jointValuesRad = {};
-                for (const axisName in anglesMsg.angles) {
-                    let value = anglesMsg.angles[axisName];
-                    // Wenn unit === "C81", dann sind es Radiant und müssen in Grad umgerechnet werden
-                    // (viewer erwartet Radiant!)
-                    if (unit === "C81") {
-                        // Wert ist in Radiant, viewer erwartet Radiant → direkt übernehmen
-                        // (Falls du im Viewer Grad erwartest, dann value = value * 180 / Math.PI)
-                    }
-
-                    else if (unit === null) {
-                        // Wert ist in Radiant, viewer erwartet Radiant → direkt übernehmen
-                        // (Falls du im Viewer Grad erwartest, dann value = value * 180 / Math.PI)
-                    }
-                    else {
-                        // Wert ist in Grad, für den Viewer in Radiant umrechnen
-                        value = value * Math.PI / 180;
-                    }
-
-                    const match = axisName.match(/(\d+)$/);  // "Axis_3" → 3
-                    if (match) {
-                        const idx = parseInt(match[1], 10) - 1;
-                        const jointName = jointNames[idx];    // → z. B. "joint2"
-                        console.log(idx, jointNames);
-                        if (jointName) {
-                            jointValuesRad[jointName] = value;
-                        }
-                    }
-                }
-                const success = viewer.setJointValues(jointValuesRad);
-                console.log(jointValuesRad);
-                if (!success) {
-                    console.warn("⚠️ viewer.setJointValues() hat keine Änderung bewirkt.");
-                } else {
-                    console.log("✅ Gelenkwinkel aktualisiert:", jointValuesRad);
-                }
+                // robust: nur revolute-Joints, Einheiten berücksichtigen, Mapping cachen
+                applyAnglesToViewer(anglesMsg);
             }
+
         }
         else {
             logMessageToBox(`🔔 ${event.data}`);
@@ -351,6 +432,9 @@ window.addEventListener('load', () => {
                 if (connectedUrl === url) {
                     connectedUrl = null;
                 }
+                axisToJointMap = null;
+                lastAnglesMsg = null;
+                clearAxisMap();
                 document.getElementById('info-content').innerHTML = `
                 <h2>OPC UA Address Space</h2>
                 <p>Disconnected from Client</p>`;
@@ -540,24 +624,10 @@ opcUaSyncToggle.addEventListener('change', function () {
             opcUaStreamActive = true;
         }
         // Setze sofort die letzten bekannten Achswerte ins Modell
-        if (lastOpcUaAngles && viewer && viewer.angles) {
-            const jointNames = Object.keys(viewer.angles);
-            const jointValuesRad = {};
-            for (const axisName in lastOpcUaAngles) {
-                const deg = lastOpcUaAngles[axisName];
-                const rad = deg * Math.PI / 180;
-                const match = axisName.match(/(\d+)$/);
-                if (match) {
-                    const idx = parseInt(match[1], 10) - 1;
-                    const jointName = jointNames[idx];
-                    if (jointName) {
-                        // Hier ist deg ggf. aus dem OPC UA, falls du es anzeigen willst:
-                        // parseFloat(deg.toFixed(1))
-                        jointValuesRad[jointName] = rad;
-                    }
-                }
-            }
-            viewer.setJointValues(jointValuesRad);
+        if (lastOpcUaAngles && viewer && viewer.robot) {
+            // baue eine message wie im Stream (nutzt applyAnglesToViewer)
+            const msg = { angles: lastOpcUaAngles, unit: (lastAnglesMsg && lastAnglesMsg.unit) || null };
+            applyAnglesToViewer(msg);
         }
     } else {
         if (opcUaStreamActive && socket && socket.readyState === WebSocket.OPEN && url) {
@@ -1069,6 +1139,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
     viewer.addEventListener('urdf-processed', () => {
         animToggle.classList.remove('checked');
+        axisToJointMap = null;
+        loadAxisMapFromCache();
 
         function updateRevoluteJointStatus() {
             const r = viewer.robot;
