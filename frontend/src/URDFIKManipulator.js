@@ -19,7 +19,7 @@ import {
     SpriteMaterial,
     CanvasTexture,
     Vector3,
-    Quternion
+    Quaternion
 } from 'three';
 
 export default
