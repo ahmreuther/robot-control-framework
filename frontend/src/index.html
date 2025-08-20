@@ -260,11 +260,20 @@
         </label>
         <span style="margin-left: 10px; font-size: 14px; vertical-align: middle;">Lock</span>
     </div>
+    
+    <div id="mcp-integration-toggle-container"
+        style="position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 1001;">
+        <label class="switch">
+            <input type="checkbox" id="mcp-integration-toggle">
+            <span class="slider round"></span>
+        </label>
+        <span style="margin-left: 10px; font-size: 14px; vertical-align: middle;">AI Integration</span>
+    </div>
 
     <urdf-viewer up="-Z" display-shadow tabindex="0"></urdf-viewer>
 
     <script type="module" src="./index.js"></script>
-    <script src="./functionalities.js"></script>
+    <script type="module" src="./functionalities.js"></script>
 </body>
 
 </html>
