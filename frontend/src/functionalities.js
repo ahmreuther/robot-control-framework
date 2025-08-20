@@ -1,4 +1,7 @@
+import { Vector3 } from "three";
+
 let socket;
+let socket_mcp;
 let viewer = null;
 let opcUaSyncEnabled;
 let isMouseDownOnJoint = false; // Flag to track mouse down state on joint elements
@@ -241,8 +244,8 @@ window.addEventListener('load', () => {
                     if (unit === "C81") {
                         // Wert ist in Radiant, viewer erwartet Radiant → direkt übernehmen
                         // (Falls du im Viewer Grad erwartest, dann value = value * 180 / Math.PI)
-                    } 
-                    
+                    }
+
                     else if (unit === null) {
                         // Wert ist in Radiant, viewer erwartet Radiant → direkt übernehmen
                         // (Falls du im Viewer Grad erwartest, dann value = value * 180 / Math.PI)
@@ -394,6 +397,51 @@ window.addEventListener('load', () => {
     socket.onclose = () => {
         console.log("WebSocket connection closed.");
     };
+
+    //
+    // MCP Integration
+    //
+
+    socket_mcp = new WebSocket("ws://127.0.0.1:8765/ws");
+
+    socket_mcp.onopen = () => {
+        console.log("MCP WebSocket connection established.");
+        socket_mcp.send("status");
+    };
+
+
+
+    socket_mcp.onmessage = (event) => {
+        console.log("MCP Message from server:", event.data);
+        const data = event.data;
+        // Prüfe, ob die Nachricht ausgegeben werden soll anhand der Flag "x|"
+        if (event.data.startsWith("TCP_POS|")) {
+            let tcp_pos = event.data.replace("TCP_POS|", "");
+            let tcp_coords = tcp_pos.split(",");
+            // console.log('tcp coords', tcp_coords);
+            let position = new Vector3(parseFloat(tcp_coords[0]), parseFloat(tcp_coords[1]), parseFloat(tcp_coords[2]))
+            // console.log(position);
+            // console.log('Target pos1:', viewer.targetObject.position);
+            viewer.targetObject.position.set(...position);
+            // console.log('Target pos2:', viewer.targetObject.position);
+            viewer.solve();
+            viewer.dispatchEvent(new Event('change'));
+        } else if (event.data.startsWith("JOINTS|")) {
+            let joint_raw_data = event.data.replace("JOINTS|", "").replace("°", "").split(", ");
+            viewer.setJointValues()
+        }
+    };
+
+    socket_mcp.onerror = (error) => {
+        console.error("MCP WebSocket error:", error);
+    };
+
+    socket_mcp.onclose = () => {
+        console.log("MCP WebSocket connection closed.");
+    };
+
+
+
 });
 
 
@@ -1097,7 +1145,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const TCPField = document.getElementById('robot-tcp-value');
 
             if (TCPField) {
-                TCPField.textContent = 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', ');
+                TCPField.textContent = 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.rotation.toArray().map(coord => coord.toFixed(3)).join(', ');
 
             }
 
@@ -1278,17 +1326,44 @@ if (homeIcon) {
     homeIcon.addEventListener('click', () => {
         const viewer = document.querySelector('urdf-viewer');
         if (viewer && viewer.camera) {
-            
+
             viewer.dispatchEvent(new Event('reset-angles'));
-            
-            
+
+
         }
     });
 }
 
+viewer = document.querySelector('urdf-viewer');
+viewer.addEventListener('angle-change', () => {
+    socket_mcp.send('TCP|' + 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', '));
+    const r = viewer.robot;
+    const radiansToggle = document.getElementById('radians-toggle');
+    const useRadians = radiansToggle && radiansToggle.classList.contains('checked');
 
+    if (!r || !r.joints) return;
+            const jointValues = [];
+            let idx = 1;
 
-
-
-
-
+    for (const name in r.joints) {
+        const joint = r.joints[name];
+        if (joint.jointType === 'revolute') {
+            let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
+            if (!useRadians) value *= 180 / Math.PI;
+            let num = parseFloat(value);
+            let formatted;
+            if (!useRadians) {
+                formatted = num.toFixed(1); // Grad: 1 Nachkommastelle
+            } else {
+                if (Math.abs(num) < 1) {
+                    formatted = num.toPrecision(2);
+                } else {
+                    formatted = num.toFixed(2).replace(/\.0+$/, '').replace(/(\.[1-9]*)0+$/, '$1');
+                }
+            }
+            jointValues.push(`j${idx}:${formatted}${useRadians ? 'rad' : '°'}`);
+            idx++;
+        }
+    }
+    socket_mcp.send('ANGLES|' + jointValues.join(', '));
+})

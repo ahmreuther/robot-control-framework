@@ -256,8 +256,10 @@ export default
 
         // solve
         const result = this.solver.solve();
+        console.log('Solve result', result);
         if (!result.includes(SOLVE_STATUS.DIVERGED)) {
             setUrdfFromIK(robot, ik);
+            // console.log(this.targetObject.position);
             this.dispatchEvent(new Event('angle-change'));
         }
 
