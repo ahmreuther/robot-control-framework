@@ -147,6 +147,108 @@ export default
             setIKFromUrdf(this.ikRoot, this.robot);
             this.resetGoal();
         });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 356;
+        canvas.height = 94;
+        const ctx = canvas.getContext('2d');
+
+        this.drawLabelText = (delta) => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const radius = 20;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(canvas.width - radius, 0);
+            ctx.quadraticCurveTo(canvas.width, 0, canvas.width, radius);
+            ctx.lineTo(canvas.width, canvas.height - radius);
+            ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height);
+            ctx.lineTo(radius, canvas.height);
+            ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            if (!delta || typeof delta.x !== "number") {
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 42px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`Δ: 0.0 mm`, canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            const dx = delta.x * 1000;
+            const dy = delta.y * 1000;
+            const dz = delta.z * 1000;
+
+            const abs = { x: Math.abs(dx), y: Math.abs(dy), z: Math.abs(dz) };
+            let axis = 'x', value = dx;
+            if (abs.y > abs.x && abs.y >= abs.z) { axis = 'y'; value = dy; }
+            if (abs.z > abs.x && abs.z > abs.y) { axis = 'z'; value = dz; }
+
+            if (isNaN(value)) value = 0.0;
+
+            const labelText = `Δ${axis.toUpperCase()}: ${value.toFixed(1)} mm`;
+
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 42px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 6;
+            ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
+
+            
+        };
+
+
+        this.drawLabelText();
+        const texture = new CanvasTexture(canvas);
+        const spriteMaterial = new SpriteMaterial({ map: texture, depthTest: false });
+        const sprite = new Sprite(spriteMaterial);
+        sprite.scale.set(0.12, 0.035, 1.0);
+        sprite.position.set(0.1, -0.15, 0);
+        sprite.visible = false;   
+        sprite.raycast = () => { };
+        this.targetObject.add(sprite);
+
+        this.labelSprite = sprite;
+        this.labelCanvas = canvas;
+        this.labelCtx = ctx;
+        this.labelTexture = texture;
+        this.startPos = new Vector3();
+
+        transformControls.addEventListener('mouseDown', () => {
+            controls.enabled = false;
+            this.dispatchEvent(new Event("manipulate-start"));
+
+            this.targetObject.getWorldPosition(this.startPos);
+            this.labelSprite.visible = true;   
+            this.drawLabelText(new Vector3()); 
+            this.labelTexture.needsUpdate = true;
+        });
+
+        transformControls.addEventListener('change', () => {
+            this.solve();
+            if (!this.labelSprite.visible) return;
+
+            const currentPos = new Vector3();
+            this.targetObject.getWorldPosition(currentPos);
+            const delta = currentPos.clone().sub(this.startPos);
+
+            this.drawLabelText(delta);
+            this.labelTexture.needsUpdate = true;
+        });
+
+        transformControls.addEventListener('mouseUp', () => {
+            controls.enabled = true;
+            this.dispatchEvent(new Event("manipulate-end"));
+
+            this.labelSprite.visible = false; 
+        });
     }
 
     _loadUrdf(pkg, urdf) {
