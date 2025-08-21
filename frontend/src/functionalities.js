@@ -398,49 +398,6 @@ window.addEventListener('load', () => {
         console.log("WebSocket connection closed.");
     };
 
-    //
-    // MCP Integration
-    //
-
-    socket_mcp = new WebSocket("ws://127.0.0.1:8765/ws");
-
-    socket_mcp.onopen = () => {
-        console.log("MCP WebSocket connection established.");
-        socket_mcp.send("status");
-    };
-
-
-
-    socket_mcp.onmessage = (event) => {
-        console.log("MCP Message from server:", event.data);
-        const data = event.data;
-        // Prüfe, ob die Nachricht ausgegeben werden soll anhand der Flag "x|"
-        if (event.data.startsWith("TCP_POS|")) {
-            let tcp_pos = event.data.replace("TCP_POS|", "");
-            let tcp_coords = tcp_pos.split(",");
-            // console.log('tcp coords', tcp_coords);
-            let position = new Vector3(parseFloat(tcp_coords[0]), parseFloat(tcp_coords[1]), parseFloat(tcp_coords[2]))
-            // console.log(position);
-            // console.log('Target pos1:', viewer.targetObject.position);
-            viewer.targetObject.position.set(...position);
-            // console.log('Target pos2:', viewer.targetObject.position);
-            viewer.solve();
-            viewer.dispatchEvent(new Event('change'));
-        } else if (event.data.startsWith("JOINTS|")) {
-            let joint_raw_data = event.data.replace("JOINTS|", "").replace("°", "").split(", ");
-            viewer.setJointValues()
-        }
-    };
-
-    socket_mcp.onerror = (error) => {
-        console.error("MCP WebSocket error:", error);
-    };
-
-    socket_mcp.onclose = () => {
-        console.log("MCP WebSocket connection closed.");
-    };
-
-
 
 });
 
@@ -1145,7 +1102,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const TCPField = document.getElementById('robot-tcp-value');
 
             if (TCPField) {
-                TCPField.textContent = 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.rotation.toArray().map(coord => coord.toFixed(3)).join(', ');
+                TCPField.textContent = 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', ');
 
             }
 
@@ -1334,8 +1291,63 @@ if (homeIcon) {
     });
 }
 
+function setup_mcp_socket() {
+    socket_mcp = new WebSocket("ws://127.0.0.1:8765/ws");
+
+    socket_mcp.onopen = () => {
+        console.log("MCP WebSocket connection established.");
+        socket_mcp.send("status");
+    };
+
+    socket_mcp.onmessage = (event) => {
+        console.log("MCP Message from server:", event.data);
+        const data = event.data;
+        if (event.data.startsWith("TCP_POS|")) {
+            let tcp_pos = event.data.replace("TCP_POS|", "");
+            let tcp_coords = tcp_pos.split(",");
+            let position = new Vector3(parseFloat(tcp_coords[0]), parseFloat(tcp_coords[1]), parseFloat(tcp_coords[2]))
+            viewer.targetObject.position.set(...position);
+            // console.log('Target pos2:', viewer.targetObject.position);
+            viewer.solve();
+            viewer.dispatchEvent(new Event('change'));
+        } else if (event.data.startsWith("JOINTS|")) {
+            let joint_raw_data = event.data.replace("JOINTS|", "").replace("°", "").split(", ");
+            viewer.setJointValues()
+        } else if (event.data.startsWith("JOINT|")) {
+            let joint_raw_data = event.data.replace("JOINT|", "")
+        }
+    };
+
+    socket_mcp.onerror = (error) => {
+        console.error("MCP WebSocket error:", error);
+        document.getElementById('mcp-integration-toggle').checked = false;
+    };
+
+    socket_mcp.onclose = () => {
+        console.log("MCP WebSocket connection closed.");
+        document.getElementById('mcp-integration-toggle').checked = false;
+    };
+}
+
+function disconnect_mcp_socket() {
+    if (socket_mcp != null) {
+        socket_mcp.close();
+    }
+}
+
+document.getElementById('mcp-integration-toggle').addEventListener('click', (e) => {
+    if (e.target.checked) {
+        setup_mcp_socket();
+    } else {
+        disconnect_mcp_socket();
+    }
+});
+
 viewer = document.querySelector('urdf-viewer');
 viewer.addEventListener('angle-change', () => {
+    if (socket_mcp == null || socket_mcp.readyState != WebSocket.OPEN) {
+        return;
+    }
     socket_mcp.send('TCP|' + 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', '));
     const r = viewer.robot;
     const radiansToggle = document.getElementById('radians-toggle');

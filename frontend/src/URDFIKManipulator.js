@@ -153,12 +153,6 @@ export default
     }
 
 
-
-
-
-
-
-
     init() {
 
         function deg_to_rad(deg) {
@@ -256,7 +250,7 @@ export default
 
         // solve
         const result = this.solver.solve();
-        console.log('Solve result', result);
+        // console.log('Solve result', result);
         if (!result.includes(SOLVE_STATUS.DIVERGED)) {
             setUrdfFromIK(robot, ik);
             // console.log(this.targetObject.position);
