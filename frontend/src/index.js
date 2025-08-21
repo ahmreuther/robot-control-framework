@@ -116,11 +116,15 @@ viewer.addEventListener('ignore-limits-change', () => {
 
 });
 
+// index.js
 viewer.addEventListener('angle-change', e => {
-
-    if (sliders[e.detail]) sliders[e.detail].update();
-
+    if (e && e.detail && sliders[e.detail]) {
+        sliders[e.detail].update();
+    } else {
+        Object.values(sliders).forEach(sl => sl.update());
+    }
 });
+
 
 viewer.addEventListener('joint-mouseover', e => {
 
