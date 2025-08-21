@@ -98,7 +98,7 @@ upSelect.addEventListener('change', () => viewer.up = upSelect.value);
 
 controlsToggle.addEventListener('click', () => controlsel.classList.toggle('hidden'));
 
-// watch for urdf changes
+
 viewer.addEventListener('urdf-change', () => {
 
     Object
@@ -116,7 +116,7 @@ viewer.addEventListener('ignore-limits-change', () => {
 
 });
 
-// index.js
+
 viewer.addEventListener('angle-change', e => {
     if (e && e.detail && sliders[e.detail]) {
         sliders[e.detail].update();
