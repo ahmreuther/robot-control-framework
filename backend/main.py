@@ -1,4 +1,6 @@
 import os
+import asyncio
+from typing import List
 import json
 import uvicorn
 from fastapi import FastAPI, WebSocket, Request, Query
@@ -6,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from asyncua import ua
+
+from mcp.server.fastmcp import FastMCP
+import websockets
 
 # Own modules
 from modules.OPCUAClient import OPCUAClient
@@ -388,9 +393,116 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
     except Exception as e:
         return {"error": str(e)}
 
+#
+# MCP Integration
+#
+mcp = FastMCP("Robotics MCP Server", stateless_http=True)
+
+angles = []
+tool_center_point = []
+tool_center_point_rot = []
+
+target_tcp_pos = None
+# socket: websockets.ServerConnection
+CONNECTIONS = set()
+
+@mcp.resource("resource://my-resource")
+async def root():
+    return {"message": "Hello from FastMCP"}
+
+# --- WebSocket server ---
+async def ws_handler(websocket:websockets.ServerConnection):
+    CONNECTIONS.add(websocket)
+    async for message in websocket:
+        data = str(message)
+        # print(data)
+        if data.startswith("TCP|"):
+            tcp = data.removeprefix("TCP|")
+            (tcp_pos, tcp_rot) = tcp.split(";")
+            tcp_pos = tcp_pos.removeprefix("Pos:")
+            tcp = tcp_pos.strip()
+            (x,y,z) = tcp.split(", ")
+            print(f"X={x} Y={y} Z={z}")
+            global tool_center_point
+            tool_center_point = [x,y,z]
+            # print(tool_center_point)
+
+            tcp_rot = tcp_rot.removeprefix("Rot:")
+            tcp = tcp_rot.strip()
+            (a,b,c,d) = tcp.split(", ")
+            global tool_center_point_rot
+            tool_center_point_rot = [a,b,c,d]
+            # print(f"A={a} B={b} C={c} D={d}")
+        # await websocket.send(message)
+        elif data.startswith("ANGLES|"):
+            raw_angles = data.removeprefix("ANGLES|")
+            global angles
+            angles = []
+            for a in raw_angles.split(','):
+                (_, a) = a.split(':')
+                a = a.strip()
+                angles.append(a)
+            print(*angles)
+
+@mcp.tool(name="get tcp position", description="Get the current tcp position of the roboter tool center point based on the fixed coordinate system")
+def get_tcp() -> str:
+    print(tool_center_point)
+    return f"X={tool_center_point[0]}m, Y={tool_center_point[1]}m, Z={tool_center_point[2]}m"
+
+@mcp.tool(name="get tcp rotation quarternions", description="Get the current tcp rotation of the roboter tool center point in quarternions")
+def get_tcp_rotation() -> str:
+    print(tool_center_point_rot)
+    return f"{tool_center_point_rot[0]}, {tool_center_point_rot[1]}, {tool_center_point_rot[2]}, {tool_center_point_rot[3]}"
+
+@mcp.tool(name="get joint angles", description="Returns the current joint angles of the robot")
+def get_joint_angles() -> str:
+    angles_str = ""
+    for i,a in enumerate(angles):
+        angles_str += f"Joint {i+1}={a}"
+    return angles_str
+
+@mcp.tool(name="set joint angles", description="Sets the current joint angles of the robot")
+async def set_joint_angles(joint_angles: List):
+    for socket in CONNECTIONS:
+        # print(f"TCP_POS|{x},{y},{z}")
+        joint_angle_str = ", ".join(joint_angles)
+        print(joint_angle_str)
+        await socket.send(f"JOINTS|{joint_angle_str}")
+
+@mcp.tool(name="set tcp pos", description="Sets the tcp position to the parameters based on the fixed coordinate system")
+async def set_tcp_pos(x, y, z):
+    print(x,y,z)
+    for socket in CONNECTIONS:
+        print(f"TCP_POS|{x},{y},{z}")
+        await socket.send(f"TCP_POS|{x},{y},{z}")
+    return ""
+
+
+async def start_websocket_server():
+    async with websockets.serve(ws_handler, "localhost", 8765):
+        print("WebSocket server running on ws://localhost:8765")
+        await asyncio.Future()  # run forever
+
+async def start_fastapi():
+    # uvicorn.run("main:app", host="127.0.0.1", port=8000, loop="none")
+    config = uvicorn.Config("main:app", host="127.0.0.1", port=8000, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
 # --- Static File Serving & Entrypoint ---
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="root")
 
+async def main():
+    ws_task = asyncio.create_task(start_websocket_server())
+    mcp.settings.port = 8001
+    api_task = asyncio.create_task(mcp.run_streamable_http_async())
+
+    webserver = asyncio.create_task(start_fastapi())
+
+    await asyncio.gather(ws_task, api_task, webserver)
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    # uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    asyncio.run(main())
