@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from asyncua import ua
 
-# Eigene Module
+# Own modules
 from modules.OPCUAClient import OPCUAClient
 from modules.GetAddressSpace import collect_node_details
 
@@ -31,10 +31,10 @@ clients: dict[str, OPCUAClient] = {}
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory="templates")
 
-# --- Hilfsfunktionen ---
+# --- Helper functions ---
 
 def get_client(url: str) -> OPCUAClient | None:
-    """Hole einen Client für die gegebene URL oder None."""
+    """Get a client for the given URL or None."""
     return clients.get(url)
 
 # --- WebSocket Endpoint ---
@@ -84,17 +84,17 @@ async def websocket_endpoint(websocket: WebSocket):
 
         except Exception as e:
             print(f"WebSocket error: {e}")
-            # Optional: Clean up disconnected client
+            # Optional: clean up disconnected client
             for url, client in list(clients.items()):
                 if client.websocket == websocket:
                     await client.disconnect()
                     del clients[url]
             break
 
-# --- WebSocket Handler ---
+# --- WebSocket Handlers ---
 
 async def handle_call(websocket, data):
-    """Ruft eine OPC UA Methode auf."""
+    """Calls an OPC UA method."""
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
         url = payload.get("url")
@@ -110,19 +110,19 @@ async def handle_call(websocket, data):
         await websocket.send_text(f"❌ Error parsing call payload: {e}")
 
 async def handle_subscribe(websocket, data):
-    """Startet eine Custom-Subscription auf eine Variable, wenn nicht bereits abonniert."""
+    """Starts a custom subscription on a variable, if not already subscribed."""
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
         url, node_id = payload.get("url"), payload.get("nodeId")
         client = get_client(url)
         if not url or not node_id:
-            await websocket.send_text("❌ subscribe: url und nodeId müssen übergeben werden.")
+            await websocket.send_text("❌ subscribe: url and nodeId must be provided.")
             return
         if not client:
             await websocket.send_text(f"❌ No OPC UA client connected for URL: {url}")
             return
 
-        # --- DOPPELTE Subscription verhindern ---
+        # --- Prevent duplicate subscriptions ---
         if hasattr(client, "custom_subscriptions") and node_id in client.custom_subscriptions:
             await websocket.send_text(f"⚠️ Already subscribed to variable at {node_id} on {url}")
             return
@@ -133,7 +133,7 @@ async def handle_subscribe(websocket, data):
         await websocket.send_text(f"❌ subscribe error: {e}")
 
 async def handle_subscribe_event(websocket, data):
-    """Abonniert Events auf einem konkreten Node."""
+    """Subscribes to events on a specific node."""
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
         url = payload.get("url")
@@ -152,9 +152,8 @@ async def handle_subscribe_event(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ Event subscription error: {e}")
 
-
-
 async def handle_unsubscribe_event(websocket, data):
+    """Unsubscribes from event notifications on a node."""
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
         url = payload.get("url")
@@ -172,10 +171,8 @@ async def handle_unsubscribe_event(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ Unsubscribe event error: {e}")
 
-
-
 async def handle_unsubscribe(websocket, data):
-    """Beendet eine Custom-Subscription."""
+    """Ends a custom subscription."""
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
         url, node_id = payload.get("url"), payload.get("nodeId")
@@ -183,7 +180,6 @@ async def handle_unsubscribe(websocket, data):
         if not client:
             await websocket.send_text(f"❌ No subscription found for {node_id} on {url}")
             return
-        # **Hier der neue Aufruf:**
         success = await client.unsubscribe_custom(node_id)
         if success:
             msg = json.dumps({"nodeId": node_id, "url": url})
@@ -194,9 +190,8 @@ async def handle_unsubscribe(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ unsubscribe error: {e}")
 
-
 async def handle_connect(websocket, data):
-    """Verbindet sich mit einem OPC UA Server."""
+    """Connects to an OPC UA server."""
     url = data.split("|", 1)[1].strip()
     if url in clients:
         await websocket.send_text(f"⚠️ Already connected to {url}")
@@ -214,14 +209,12 @@ async def handle_connect(websocket, data):
         else:
             await websocket.send_text("❌ 'Robotics Namespace' not listed in NamespaceArray.")
 
-        
         await websocket.send_text(f"✅ Connected to {url}")
-        
     except Exception as e:
         await websocket.send_text(f"❌ Connection failed to {url}: {str(e)}")
 
 async def handle_stream_joint_position(websocket, data):
-    """Startet das Streaming der Achspositionen."""
+    """Starts streaming joint positions."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
@@ -231,7 +224,7 @@ async def handle_stream_joint_position(websocket, data):
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
 
 async def handle_cancel_stream_joint_position(websocket, data):
-    """Beendet das Streaming der Achspositionen."""
+    """Stops streaming joint positions."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
@@ -241,7 +234,7 @@ async def handle_cancel_stream_joint_position(websocket, data):
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
 
 async def handle_stream_mode(websocket, data):
-    """Startet das Streaming des Modus."""
+    """Starts streaming the operation mode."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
@@ -251,7 +244,7 @@ async def handle_stream_mode(websocket, data):
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
 
 async def handle_cancel_stream_mode(websocket, data):
-    """Beendet das Streaming des Modus."""
+    """Stops streaming the operation mode."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
@@ -260,9 +253,8 @@ async def handle_cancel_stream_mode(websocket, data):
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
 
-
 async def handle_status(websocket):
-    """Gibt den Verbindungsstatus und Geräteinformationen zurück."""
+    """Returns connection status and device information."""
     if not clients:
         await websocket.send_text("🔌 Disconnected")
         return
@@ -277,7 +269,7 @@ async def handle_status(websocket):
             await websocket.send_text(f"❌ Status check failed: {str(e)}")
 
 async def handle_disconnect(websocket, data):
-    """Trennt die Verbindung zum OPC UA Server."""
+    """Disconnects from the OPC UA server."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
@@ -294,39 +286,28 @@ async def handle_disconnect(websocket, data):
 # --- OPC UA Node Utilities ---
 
 async def try_read_model(client: OPCUAClient):
-    """Liest das Modell aus, wenn vorhanden."""
+    """Reads the model if available."""
     if not client.is_robotics_server:
-        return 
+        return
     try:
-        node = await client.find_child_by_browse_name_recursive(
-            ["0:Objects", "2:DeviceSet", "0:MotionDeviceSystem", "3:MotionDevices"], "2:Model"
-        )
-        if node:
-            val = await node.read_value()
-            return val.Text if hasattr(val, 'Text') else str(val)
-        return "None"
+        return await client.read_model()
     except Exception as e:
         return f"❌ Model read error: {e}"
 
 async def try_read_serialnumber(client: OPCUAClient):
-    """Liest die Seriennummer aus, wenn vorhanden."""
+    """Reads the serial number if available."""
     if not client.is_robotics_server:
-        return 
+        return
     try:
-        node = await client.find_child_by_browse_name_recursive(
-            ["0:Objects", "2:DeviceSet", "0:MotionDeviceSystem", "3:MotionDevices"], "2:SerialNumber")
-        if node:
-            val = await node.read_value()
-            return val.Text if hasattr(val, 'Text') else str(val)
-        return "None"
+        return await client.read_serial_number()
     except Exception as e:
         return f"❌ SerialNumber read error: {e}"
 
-# --- REST API Endpunkte für Node-Rendering ---
+# --- REST API Endpoints for Node Rendering ---
 
 @app.get("/device_set_rendered")
 async def get_device_set(request: Request, url: str = Query(...)):
-    """Zeigt den vollständigen DeviceSet-Baum."""
+    """Shows the complete DeviceSet tree."""
     client = get_client(url)
     if not client:
         return templates.TemplateResponse(
@@ -346,7 +327,7 @@ async def get_device_set(request: Request, url: str = Query(...)):
 
 @app.get("/subtree_children")
 async def subtree_children(request: Request, url: str = Query(...), nodeid: str = Query(...)):
-    """Zeigt die Kinder eines Knotens."""
+    """Shows the children of a node."""
     client = get_client(url)
     if not client:
         return "No OPC UA client connected"
@@ -356,7 +337,7 @@ async def subtree_children(request: Request, url: str = Query(...), nodeid: str 
 
 @app.get("/node_rendered")
 async def node_rendered(request: Request, url: str = Query(...), nodeid: str = Query(...)):
-    """Zeigt Details zu einem einzelnen Knoten."""
+    """Shows details of a single node."""
     client = get_client(url)
     if not client:
         return "No OPC UA client for this URL"
@@ -364,9 +345,9 @@ async def node_rendered(request: Request, url: str = Query(...), nodeid: str = Q
     detail = await collect_node_details(node, children_depth=0) 
     return templates.TemplateResponse("node_fragment.html", {"request": request, "item": detail})
 
-
 @app.get("/references")
 async def get_references(url: str = Query(...), nodeid: str = Query(...)):
+    """Shows references of a node."""
     client = get_client(url)
     if not client:
         return {"error": f"No OPC UA client connected for {url}"}
@@ -376,7 +357,7 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
         refs = await node.get_references()
 
         if refs:
-            refs = refs[1:]  # <-- erstes Element löschen
+            refs = refs[1:]  # <-- remove first element
 
         async def safe_display_name(node_id):
             try:
@@ -386,7 +367,6 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
                 return text if text else "null"
             except Exception:
                 return "null"
-
 
         async def ref_to_dict(ref: ua.ReferenceDescription):
             ref_type_name = await safe_display_name(ref.ReferenceTypeId)
@@ -408,10 +388,8 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
     except Exception as e:
         return {"error": str(e)}
 
+# --- Static File Serving & Entrypoint ---
 
-# --- Static File Serving & Startpunkt ---
-
-# app.mount("/static", StaticFiles(directory=STATIC_IMAGE_DIR), name="static")
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="root")
 
 if __name__ == "__main__":

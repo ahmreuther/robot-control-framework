@@ -463,7 +463,7 @@ Stephen Brawner (brawner@gmail.com)
 		</inertial>
 	</link>
 	<joint name="toolpoint_fixed_joint" type="fixed">
-		<origin rpy="0 0 0" xyz="0 0.17 0" />
+		<origin rpy="1.5707963 0 0" xyz="0 0.17 0" />
 		<parent link="model_6" />
 		<child link="tool_point" />
 	</joint>

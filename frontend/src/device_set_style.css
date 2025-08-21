@@ -2,13 +2,11 @@
   display: inline-block;
   padding-right: 10px;
   border-right: none;
-  /* wir machen den Strich extern */
 }
 
 
 
 
-/* Styling für die OPC UA Sektion */
 #opc-ua {
   width: 400px;
   word-wrap: break-word;
@@ -39,7 +37,6 @@
   font-weight: normal;
 }
 
-/* hidden state */
 #opc-ua.hidden #toggle-opc-ua:before {
   content: "show OPC UA functionalities";
 }
@@ -52,7 +49,6 @@
   opacity: 0.5;
 }
 
-/* list of OPC UA items */
 #opc-ua ul {
   flex: 1;
   overflow-y: auto;
@@ -125,11 +121,9 @@
   padding: 8px 12px;
   border-radius: 5px;
   width: 100%;
-  /* volle Breite des Parent-Containers */
   min-width: 0;
   box-sizing: border-box;
   margin-bottom: 0;
-  /* Abstand wird jetzt über gap geregelt */
 }
 
 #opc-ua input[type="text"]::placeholder {
@@ -147,12 +141,9 @@
 #opc-ua #opc-ua-input-container {
   display: flex;
   flex-direction: column;
-  /* vertikal anordnen */
   align-items: stretch;
   gap: 18px;
-  /* mehr vertikaler Abstand zwischen Input und Buttons */
   margin: 10px 0;
-  /* Abstand nach oben und unten */
 }
 
 #opc-ua label {
@@ -201,7 +192,6 @@
 }
 
 
-/* Allgemeine Schriftart und Farbe */
 body,
 .tree {
   font-family: 'Roboto', sans-serif;
@@ -210,7 +200,6 @@ body,
   background-color: transparent;
 }
 
-/* Tree-Grundstruktur */
 .tree {
   --spacing: 13px;
   --radius: 11px;
@@ -219,7 +208,6 @@ body,
   list-style: none;
 }
 
-/* Listeneinträge */
 .tree li {
   position: relative;
   padding-left: calc(2 * var(--spacing));
@@ -227,14 +215,12 @@ body,
   line-height: 1.4;
 }
 
-/* Unterlisten */
 .tree ul {
   margin-left: var(--spacing);
   padding-left: 0;
   border-left: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-/* Verbindungslinien */
 .tree ul li::before {
   content: '';
   position: absolute;
@@ -246,7 +232,6 @@ body,
   border-bottom: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-/* Marker-Kreise */
 .tree li::after,
 .tree summary::before {
   content: '';
@@ -261,13 +246,11 @@ body,
   z-index: 10;
 }
 
-/* ✅ Nur der Marker wird beim Hover heller */
 .tree li:hover::after,
 .tree summary:hover::before {
   background: rgba(255, 255, 255, 0.8);
 }
 
-/* ❌ Kein Hover-Hintergrund für den ganzen Eintrag */
 .tree li:hover {
   background: none;
 }
@@ -276,7 +259,6 @@ body,
   color: inherit;
 }
 
-/* Summary Styling */
 .tree summary {
   cursor: pointer;
   font-size: 15px;
@@ -299,14 +281,12 @@ body,
   display: none;
 }
 
-/* Blätter */
 .leaf-node>span {
   font-size: 15px;
   padding: 2px;
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* Auswahl-Markierung */
 .tree li.selected {
   border-left: 2px solid #4CAF50;
 }
@@ -317,12 +297,10 @@ body,
   font-weight: bold;
 }
 
-/* Nodes mit Kindern */
 .has-children>details>summary {
   color: #ffffff;
 }
 
-/* Pfeilsymbole (auf/zu) */
 
 
 
@@ -531,7 +509,6 @@ body,
   color: #b2ff59;
 }
 
-/* Switch Design für OPC UA Sync Toggle */
 .switch {
   position: relative;
   display: inline-block;
@@ -591,7 +568,6 @@ input:checked+.slider:before {
 }
 
 
-/* Kontextmenü – kompakt und modern */
 #custom-context-menu {
   position: absolute !important;
   z-index: 10000 !important;
@@ -651,7 +627,6 @@ input:checked+.slider:before {
   text-overflow: ellipsis;
 }
 
-/* Overlay für Methoden-Dialog */
 .ds-overlay {
   position: fixed;
   z-index: 10001;
@@ -739,7 +714,6 @@ input:checked+.slider:before {
 
 #info-box #custom-context-menu {
   z-index: 11000;
-  /* über alles andere im info-box-Bereich */
   position: absolute;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(5px);
@@ -903,14 +877,12 @@ input:checked+.slider:before {
   font-weight: bold;
 }
 
-/* Optionales Icon oder Label */
 #robot-dashboard .dashboard-label {
   font-weight: 400;
   min-width: 160px;
   color: #ffffff;
 }
 
-/* Wert oder Liste */
 #robot-dashboard .dashboard-value,
 #robot-dashboard .dashboard-row span,
 #robot-dashboard .dashboard-row ul {
