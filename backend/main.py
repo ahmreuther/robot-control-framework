@@ -396,7 +396,7 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
 #
 # MCP Integration
 #
-mcp = FastMCP("Robotics MCP Server", stateless_http=True)
+mcp = FastMCP("Robotics MCP Server", port=8001)
 
 angles = []
 tool_center_point = []
@@ -496,7 +496,6 @@ app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="root")
 
 async def main():
     ws_task = asyncio.create_task(start_websocket_server())
-    mcp.settings.port = 8001
     api_task = asyncio.create_task(mcp.run_streamable_http_async())
 
     webserver = asyncio.create_task(start_fastapi())
