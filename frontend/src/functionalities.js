@@ -1444,7 +1444,7 @@ if (homeIcon) {
 }
 
 function setup_mcp_socket() {
-    socket_mcp = new WebSocket("ws://127.0.0.1:8765/ws");
+    socket_mcp = new WebSocket("ws://127.0.0.1:8000/ws_mcp");
 
     socket_mcp.onopen = () => {
         console.log("MCP WebSocket connection established.");
