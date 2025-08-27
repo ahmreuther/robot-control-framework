@@ -64,30 +64,39 @@ This allows you to first simulate robot movements safely and then transfer them 
 - The model is loaded in the 3D view and the **kinematic simulation** is immediately ready for use.
 - The same IK/FK logic works for all supported models.
 ### 2. Select control mode
-- **Offline mode**:
+
+**Offline mode**:
+
 - No connection to the real robot.
 - Perfect for **planning, simulation, and testing**.
 - Movements only affect the digital twin.
-- **Online mode**:
+
+**Online mode**:
+
 - Connect to an **OPC UA Robotics Server**.
 - Live data from the physical robot is transferred.
 - Movements from the digital twin are sent to the real robot.
+
 ### 3. Create movements
-- **Joint space control**:
+**Joint space control**:
     
 - Adjust joint angles directly using sliders or by dragging individual joints in the 3D model.
-- **Task Space Control (TCP)**:
+
+**Task Space Control (TCP)**:
+
 - Move or rotate the tool center point (TCP) using a yellow control ball.
 - Inverse kinematics automatically calculates the appropriate joint angles.
-- **Lead-Through (Hand-Guiding)** – only in online mode with supported cobots:
+
+**Lead-Through (Hand-Guiding)** – only in online mode with supported cobots:
 - Move the robot by hand; changes are displayed directly in the digital twin.
+
 ### 4. Execute skills
-- Each movement or action is based on a **skill**:
+Each movement or action is based on a **skill**:
 - **JointPTPMoveSkill**: Point-to-point movement in the joint space.
 - **EndEffSkill**: Open/close grippers or other end effector operations.
 - Skills are **standardized** and work identically for all connected robots.
 ### 5. Activate live synchronization
-- In online mode, **digital and physical twins** can be continuously synchronized:
+In online mode, **digital and physical twins** can be continuously synchronized:
 - Changes to the physical robot → immediately visible in the digital twin.
 - Manipulations in the digital twin → immediate execution on the physical robot.
 ### 6. Monitor and analyze
