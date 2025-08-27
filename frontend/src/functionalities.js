@@ -1454,6 +1454,7 @@ function setup_mcp_socket() {
     socket_mcp.onmessage = (event) => {
         console.log("MCP Message from server:", event.data);
         const data = event.data;
+        let r = viewer.robot;
         if (event.data.startsWith("TCP_POS|")) {
             let tcp_pos = event.data.replace("TCP_POS|", "");
             let tcp_coords = tcp_pos.split(",");
@@ -1464,9 +1465,25 @@ function setup_mcp_socket() {
             viewer.dispatchEvent(new Event('change'));
         } else if (event.data.startsWith("JOINTS|")) {
             let joint_raw_data = event.data.replace("JOINTS|", "").replace("°", "").split(", ");
-            viewer.setJointValues()
+
+            const jointValuesRad = {};
+            let idx = 0;
+
+            for (const name in r.joints) {
+                const joint = r.joints[name];
+                if (joint.jointType === 'revolute') {
+                    jointValuesRad[name] = joint_raw_data[idx]/180*Math.PI;
+                    idx++;
+                }
+            }
+    
+            viewer.setJointValues(jointValuesRad);
         } else if (event.data.startsWith("JOINT|")) {
-            let joint_raw_data = event.data.replace("JOINT|", "")
+            let joint_raw_data = event.data.replace("JOINT|", "").split("|");
+            let joint_index = joint_raw_data[0];
+            let joint_angle = joint_raw_data[1];
+        } else if (event.data.startsWith("OPCUA-NODE|")) {
+
         }
     };
 

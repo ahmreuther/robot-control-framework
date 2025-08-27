@@ -27,13 +27,14 @@ async def combined_lifespan(app: FastAPI):
     # Run both lifespans
     async with app_lifespan(app):
         async with mcp_server.mcp_app.lifespan(app):
-            app.state.mcp_sockets = set()
+            # app.state.mcp_sockets = set()
+            mcp_server.mcp_app.state.mcp_sockets = set()
             yield # {"mcp_sockets", set()}
 
 
 # --- App Setup ---
 
-app = FastAPI(lifespan=app_lifespan)
+app = FastAPI(lifespan=combined_lifespan)
 
 origins = [
     "http://localhost:1234",

@@ -12,13 +12,14 @@ tool_center_point = []
 tool_center_point_rot = []
 
 target_tcp_pos = None
+websockets = set()
 
 
 # --- WebSocket server ---
 @router.websocket("/ws_mcp")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    websocket.app.state.mcp_sockets.add(websocket)
+    websockets.add(websocket)
     try:
         while True:
             data = await websocket.receive_text()
@@ -53,7 +54,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
-        websocket.app.state.mcp_sockets.discard(websocket)
+        websockets.discard(websocket)
 
 
 @mcp.tool(
@@ -87,25 +88,31 @@ def get_joint_angles() -> str:
 @mcp.tool(
     name="set joint angles", description="Sets the current joint angles of the robot"
 )
-async def set_joint_angles(joint_angles: List, ctx: Context):
+async def set_joint_angles(joint_angles: List, ctx: Context) -> str:
     socket: WebSocket
-    for socket in ctx.get_http_request().app.state.mcp_sockets:
+    # print("STATE")
+    # print(ctx.get_http_request().app.state.mcp_sockets)
+    # print(ctx.get_http_request().app.parent_state)
+    # print("STATE ENDE")
+    # print(ctx.get_http_request().app.)
+    for socket in websockets:
         # print(f"TCP_POS|{x},{y},{z}")
-        joint_angle_str = ", ".join(joint_angles)
+        joint_angle_str = ", ".join(map(str, joint_angles))
         print(joint_angle_str)
         await socket.send_text(f"JOINTS|{joint_angle_str}")
+    return "success"
 
 
 @mcp.tool(
     name="set tcp pos",
     description="Sets the tcp position to the parameters based on the fixed coordinate system",
 )
-async def set_tcp_pos(x, y, z, ctx: Context):
+async def set_tcp_pos(x, y, z, ctx: Context) -> str:
     print(x, y, z)
-    for socket in ctx.get_http_request().app.state.mcp_sockets:
+    for socket in websockets:
         print(f"TCP_POS|{x},{y},{z}")
         await socket.send(f"TCP_POS|{x},{y},{z}")
-    return ""
+    return "success"
 
 
 mcp_app = mcp.http_app(path="/mcp")
