@@ -37,10 +37,11 @@ Installation:
 - Windows (PowerShell):
 ```powershell
     iwr https://astral.sh/uv/install.ps1 -UseBasicParsing | iex
-    ```
+```
 - Access to an **OPC UA Robotics Server** (e.g., Franka controller, simulator, or digital twin)
 > If you don't want to use **uv**, you can also work with `venv` + `pip`.
----
+
+
 ## Installation & Start
 ### 1. Set up the backend
 Change to the backend directory:
