@@ -1,8 +1,8 @@
 # WebSkillComposition
-
-**WebSkillComposition** ist ein webbasiertes System zur skill-basierten Steuerung von Industrierobotern.  
-Es besteht aus einem **Python-Backend** zur OPC UA-Anbindung und einem **Web-Frontend** mit Inverse- und Vorwärtskinematik-Logik.  
-Ziel ist es, Roboter wie **Franka Research 3**, **EVA Automata** und **UR5e** über eine einheitliche Weboberfläche steuern zu können.
+**WebSkillComposition** is a web-based system for skill-based control of industrial robots.
+  
+It consists of a **Python backend** for OPC UA connection and a **web frontend** with inverse and forward kinematics logic.
+The goal is to be able to control robots such as **Franka Research 3**, **EVA Automata**, and **UR5e** via a uniform web interface.
 
 ---
 
