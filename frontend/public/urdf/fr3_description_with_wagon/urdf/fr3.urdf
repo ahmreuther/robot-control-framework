@@ -23,7 +23,7 @@
       <inertia ixx="0.009" ixy="0.0" ixz="0.002" iyy="0.0115" iyz="0.0" izz="0.0085"/>
     </inertial>
     <visual>
-      <origin rpy="0 0 0" xyz="0 0 0.015"/>
+      <origin rpy="0 0 -1.570796326794897" xyz="0 0 0.015"/>
       <geometry>
         <mesh filename="../meshes/visual/link0.dae"/>
       </geometry>
