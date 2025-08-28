@@ -14,6 +14,7 @@ let selectedNodeElement = null;
 let showSubscriptionsTabOnNextCustom = false;
 let hasRoboticsNamespace = null
 let gotoMethodNodeId = null;
+let toggleEndEffMethodNodeId = null;
 
 
 
@@ -47,19 +48,30 @@ function urdfJointsArray() {
     return arr;
 }
 
-function findBaseJointByRobotParent() {
-    const joints = urdfJointsArray();
-    const robotObj = viewer?.robot;
-    const hits = joints.filter(j => j.parent === robotObj);
-    hits.sort((a, b) => a.name.localeCompare(b.name));
-    return hits[0] || null;
-}
 
 
 function isRevoluteType(t) {
     t = String(t || '').toLowerCase();
     return t === 'revolute' || t === 'continuous';
 }
+
+function isPrismaticType(t) {
+    t = String(t || '').toLowerCase();
+    return t === 'prismatic';
+}
+
+function getJointLimits(j) {
+    // robustes Auslesen, je nach Parser
+    const lim = j?.limit || j?._limit || j?._raw?.limit || {};
+    const toNum = (v) => (v === undefined || v === null || v === '' ? NaN : Number(v));
+    return {
+        lower: toNum(lim.lower ?? lim.min),
+        upper: toNum(lim.upper ?? lim.max),
+        effort: lim.effort !== undefined ? toNum(lim.effort) : undefined,
+        velocity: lim.velocity !== undefined ? toNum(lim.velocity) : undefined,
+    };
+}
+
 
 // Adjacency: parentLink -> [JointObjects]
 function buildAdjacency(jointsArr) {
@@ -104,27 +116,6 @@ function orderedRevoluteFromBaseJoint(baseJoint) {
     return order;
 }
 
-// === Debug-Entry-Point ===
-function debugInspectRobot(robotName = 'URDFRobot') {
-    if (!viewer || !viewer.robot) {
-        console.warn("⚠️ viewer.robot missing.");
-        return;
-    }
-    const jArr = urdfJointsArray();
-    const baseJ = findBaseJointByRobotParent(robotName);
-    const order = orderedRevoluteFromBaseJoint(baseJ);
-
-    console.groupCollapsed("🔎 URDF Debug (Base via 'URDFRobot')");
-    console.log("Joint-Count:", jArr.length);
-    console.log("Base-Joint:", baseJ ? {
-        name: baseJ.name,
-        type: baseJ.type,
-        parentLink: baseJ.parentLink,
-        childLink: baseJ.childLink
-    } : null);
-    console.log("Revolute-Order from Base:", order);
-    console.groupEnd();
-}
 
 function getOrderedRevoluteJoints() {
     if (!viewer || !viewer.robot || !viewer.robot.joints) {
@@ -162,18 +153,7 @@ function getOrderedRevoluteJoints() {
     return ordered;
 }
 
-function debugTraverseURDF() {
-    const ordered = getOrderedRevoluteJoints();
-    console.group("🔎 URDF Traverse");
-    ordered.forEach((j, i) => {
-        console.log(`${i + 1}. ${j.name}`, {
-            type: j.jointType,
-            parent: j.parent?.name,
-            child: j.child?.name
-        });
-    });
-    console.groupEnd();
-}
+
 
 function getOrderedRevoluteJointNames() {
     if (!viewer || !viewer.robot || !viewer.robot.joints) {
@@ -216,20 +196,7 @@ function getOrderedRevoluteJointNames() {
     return ordered;
 }
 
-// Debug function to traverse the URDF chain and log the revolute joints
-function debugTraverseURDFChain() {
-    const ordered = getOrderedRevoluteJointNames();
-    console.group("🔎 URDF Joint Chain");
-    ordered.forEach((name, i) => {
-        const j = viewer.robot.joints[name];
-        console.log(`${i + 1}. ${name}`, {
-            type: j.jointType,
-            parent: j.parent?.name,
-            child: j.child?.name
-        });
-    });
-    console.groupEnd();
-}
+
 
 
 let axisToJointMap = null;
@@ -256,14 +223,83 @@ function buildAxisToJointMap(anglesMsg) {
     axisToJointMap = map;
 
     //Debug
-    console.group("🧭 Axis → URDF Mapping");
+    console.group("Axis → URDF Mapping");
     axisNames.forEach((axis, i) => {
         console.log(`${axis} → ${map[axis] || "(no URDF Joint)"}`);
     });
     console.groupEnd();
 
+    try {
+        buildEndEffectorMap();
+    } catch (e) {
+        console.warn("⚠️ Endeffektor-Map Fehler:", e);
+    }
+
     return map;
 }
+
+let endEffectorMap = null;
+
+function buildEndEffectorMap() {
+    if (!viewer?.robot?.joints) {
+        console.warn("⚠️ viewer.robot.joints missing.");
+        endEffectorMap = { byIndex: {}, byName: {}, byParent: {} };
+        return endEffectorMap;
+    }
+
+    const all = Object.values(viewer.robot.joints);
+    const pris = all.filter(j => isPrismaticType(j.jointType))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    const byIndex = {};
+    const byName = {};
+    const byParent = {};
+
+    pris.forEach((j, idx) => {
+        const lim = getJointLimits(j);
+        const mimic = j?.mimic
+            ? {
+                joint: j.mimic.joint ?? j.mimic?.name ?? undefined,
+                multiplier: (j.mimic.multiplier !== undefined ? Number(j.mimic.multiplier) : undefined),
+                offset: (j.mimic.offset !== undefined ? Number(j.mimic.offset) : undefined)
+            }
+            : null;
+
+        const entry = {
+            joint: j.name,
+            parent: j.parent?.name,
+            child: j.child?.name,
+            lower: lim.lower,
+            upper: lim.upper,
+            effort: lim.effort,
+            velocity: lim.velocity,
+            mimic
+        };
+
+        byIndex[`eef${idx + 1}`] = entry;
+        byName[j.name] = entry;
+        const p = entry.parent || "(unknown)";
+        (byParent[p] ||= []).push(entry);
+    });
+
+    endEffectorMap = { byIndex, byName, byParent };
+
+    // Debug-Log im gleichen Stil wie Axis→URDF
+    console.group("Endeffektor → Prismatic Mapping");
+    Object.keys(byIndex).forEach(k => {
+        const e = byIndex[k];
+        console.log(`${k} → ${e.joint}`, {
+            parent: e.parent, child: e.child,
+            lower: e.lower, upper: e.upper,
+            effort: e.effort, velocity: e.velocity,
+            mimic: e.mimic
+        });
+    });
+    console.groupEnd();
+
+    return endEffectorMap;
+}
+
 
 
 function loadDeviceSet(opcUaUrl) {
@@ -414,6 +450,7 @@ window.addEventListener('load', () => {
             if (data.startsWith("x|robotinfo:")) {
                 try {
                     const payload = JSON.parse(data.slice("x|robotinfo:".length));
+                    console.log("Robot Info:", payload);
                     if (payload.manufacturer) {
                         const manuField = document.getElementById('robot-manufacturer');
                         if (manuField) manuField.textContent = payload.manufacturer;
@@ -427,6 +464,12 @@ window.addEventListener('load', () => {
                         gotoMethodNodeId = payload.gotoMethodNodeId;
                         const urlKey = connectedUrl || getLastOpcUaUrl() || "";
                         if (urlKey) localStorage.setItem(`gotoNodeId:${urlKey}`, gotoMethodNodeId);
+                    }
+
+                    if (payload.toggleEndEffMethodNodeId) {
+                        toggleEndEffMethodNodeId = payload.toggleEndEffMethodNodeId;
+                        const urlKey = connectedUrl || getLastOpcUaUrl() || "";
+                        if (urlKey) localStorage.setItem(`toggleEndEffNodeId:${urlKey}`, toggleEndEffMethodNodeId);
                     }
                 } catch (e) {
                     console.warn("Event parse error", e);
@@ -476,6 +519,7 @@ window.addEventListener('load', () => {
 
                 try {
                     buildAxisToJointMap(anglesMsg);
+                    console.log(buildAxisToJointMap(anglesMsg));
                 } catch (e) {
                     console.warn("❌ Could not create axis→joint mapping:", e);
                     return;
@@ -1211,6 +1255,26 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Merker für letzte EEF-Positionen
+let lastEEFPositions = {};
+
+function getVal(j) {
+    return Array.isArray(j.jointValue) ? Number(j.jointValue[0]) : Number(j.angle || 0);
+}
+function getLimits(j) {
+    const lim = j?.limit || j?._limit || j?._raw?.limit || {};
+    const toNum = v => (v === undefined || v === null || v === '' ? NaN : Number(v));
+    return { lower: toNum(lim.lower ?? lim.min), upper: toNum(lim.upper ?? lim.max) };
+}
+function getEEFMasters(robot) {
+    if (window.endEffectorMap?.byName) {
+        return Object.keys(endEffectorMap.byName)
+            .map(n => robot.joints[n])
+            .filter(j => j && j.jointType === 'prismatic' && !j.mimic);
+    }
+    return Object.values(robot.joints).filter(j => j.jointType === 'prismatic' && !j.mimic);
+}
+
 
 window.addEventListener('DOMContentLoaded', () => {
     viewer = document.querySelector('urdf-viewer');
@@ -1289,49 +1353,95 @@ window.addEventListener('DOMContentLoaded', () => {
             isManipulating = true;
         });
         viewer.addEventListener('manipulate-end', () => {
-            isManipulating = false;
-            const syncToggle = document.getElementById('opc-ua-sync-toggle');
-            if (!syncToggle || !syncToggle.checked) return;
+    isManipulating = false;
+    const syncToggle = document.getElementById('opc-ua-sync-toggle');
+    if (!syncToggle || !syncToggle.checked) return;
 
-            const r = viewer.robot;
-            if (!r || !r.joints) return;
+    const r = viewer.robot;
+    if (!r || !r.joints) return;
 
-            const jointValuesRad = [];
-            for (const name in r.joints) {
-                const joint = r.joints[name];
-                if (joint.jointType === 'revolute') {
-                    let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
-                    jointValuesRad.push(parseFloat(value.toFixed(6)));
+    const eefMasters = getEEFMasters(r);
+    let eefTriggered = false;
+
+    // --- Endeffektor prüfen ---
+    for (const j of eefMasters) {
+        const cur = getVal(j);
+        const last = lastEEFPositions[j.name];
+        const changed = (last !== undefined) && (cur !== last);
+
+        if (changed) {
+            const { lower, upper } = getLimits(j);
+            const atLower = (cur === lower);
+            const atUpper = (cur === upper);
+
+            if (atLower || atUpper) {
+                let nodeId = toggleEndEffMethodNodeId || localStorage.getItem(`toggleEndEffNodeId:${connectedUrl}`);
+                if (!nodeId) {
+                    logMessageToBox('⚠️ “toggleEndEff” method not yet known. Please connect or try again.');
+                    break;
                 }
+
+                const payload = { nodeId, url: connectedUrl };
+                console.log("Send End Effector after limit reached:", payload);
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(`call|${JSON.stringify(payload)}`);
+                    eefTriggered = true;
+                }
+                break; // nur ein EEF-Call
             }
+        }
+    }
 
-            const jointsString = JSON.stringify(jointValuesRad);
+    // letzte EEF-Positionen merken
+    eefMasters.forEach(j => { lastEEFPositions[j.name] = getVal(j); });
 
+    if (eefTriggered) return; // nur Endeffektor gesendet → fertig
 
-            let nodeId = gotoMethodNodeId || localStorage.getItem(`gotoNodeId:${connectedUrl}`);
-            if (!nodeId) {
-                logMessageToBox('⚠️ “Go To” method not yet known. Please connect or try again.');
-                return;
+    // --- Revolute prüfen: nur senden, wenn sich was geändert hat ---
+    const jointValuesRad = [];
+    let revoluteChanged = false;
+
+    for (const name in r.joints) {
+        const joint = r.joints[name];
+        if (joint.jointType === 'revolute') {
+            let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
+            jointValuesRad.push(parseFloat(value.toFixed(6)));
+
+            // prüfen ob sich gegenüber letztem Stand geändert hat
+            if (lastEEFPositions[name] === undefined || lastEEFPositions[name] !== value) {
+                revoluteChanged = true;
             }
+        }
+    }
 
-            const payload = {
-                nodeId: nodeId,
-                inputs: {
-                    mode: 'automatic',
-                    joints: jointsString,
-                    "max-Speed": '',
-                    time: '',
-                    tcp_config: '',
-                    avoidance_zones: ''
-                },
-                url: connectedUrl
-            };
+    if (!revoluteChanged) return; // nix Neues → kein GoTo
 
-            console.log("Send Go To after drag end:", payload);
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(`call|${JSON.stringify(payload)}`);
-            }
-        });
+    const jointsString = JSON.stringify(jointValuesRad);
+    let nodeId = gotoMethodNodeId || localStorage.getItem(`gotoNodeId:${connectedUrl}`);
+    if (!nodeId) {
+        logMessageToBox('⚠️ “Go To” method not yet known. Please connect or try again.');
+        return;
+    }
+
+    const payload = {
+        nodeId,
+        inputs: {
+            mode: 'automatic',
+            joints: jointsString,
+            "max-Speed": '',
+            time: '',
+            tcp_config: '',
+            avoidance_zones: ''
+        },
+        url: connectedUrl
+    };
+
+    console.log("Send Go To after drag end:", payload);
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(`call|${JSON.stringify(payload)}`);
+    }
+});
+
     });
 });
 
@@ -1472,11 +1582,11 @@ function setup_mcp_socket() {
             for (const name in r.joints) {
                 const joint = r.joints[name];
                 if (joint.jointType === 'revolute') {
-                    jointValuesRad[name] = joint_raw_data[idx]/180*Math.PI;
+                    jointValuesRad[name] = joint_raw_data[idx] / 180 * Math.PI;
                     idx++;
                 }
             }
-    
+
             viewer.setJointValues(jointValuesRad);
         } else if (event.data.startsWith("JOINT|")) {
             let joint_raw_data = event.data.replace("JOINT|", "").split("|");

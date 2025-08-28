@@ -147,7 +147,10 @@ class OPCUAClient:
         self.is_robotics_server = False
         self.namespaces: list[str] = []
 
+        #NodeIDs for methods
+
         self.goto_method_nodeid: str | None = None
+        self.toggle_endeff_method_nodeid: str | None = None
 
 
         self.running = False
@@ -161,6 +164,87 @@ class OPCUAClient:
 
     def _norm(self, s: str | None) -> str:
         return "".join((s or "").lower().split()) 
+
+    async def resolve_toggle_endeff_method(self) -> str | None:
+        """
+        Searches for a method node whose name looks like ‘Go To’ (GoTo/Go_To etc.).
+        Prefer a method with a joint array as input argument.
+        """
+        candidates_norm = {_norm for _norm in []}  
+
+        names = ["toggleEndEff", "toggle_end_eff", "toggleEndEffector", "toggleendeffector"]
+        wanted = {self._norm(n) for n in names}
+
+        start = await self.find_child_by_name(["0:Objects"], "DeviceSet")
+        if not start:
+            start = await self.client.nodes.root.get_child(["0:Objects"])
+
+        from collections import deque
+        q = deque([start])
+        visited = set()
+        best_node = None
+        best_score = -1
+
+        while q:
+            node = q.popleft()
+            try:
+                nid = node.nodeid.to_string()
+                if nid in visited:
+                    continue
+                visited.add(nid)
+
+                try:
+                    dn = await node.read_display_name()
+                    dn_txt = getattr(dn, "Text", str(dn)) or ""
+                except Exception:
+                    dn_txt = ""
+                try:
+                    bn = await node.read_browse_name()
+                    bn_txt = getattr(bn, "Name", "") or ""
+                except Exception:
+                    bn_txt = ""
+
+                try:
+                    nclass = await node.read_node_class()
+                except Exception:
+                    nclass = None
+                if nclass != ua.NodeClass.Method:
+                    for c in await node.get_children():
+                        q.append(c)
+                    continue
+
+                norm_names = {self._norm(dn_txt), self._norm(bn_txt)}
+                if not (norm_names & wanted):
+                    continue
+
+                score = 1
+                try:
+                    ia_node = await node.get_child("0:InputArguments")
+                    args = await ia_node.read_value()
+                    for a in args or []:
+                        aname = (a.Name or "").lower()
+                        dtid = getattr(a.DataType, "Identifier", None)
+                        vrank = getattr(a, "ValueRank", -1)
+                        if ("joint" in aname or "joints" in aname) and vrank == 1:
+                            score = 3  
+                            break
+                        if vrank == 1 and dtid in (ua.ObjectIds.Float, ua.ObjectIds.Double):
+                            score = max(score, 2)
+                except Exception:
+                    pass
+
+                if score > best_score:
+                    best_score = score
+                    best_node = node
+
+            except Exception:
+                continue
+
+        if best_node:
+            self.toggle_endeff_method_nodeid = best_node.nodeid.to_string()
+            return self.toggle_endeff_method_nodeid
+        return None
+    
 
     async def resolve_goto_method(self) -> str | None:
         """
@@ -355,6 +439,10 @@ class OPCUAClient:
                 await self.resolve_goto_method()
             except Exception as e:
                 print(f"[{self.name}] ⚠️ resolve_goto_method failed: {e}")
+            try:
+                await self.resolve_toggle_endeff_method()
+            except Exception as e:
+                print(f"[{self.name}] ⚠️ resolve_toggle_endeff_method failed: {e}")
             await self.send_robot_info_to_frontend()
         asyncio.create_task(self.run_loop())
 
@@ -651,7 +739,8 @@ class OPCUAClient:
                 "manufacturer": man_val,
                 "model": model_val,
                 "serialNumber": serial_val,
-                "gotoMethodNodeId": self.goto_method_nodeid
+                "gotoMethodNodeId": self.goto_method_nodeid,
+                "toggleEndEffMethodNodeId": self.toggle_endeff_method_nodeid
             })
 
             if self.websocket and self.websocket.client_state == WebSocketState.CONNECTED:
