@@ -184,13 +184,19 @@ viewer.addEventListener('urdf-processed', () => {
         .map(key => r.joints[key])
         .forEach(joint => {
 
+            // --- Skip-Condition für prismatic + mimic ---
+            if (joint.jointType === 'prismatic' && Array.isArray(joint.mimicJoints) && joint.mimicJoints.length == 0) {
+                console.log(`Skip slider for mimic prismatic joint: ${joint.name}`);
+                return; // kein Slider erzeugen
+            }
+
             const li = document.createElement('li');
             li.innerHTML =
                 `
-            <span title="${joint.name}">${joint.name}</span>
-            <input type="range" value="0" step="0.0001"/>
-            <input type="number" step="0.0001" />
-            `;
+        <span title="${joint.name}">${joint.name}</span>
+        <input type="range" value="0" step="0.0001"/>
+        <input type="number" step="0.0001" />
+        `;
             li.setAttribute('joint-type', joint.jointType);
             li.setAttribute('joint-name', joint.name);
 
@@ -214,29 +220,22 @@ viewer.addEventListener('urdf-processed', () => {
                 }
 
                 input.value = parseFloat(angle);
-
-                // directly input the value
                 slider.value = joint.angle;
 
                 if (viewer.ignoreLimits || joint.jointType === 'continuous') {
                     slider.min = -6.28;
                     slider.max = 6.28;
-
                     input.min = -6.28 * degMultiplier;
                     input.max = 6.28 * degMultiplier;
                 } else {
                     slider.min = joint.limit.lower;
                     slider.max = joint.limit.upper;
-
                     input.min = joint.limit.lower * degMultiplier;
                     input.max = joint.limit.upper * degMultiplier;
                 }
-
-
             };
 
             switch (joint.jointType) {
-
                 case 'continuous':
                 case 'prismatic':
                 case 'revolute':
@@ -245,7 +244,6 @@ viewer.addEventListener('urdf-processed', () => {
                     li.update = () => { };
                     input.remove();
                     slider.remove();
-
             }
 
             slider.addEventListener('input', () => {
@@ -262,8 +260,8 @@ viewer.addEventListener('urdf-processed', () => {
             li.update();
 
             sliders[joint.name] = li;
-
         });
+
 
 });
 
