@@ -1290,6 +1290,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     viewer.addEventListener('urdf-processed', () => {
         animToggle.classList.remove('checked');
+        animToggle.remove(animToggle);
 
         function updateRevoluteJointStatus() {
             const r = viewer.robot;

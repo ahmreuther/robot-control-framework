@@ -29,7 +29,7 @@
       </geometry>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 0 0.015"/>
+      <origin rpy="0 0 -1.570796326794897" xyz="0 0 0.015"/>
       <geometry>
         <mesh filename="../meshes/collision/link0.stl"/>
       </geometry>

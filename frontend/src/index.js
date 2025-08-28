@@ -77,6 +77,7 @@ radiansToggle.addEventListener('click', () => {
 collisionToggle.addEventListener('click', () => {
     collisionToggle.classList.toggle('checked');
     viewer.showCollision = collisionToggle.classList.contains('checked');
+    viewer.redraw();
 });
 
 autocenterToggle.addEventListener('click', () => {
