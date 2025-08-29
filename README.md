@@ -6,6 +6,12 @@ The goal is to be able to control robots such as **Franka Research 3**, **EVA Au
 
 ---
 
+## Citation
+
+If you intend to work with this repository, please cite the paper:
+
+Citation information will be updated once the paper is accepted and published.
+
 ## Structure
 The project is divided into two main folders:
 - **Backend/**
