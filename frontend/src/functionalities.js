@@ -1574,6 +1574,7 @@ function setup_mcp_socket() {
             viewer.targetObject.position.set(...position);
             // console.log('Target pos2:', viewer.targetObject.position);
             viewer.solve();
+            viewer.dispatchEvent(new Event('manipulate-end'));
             viewer.dispatchEvent(new Event('change'));
         } else if (event.data.startsWith("JOINTS|")) {
             let joint_raw_data = event.data.replace("JOINTS|", "").replace("°", "").split(", ");
