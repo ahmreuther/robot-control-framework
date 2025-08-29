@@ -111,7 +111,7 @@ async def set_tcp_pos(x, y, z, ctx: Context) -> str:
     print(x, y, z)
     for socket in websockets:
         print(f"TCP_POS|{x},{y},{z}")
-        await socket.send(f"TCP_POS|{x},{y},{z}")
+        await socket.send_text(f"TCP_POS|{x},{y},{z}")
     return "success"
 
 
