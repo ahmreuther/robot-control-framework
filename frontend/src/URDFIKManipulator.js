@@ -6,8 +6,8 @@ import {
     setUrdfFromIK,
     setIKFromUrdf,
     urdfRobotToIKRoot,
-    Solver,
-    SOLVE_STATUS
+    SOLVE_STATUS_NAMES,
+    Solver
 } from 'closed-chain-ik';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import {
@@ -54,6 +54,10 @@ export default
         this.goal = null;
         this.helper = null;
         this.solver = null;
+
+        this.solveAvgMs = 0;
+        this.solveCount = 0;
+
 
         // Events
         transformControls.addEventListener('dragging-changed', function (event) {
@@ -201,7 +205,7 @@ export default
             ctx.shadowBlur = 6;
             ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
 
-            
+
         };
 
 
@@ -211,7 +215,7 @@ export default
         const sprite = new Sprite(spriteMaterial);
         sprite.scale.set(0.12, 0.035, 1.0);
         sprite.position.set(0.1, -0.15, 0);
-        sprite.visible = false;   
+        sprite.visible = false;
         sprite.raycast = () => { };
         this.targetObject.add(sprite);
 
@@ -226,8 +230,8 @@ export default
             this.dispatchEvent(new Event("manipulate-start"));
 
             this.targetObject.getWorldPosition(this.startPos);
-            this.labelSprite.visible = true;   
-            this.drawLabelText(new Vector3()); 
+            this.labelSprite.visible = true;
+            this.drawLabelText(new Vector3());
             this.labelTexture.needsUpdate = true;
         });
 
@@ -247,7 +251,7 @@ export default
             controls.enabled = true;
             this.dispatchEvent(new Event("manipulate-end"));
 
-            this.labelSprite.visible = false; 
+            this.labelSprite.visible = false;
         });
     }
 
@@ -330,26 +334,44 @@ export default
         targetObject.quaternion.set(...goal.quaternion);
         this.redraw();
     }
-
     solve() {
-        const goal = this.goal;
-        const ik = this.ikRoot;
-        const robot = this.robot;
+  const goal = this.goal;
+  const ik = this.ikRoot;
+  const robot = this.robot;
 
-        // Set the goal and IK
-        goal.setPosition(...this.targetObject.position);
-        goal.setQuaternion(...this.targetObject.quaternion);
-        setIKFromUrdf(ik, robot);
+  goal.setPosition(...this.targetObject.position);
+  goal.setQuaternion(...this.targetObject.quaternion);
+  setIKFromUrdf(ik, robot);
 
-        // Solve IK
-        const result = this.solver.solve();
-        // console.log('Solve result', result);
-        if (!result.includes(SOLVE_STATUS.DIVERGED)) {
-            setUrdfFromIK(robot, ik);
-            // console.log(this.targetObject.position);
-            this.dispatchEvent(new Event('angle-change'));
-        }
+  const t0 = performance.now();
 
-        this.redraw();
+  const statuses = this.solver.solve();
+
+  const dt = performance.now() - t0;
+
+  if (!statuses.includes(SOLVE_STATUS.DIVERGED)) {
+    setUrdfFromIK(robot, ik);
+    this.dispatchEvent(new Event('angle-change'));
+  }
+
+  const el = document.getElementById('output');
+  if (el) {
+    el.innerText = `solve time: ${dt.toFixed(3)}ms\n`;
+
+    if (typeof averageCount !== 'undefined' && typeof averageTime !== 'undefined') {
+      if (averageCount < 50) averageCount++;
+      averageTime += (dt - averageTime) / averageCount;
+      el.innerText += `avg solve time \t: ${averageTime.toFixed(3)}ms\n`;
     }
+
+    if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
+      const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
+      el.innerText += `Solved: ${names}`;
+    }
+  }
+
+  this.redraw();
+}
+
+
 }
