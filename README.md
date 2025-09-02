@@ -24,11 +24,13 @@ It provides an HTTP and WebSocket interface for the frontend and delivers URDF f
   
 Contains the web interface for skill-based control and the logic for inverse kinematics (IK) and forward kinematics (FK).
 **Architecture overview:**
-[Frontend (Web UI, IK/FK)] <--HTTP/WebSocket--> [Backend (Python, OPC UA Client)]<br>
-|<br>
-| OPC UA <br>
-v<br>
-[OPC UA Robotics Server (Robot / Twin)]
+
+```mermaid
+flowchart TD
+    C[Backend Python, OPC UA Client] <-->|OPC UA| B[OPC UA Robotics Server Robot / Twin]
+    A[Frontend: Web UI, IK/FK] <-->|HTTP/WebSocket| C[Backend: Python, OPC UA Client]
+```
+
 ---
 ## Prerequisites
 For development, you will need:
