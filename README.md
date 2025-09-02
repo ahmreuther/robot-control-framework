@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/1044964036.svg)](https://doi.org/10.5281/zenodo.17034716)
+
 # WebSkillComposition
 **WebSkillComposition** is a web-based system for skill-based control of industrial robots.
   
