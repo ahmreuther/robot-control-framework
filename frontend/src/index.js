@@ -7,6 +7,7 @@ import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
 import URDFIKManipulator from './URDFIKManipulator.js'
+import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 
 customElements.define('urdf-viewer', URDFIKManipulator);
@@ -15,6 +16,7 @@ customElements.define('urdf-viewer', URDFIKManipulator);
 // Hack to make the build work with webpack for now.
 // TODO: Remove this once modules or parcel is being used
 const viewer = document.querySelector('urdf-viewer');
+setupMiniStats(viewer);
 
 const limitsToggle = document.getElementById('ignore-joint-limits');
 const collisionToggle = document.getElementById('collision-toggle');
@@ -30,6 +32,49 @@ const ikMove = document.getElementById('ik-move');
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 1 / DEG2RAD;
 let sliders = {};
+
+import Stats from 'three/examples/jsm/libs/stats.module.js';
+
+function setupMiniStats(viewerEl) {
+  const container = document.getElementById('stats-output');
+  if (!container) return;
+
+  const stats = new Stats();
+
+  stats.dom.style.position = 'relative';
+  stats.dom.style.top = 'auto';
+  stats.dom.style.left = 'auto';
+  stats.dom.style.margin = '6px 0';
+  container.appendChild(stats.dom);
+
+  
+  if (stats.dom.children.length >= 2) {
+    stats.dom.children[1].remove(); 
+  }
+
+  const trisPanel = stats.addPanel(new Stats.Panel('tris', '#0ff', '#222'));
+
+  stats.showPanel(0);
+
+  stats.dom.title = (stats.dom.children.length === 3)
+    ? 'Klicken: FPS → RAM → TRIS'
+    : 'Klicken: FPS → TRIS (RAM nicht verfügbar)';
+
+  let trisMax = 200000;
+  (function loop() {
+    stats.update();
+
+    const r = viewerEl && viewerEl.renderer;
+    if (r && r.info && r.info.render) {
+      const triCount = r.info.render.triangles || 0;
+      trisMax = Math.max(trisMax, triCount);
+      trisPanel.update(triCount, trisMax);
+    }
+
+    requestAnimationFrame(loop);
+  })();
+}
+
 
 const params = {
     solve: true,
