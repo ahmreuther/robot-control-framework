@@ -355,20 +355,12 @@ export default
   }
 
   const el = document.getElementById('output');
-  if (el) {
-    el.innerText = `solve time: ${dt.toFixed(3)}ms\n`;
-
-    if (typeof averageCount !== 'undefined' && typeof averageTime !== 'undefined') {
-      if (averageCount < 50) averageCount++;
-      averageTime += (dt - averageTime) / averageCount;
-      el.innerText += `avg solve time \t: ${averageTime.toFixed(3)}ms\n`;
+    if (el) {
+        if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
+            const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
+            el.innerText = `${names}\n`;
+        }
     }
-
-    if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
-      const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
-      el.innerText += `Solved: ${names}`;
-    }
-  }
 
   this.redraw();
 }
