@@ -172,7 +172,7 @@ class OPCUAClient:
         """
         candidates_norm = {_norm for _norm in []}  
 
-        names = ["toggleEndEff", "toggle_end_eff", "toggleEndEffector", "toggleendeffector"]
+        names = ["EndEffSkill","toggleEndEff", "toggle_end_eff", "toggleEndEffector", "toggleendeffector"]
         wanted = {self._norm(n) for n in names}
 
         start = await self.find_child_by_name(["0:Objects"], "DeviceSet")
@@ -253,7 +253,7 @@ class OPCUAClient:
         """
         candidates_norm = {_norm for _norm in []}  
 
-        names = ["go to", "goto", "go_to", "go-to"]
+        names = ["JointPTPMoveSkill","go to", "goto", "go_to", "go-to", "Go To"]
         wanted = {self._norm(n) for n in names}
 
         start = await self.find_child_by_name(["0:Objects"], "DeviceSet")
@@ -440,7 +440,7 @@ class OPCUAClient:
             except Exception as e:
                 print(f"[{self.name}] ⚠️ resolve_goto_method failed: {e}")
             try:
-                await self.resolve_toggle_endeff_method()
+                await self.EndEffSkill()
             except Exception as e:
                 print(f"[{self.name}] ⚠️ resolve_toggle_endeff_method failed: {e}")
             await self.send_robot_info_to_frontend()
