@@ -16,6 +16,33 @@ let hasRoboticsNamespace = null
 let gotoMethodNodeId = null;
 let toggleEndEffMethodNodeId = null;
 
+const toggleOpcUa = document.getElementById('toggle-opc-ua');
+const opcUaSection = document.getElementById('opc-ua');
+const toggleRobotDashboard = document.getElementById('toggle-robot-dashboard');
+const robotDashboardSection = document.getElementById('robot-dashboard');
+const infoToggleBtn = document.getElementById("info-toggle-btn");
+const opcUaSyncToggle = document.getElementById('opc-ua-sync-toggle');
+const opcUaSyncToggleContainer = document.getElementById('opc-ua-sync-toggle-container');
+const infoBox = document.getElementById("info-box");
+const propertiesBox = document.getElementById("properties-box");
+const toggleBtn = document.getElementById("info-toggle-btn");
+const syncInfoPropertiesWidth = () => {propertiesBox.style.width = infoBox.style.width;};
+const observer = new MutationObserver(() => {syncInfoPropertiesWidth();});
+const animToggleBlocker = new MutationObserver((mutationsList) => {
+    for (const mutation of mutationsList) {
+        if (
+            mutation.type === 'attributes' &&
+            mutation.attributeName === 'class' &&
+            mutation.target.id === 'do-animate' &&
+            mutation.target.classList.contains('checked')
+        ) {
+            mutation.target.classList.remove('checked');
+        }
+    }
+});
+const robotLockToggleContainer = document.getElementById('robot-lock-toggle-container');
+const homeIcon = document.getElementById('home-icon');
+
 
 
 // Utils: Extract URDF joints from viewer
@@ -663,20 +690,15 @@ function setInfoBoxState(expanded) {
     infoToggleBtn.textContent = expanded ? "collapse »" : "« expand";
 }
 
-const toggleOpcUa = document.getElementById('toggle-opc-ua');
-const opcUaSection = document.getElementById('opc-ua');
-
 toggleOpcUa.addEventListener('click', () => {
     opcUaSection.classList.toggle('hidden');
 });
 
-const toggleRobotDashboard = document.getElementById('toggle-robot-dashboard');
-const robotDashboardSection = document.getElementById('robot-dashboard');
+
 toggleRobotDashboard.addEventListener('click', () => {
     robotDashboardSection.classList.toggle('hidden');
 });
 
-const infoToggleBtn = document.getElementById("info-toggle-btn");
 infoToggleBtn.style.display = "none";
 
 document.getElementById('connect-opc-ua').addEventListener('click', function () {
@@ -747,7 +769,6 @@ function showNodeProperties(element) {
 
 // --- OPC UA Sync Toggle State ---
 opcUaSyncEnabled = true;
-const opcUaSyncToggle = document.getElementById('opc-ua-sync-toggle');
 opcUaSyncToggle.addEventListener('change', function () {
     if (!connectedUrl) {
         this.checked = false;
@@ -809,7 +830,7 @@ opcUaSyncToggle.addEventListener('change', function () {
     }
 });
 
-const opcUaSyncToggleContainer = document.getElementById('opc-ua-sync-toggle-container');
+
 opcUaSyncToggleContainer.addEventListener('click', function (e) {
     e.stopPropagation();
 }, true);
@@ -1196,15 +1217,6 @@ window.addEventListener('mousedown', function (e) {
     }
 });
 
-
-const infoBox = document.getElementById("info-box");
-const propertiesBox = document.getElementById("properties-box");
-const toggleBtn = document.getElementById("info-toggle-btn");
-
-const syncInfoPropertiesWidth = () => {
-    propertiesBox.style.width = infoBox.style.width;
-};
-
 // Initial sync
 syncInfoPropertiesWidth();
 
@@ -1223,25 +1235,10 @@ toggleBtn.addEventListener("click", () => {
     infoBoxExpanded = !infoBoxExpanded;
 });
 
-const observer = new MutationObserver(() => {
-    syncInfoPropertiesWidth();
-});
+
 observer.observe(infoBox, {
     attributes: true,
     attributeFilter: ['style']
-});
-
-const animToggleBlocker = new MutationObserver((mutationsList) => {
-    for (const mutation of mutationsList) {
-        if (
-            mutation.type === 'attributes' &&
-            mutation.attributeName === 'class' &&
-            mutation.target.id === 'do-animate' &&
-            mutation.target.classList.contains('checked')
-        ) {
-            mutation.target.classList.remove('checked');
-        }
-    }
 });
 
 // Starte den Observer möglichst früh
@@ -1527,7 +1524,6 @@ function updateReferencesTable(refObj, clearFirst = false) {
     tbody.appendChild(row);
 }
 
-const robotLockToggleContainer = document.getElementById('robot-lock-toggle-container');
 if (robotLockToggleContainer) {
     robotLockToggleContainer.style.display = 'none';
 }
@@ -1542,7 +1538,6 @@ function updateRobotLockToggleVisibility() {
     }
 }
 
-const homeIcon = document.getElementById('home-icon');
 if (homeIcon) {
     homeIcon.addEventListener('click', () => {
         const viewer = document.querySelector('urdf-viewer');
