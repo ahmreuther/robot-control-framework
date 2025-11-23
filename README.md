@@ -46,10 +46,9 @@ Installation:
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 Inside the project execute:
-    ```bash
-    git lfs install
-    git lfs pull
-    ```
+
+    git lfs install && git lfs pull
+    
 - Windows (PowerShell):
 ```powershell
     iwr https://astral.sh/uv/install.ps1 -UseBasicParsing | iex
