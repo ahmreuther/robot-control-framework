@@ -38,11 +38,17 @@ For development, you will need:
 - **Python 3.11+** (recommended)
 - **Node.js LTS** (e.g., 20.x) + **npm**
 - **uv** (Python package manager from Astral)
+- git lfs (for linux and mac)
 Installation:
   
 - macOS/Linux:
     ```bash
     curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+Inside the project execute:
+    ```bash
+    git lfs install
+    git lfs pull
     ```
 - Windows (PowerShell):
 ```powershell
