@@ -1,19 +1,33 @@
 {
-  "name": "dt-robot-control-frontend",
+  "name": "frontend",
   "private": true,
   "version": "0.0.0",
-  "source": "src/index.html",
+  "type": "module",
   "scripts": {
-    "start": "parcel",
-    "build": "parcel build"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "closed-chain-ik": "github:gkjohnson/closed-chain-ik-js#v0.0.5",
-    "serve-static": "^2.2.0",
-    "three": "^0.176.0",
-    "urdf-loader": "^0.12.5"
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "three": "^0.181.2"
   },
   "devDependencies": {
-    "parcel": "^2.14.0"
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4"
   }
 }
