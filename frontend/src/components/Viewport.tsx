@@ -4,7 +4,7 @@ import { OrbitControls } from "@react-three/drei";
 
 function Viewport() {
   return (
-    <div className="viewport">
+    <div className="Viewport">
       <Canvas
         camera={{ position: [3, 3, 3], fov: 50 }}
       >
