@@ -4,8 +4,8 @@ from fastapi.templating import Jinja2Templates
 from asyncua import ua
 
 # Own modules
-from modules.OPCUAClient import OPCUAClient
-from modules.GetAddressSpace import collect_node_details
+from src.opcua.client import OPCUAClient
+from src.opcua.GetAddressSpace import collect_node_details
 
 
 router = APIRouter()
@@ -34,13 +34,13 @@ async def websocket_endpoint(websocket: WebSocket):
             print(f"Send Error: {e}")
 
     handlers = {
-        "call|": handle_call,
+        "call|": handle_call, #todo
         "subscribe|": handle_subscribe,
         "unsubscribe|": handle_unsubscribe,
         "subscribeEvent|": handle_subscribe_event,
         "unsubscribeEvent|": handle_unsubscribe_event,
         "connect|": handle_connect,
-        "stream joint position|": handle_stream_joint_position,
+        "stream joint position|": handle_stream_joint_position, #similar to subscribe handler.. redundant?
         "cancel stream joint position|": handle_cancel_stream_joint_position,
         "stream mode|": handle_stream_mode,
         "cancel stream mode|": handle_cancel_stream_mode,

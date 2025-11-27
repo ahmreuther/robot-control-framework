@@ -5,8 +5,8 @@ from typing import List, TypedDict, Set
 
 from contextlib import asynccontextmanager
 
-import opcua
-import mcp_server
+import src.opcua.opcua as opcua
+import src.server.mcp_server as mcp_server
 
 
 class State(TypedDict):
