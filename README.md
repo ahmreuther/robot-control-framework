@@ -38,12 +38,19 @@ For development, you will need:
 - **Python 3.11+** (recommended)
 - **Node.js LTS** (e.g., 20.x) + **npm**
 - **uv** (Python package manager from Astral)
-Installation:
+- **git lfs** (for Linux and Mac)
+
+### Installation:
   
 - macOS/Linux:
     ```bash
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
+    Inside the project execute:
+    ```
+    git lfs install && git lfs pull
+    ```
+    
 - Windows (PowerShell):
 ```powershell
     iwr https://astral.sh/uv/install.ps1 -UseBasicParsing | iex
@@ -56,7 +63,7 @@ Installation:
 ### 1. Set up the backend
 Change to the backend directory:
 ```bash
-cd Backend
+cd backend
 uv run main.py               # Start backend
 ```
 ### 2. Set up the frontend
