@@ -3,6 +3,7 @@ import './App.css'
 
 import CornerLogo from './components/CornerLogo.tsx'
 import Viewport from "./components/Viewport.tsx";
+import MessageLog from './components/MessageLog.tsx';
 
 function App() {
 
@@ -10,6 +11,7 @@ function App() {
     <>
       <CornerLogo />
       <Viewport />
+      <MessageLog />
     </>
   )
 }
