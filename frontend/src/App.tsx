@@ -10,6 +10,8 @@ function App() {
 
   return (
     <>
+      <CornerLogo />
+      <Viewport />
       <MessageLog />
     </>
   )
