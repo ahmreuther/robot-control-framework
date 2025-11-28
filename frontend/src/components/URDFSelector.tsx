@@ -12,7 +12,7 @@ interface URDFSelectorProps {
 }
 
 export const URDFSelector: React.FC<URDFSelectorProps> = ({ options, onSelect }) => (
-  <ul>
+  <ul id="urdf-selector">
     {options.map(opt => (
       <li
         key={opt.urdf}

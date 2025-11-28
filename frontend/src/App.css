@@ -5,6 +5,7 @@
   padding: 0;
 }
 
+
 .Viewport {
   position: absolute;
   inset: 0;
@@ -12,6 +13,27 @@
   width: 100%;
   z-index: 0;
   display: block;
+}
+
+#urdf-selector {
+  position: fixed;
+  top: 2%;
+  left: 2%;      
+  z-index: 10;
+  text-overflow: ellipsis;
+  list-style-type: none;
+  padding-left: 0;
+}
+
+#urdf-selector li {
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 20px;
+  font-weight: 100;
+}
+
+#urdf-selector li:hover {
+  opacity: 0.75;
 }
 
 .CornerLogo {

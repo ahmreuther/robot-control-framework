@@ -16,7 +16,7 @@ function Loader() {
 export function Viewport(props: ViewportProps) {
 
   return (
-    <div className="viewport">
+    <div className="Viewport">
       <Canvas
         camera={{ position: [3, 3, 3], fov: 50 }}
       >
