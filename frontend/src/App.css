@@ -46,3 +46,7 @@
   gap: 10px;
   z-index: 10;
 }
+.MessageLog {
+  position: fixed;
+  z-index: 10;
+}

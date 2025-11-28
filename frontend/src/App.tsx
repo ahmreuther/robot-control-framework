@@ -2,8 +2,10 @@ import { useState } from 'react'
 import './App.css'
 
 import CornerLogo from './components/CornerLogo.tsx'
+import MessageLog from './components/MessageLog.tsx';
 import { Viewport } from "./components/Viewport.tsx";
 import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
+
 
 const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/eva_description/urdf/eva_description.urdf', color: '#aaaab3', label: 'EVA Automata' },
@@ -18,6 +20,7 @@ export const App: React.FC = () => {
 
   return (
     <>
+      <MessageLog />
       <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
       <Viewport urdfPath={selectedRobot.urdf} />
     </>
