@@ -5,12 +5,11 @@ import CornerLogo from './components/CornerLogo.tsx'
 import Viewport from "./components/Viewport.tsx";
 import MessageLog from './components/MessageLog.tsx';
 
+
 function App() {
 
   return (
     <>
-      <CornerLogo />
-      <Viewport />
       <MessageLog />
     </>
   )
