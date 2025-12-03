@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+@plugin "./hero.ts";
+
+/* @source "frontend/node_modules/@heroui/theme/dist/**/
+/* The @source at-rule is not recognized by the CSS parser used in this project.
+   If this is intended for a specific tool, re-enable it in that tool's config. */
+
+/* @custom-variant dark (&:is(.dark *)); */
+/* The @custom-variant at-rule is not recognized by the CSS parser used in this project.
+   Re-enable in the appropriate preprocessor or plugin configuration if needed. */

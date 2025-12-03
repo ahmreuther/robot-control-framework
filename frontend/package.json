@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroui/react": "^2.8.5",
     "@melloware/react-logviewer": "^6.3.4",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.0",
