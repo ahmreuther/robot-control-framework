@@ -1,6 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import RobotLoader from '../utlis/RobotLoader.tsx';
+import RobotLoader from '../utils/RobotLoader.tsx';
 import { Suspense } from "react";
 import { Html, useProgress } from "@react-three/drei";
 
