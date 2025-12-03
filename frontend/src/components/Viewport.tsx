@@ -16,7 +16,7 @@ function Loader() {
 export function Viewport(props: ViewportProps) {
 
   return (
-    <div className="Viewport">
+    <div className="absolute inset-0 h-full w-full z-0 block">
       <Canvas
         camera={{ position: [3, 3, 3], fov: 50 }}
       >

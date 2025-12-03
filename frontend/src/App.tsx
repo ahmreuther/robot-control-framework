@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import './App.css'
 
 import CornerLogo from './components/CornerLogo.tsx'
 import MessageLog from './components/MessageLog.tsx';
