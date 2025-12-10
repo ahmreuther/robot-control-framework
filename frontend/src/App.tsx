@@ -1,24 +1,29 @@
 import { useState } from 'react'
 import './App.css'
+
 import { Slider, Label } from '@heroui/react'
+import MessageLog from './components/MessageLog.tsx';
+import { Viewport } from "./components/Viewport.tsx";
+import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
+
+const robotOptions: URDFOptions[] = [
+  { urdf: '/urdf/eva_description/urdf/eva_description.urdf', color: '#aaaab3', label: 'EVA Automata' },
+  { urdf: '/urdf/fr3_description/urdf/fr3.urdf', color: '#aaaab3', label: 'Franka Research 3' },
+  { urdf: '/urdf/fr3_description_with_wagon/urdf/fr3.urdf', color: '#aaaab3', label: 'Franka Research 3 & Wagon' },
+  { urdf: '/urdf/ur5_description/urdf/ur5_robot.urdf', color: '#aaaab3', label: 'UR5e' },
+];
 
 function App() {
+
   const [count, setCount] = useState(0)
+  
+  const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
 
   return (
     <>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <MessageLog />
+      <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
+      <Viewport urdfPath={selectedRobot.urdf} />
       <Slider className="w-full max-w-xs" defaultValue={30}>
           <Label>Volume</Label>
           <Slider.Output />
