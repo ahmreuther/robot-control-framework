@@ -24,14 +24,6 @@ function App() {
       <MessageLog />
       <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
       <Viewport urdfPath={selectedRobot.urdf} />
-      <Slider className="w-full max-w-xs" defaultValue={30}>
-          <Label>Volume</Label>
-          <Slider.Output />
-          <Slider.Track>
-          <Slider.Fill />
-          <Slider.Thumb />
-          </Slider.Track>
-        </Slider>
     </>
   )
 }
