@@ -71,10 +71,3 @@ export default defineConfig([
   },
 ])
 ```
-
-
-##To start project##
-
-cd frontend
-npm install //if starting first time
-npm run dev

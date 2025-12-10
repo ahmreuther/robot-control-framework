@@ -1,29 +1,35 @@
 import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
+import './App.css'
 
-import CornerLogo from './components/CornerLogo.tsx'
-import MessageLog from './components/MessageLog.tsx';
-import { Viewport } from "./components/Viewport.tsx";
-import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
-
-
-const robotOptions: URDFOptions[] = [
-  { urdf: '/urdf/eva_description/urdf/eva_description.urdf', color: '#aaaab3', label: 'EVA Automata' },
-  { urdf: '/urdf/fr3_description/urdf/fr3.urdf', color: '#aaaab3', label: 'Franka Research 3' },
-  { urdf: '/urdf/fr3_description_with_wagon/urdf/fr3.urdf', color: '#aaaab3', label: 'Franka Research 3 & Wagon' },
-  { urdf: '/urdf/ur5_description/urdf/ur5_robot.urdf', color: '#aaaab3', label: 'UR5e' },
-];
-
-export const App: React.FC = () => {
-
-  const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
+function App() {
+  const [count, setCount] = useState(0)
 
   return (
     <>
-      <MessageLog />
-      <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
-      <Viewport urdfPath={selectedRobot.urdf} />
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
     </>
   )
-};
+}
 
 export default App
