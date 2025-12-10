@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import './App.css'
 
-import { Slider, Label } from '@heroui/react'
 import MessageLog from './components/MessageLog.tsx';
 import { Viewport } from "./components/Viewport.tsx";
 import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
+import {Menu} from "./components/Menu.tsx";
 
 const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/eva_description/urdf/eva_description.urdf', color: '#aaaab3', label: 'EVA Automata' },
@@ -21,9 +21,11 @@ function App() {
 
   return (
     <>
-      <MessageLog />
-      <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
+      {/* <MessageLog /> */}
+      {/* <URDFSelector options={robotOptions} onSelect={setSelectedRobot} /> */}
       <Viewport urdfPath={selectedRobot.urdf} />
+      <Menu />
+      
     </>
   )
 }
