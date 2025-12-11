@@ -5,6 +5,8 @@ import MessageLog from './components/MessageLog.tsx';
 import { Viewport } from "./components/Viewport.tsx";
 import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
 import {Menu} from "./components/Menu.tsx";
+import { initSocket,getSocket } from "./components/Connect";
+
 
 const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/eva_description/urdf/eva_description.urdf', color: '#aaaab3', label: 'EVA Automata' },
@@ -18,6 +20,8 @@ function App() {
   const [count, setCount] = useState(0)
   
   const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
+
+  initSocket("ws://127.0.0.1:8000/ws"); //initialize WebSocket connection
 
   return (
     <>
