@@ -9,7 +9,7 @@ clients: Dict[str, OPCUAClient] = {}
 
 # --- Helper Functions ---
 
-""" for handler to find connected robots, becauserouter.py has its own clients dict
+""" for handler to find connected robots, because router.py has its own clients dict
     and handlers.py has its own clients dict. Need to share the same dict."""
 def set_clients(clients_dict: Dict[str, OPCUAClient]) -> None:
     """Inject clients dict from router.
