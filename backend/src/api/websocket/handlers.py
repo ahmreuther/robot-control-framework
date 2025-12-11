@@ -7,7 +7,20 @@ from src.opcua.client import OPCUAClient
 # Temporary: will be replaced with service later
 clients: Dict[str, OPCUAClient] = {}
 
-#--- Helper Functions ---
+# --- Helper Functions ---
+
+""" for handler to find connected robots, becauserouter.py has its own clients dict
+    and handlers.py has its own clients dict. Need to share the same dict."""
+def set_clients(clients_dict: Dict[str, OPCUAClient]) -> None:
+    """Inject clients dict from router.
+    
+    Args:
+        clients_dict: Dictionary mapping URLs to OPCUAClient instances.
+    """
+    global clients
+    clients = clients_dict
+
+
 
 def get_client(url: str) -> OPCUAClient | None:
     """Get a client for the given URL or None."""
@@ -15,7 +28,7 @@ def get_client(url: str) -> OPCUAClient | None:
 
 # --- WebSocket Handlers ---
 
-async def handle_call(websocket, data):
+async def handle_call(websocket: WebSocket, data: str) -> None:
     """Handle OPC UA method call requests from frontend.
 
     Args:
@@ -39,7 +52,7 @@ async def handle_call(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ Error parsing call payload: {e}")
 
-async def handle_subscribe(websocket, data):
+async def handle_subscribe(websocket: WebSocket, data: str) -> None:
     """Subscribe to variable changes on a specific node.
 
     Args:
@@ -70,7 +83,7 @@ async def handle_subscribe(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ subscribe error: {e}")
 
-async def handle_subscribe_event(websocket, data):
+async def handle_subscribe_event(websocket: WebSocket, data: str) -> None:
     """Subscribe to events on a specific node.
 
     Args:
@@ -98,7 +111,7 @@ async def handle_subscribe_event(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ Event subscription error: {e}")
 
-async def handle_unsubscribe_event(websocket, data):
+async def handle_unsubscribe_event(websocket: WebSocket, data: str) -> None:
     """Unsubscribes from event notifications on a node."""
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
@@ -117,7 +130,7 @@ async def handle_unsubscribe_event(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ Unsubscribe event error: {e}")
 
-async def handle_unsubscribe(websocket, data):
+async def handle_unsubscribe(websocket: WebSocket, data: str) -> None:
     """Ends a custom subscription."""
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
@@ -136,7 +149,7 @@ async def handle_unsubscribe(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ unsubscribe error: {e}")
 
-async def handle_connect(websocket, data):
+async def handle_connect(websocket: WebSocket, data: str) -> None:
     """Connects to an OPC UA server."""
     url = data.split("|", 1)[1].strip()
     if url in clients:
@@ -159,7 +172,7 @@ async def handle_connect(websocket, data):
     except Exception as e:
         await websocket.send_text(f"❌ Connection failed to {url}: {str(e)}")
 
-async def handle_stream_joint_position(websocket, data):
+async def handle_stream_joint_position(websocket: WebSocket, data: str) -> None:
     """Start streaming joint angle positions continuously.
 
     Args:
@@ -177,7 +190,7 @@ async def handle_stream_joint_position(websocket, data):
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
 
-async def handle_cancel_stream_joint_position(websocket, data):
+async def handle_cancel_stream_joint_position(websocket: WebSocket, data: str) -> None:
     """Stop streaming joint angle positions.
 
     Args:
@@ -195,7 +208,7 @@ async def handle_cancel_stream_joint_position(websocket, data):
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
 
-async def handle_stream_mode(websocket, data):
+async def handle_stream_mode(websocket: WebSocket, data: str) -> None:
     """Start streaming robot operation mode continuously.
 
     Args:
@@ -213,7 +226,7 @@ async def handle_stream_mode(websocket, data):
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
 
-async def handle_cancel_stream_mode(websocket, data):
+async def handle_cancel_stream_mode(websocket: WebSocket, data: str) -> None:
     """Stops streaming the operation mode."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
@@ -223,7 +236,7 @@ async def handle_cancel_stream_mode(websocket, data):
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
 
-async def handle_status(websocket):
+async def handle_status(websocket: WebSocket) -> None:
     """Returns connection status and device information."""
     if not clients:
         await websocket.send_text("🔌 Disconnected")
@@ -238,7 +251,7 @@ async def handle_status(websocket):
         except Exception as e:
             await websocket.send_text(f"❌ Status check failed: {str(e)}")
 
-async def handle_disconnect(websocket, data):
+async def handle_disconnect(websocket: WebSocket, data: str) -> None:
     """Disconnect from the OPC UA server and clean up subscriptions."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
