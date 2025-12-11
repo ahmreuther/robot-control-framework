@@ -1,7 +1,7 @@
 import {Input} from "@heroui/react";
 import {Button} from "@heroui/react";
 import {Label, Switch} from "@heroui/react";
-import { initSocket,getSocket } from "./Connect";
+import { getSocket } from "./Connect";
 import { useRef, useState} from "react";
 
 
@@ -10,8 +10,6 @@ function ConnectOPCUA() {
 
 
     const [url, seturl] = useState("");
-
-    initSocket("ws://127.0.0.1:8000/ws");
 
     function handleConnect() {
     const trimmedUrl = url.trim();
