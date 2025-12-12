@@ -5,10 +5,11 @@ from asyncua import Client, ua
 from asyncua.ua.uatypes import VariantType
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
+from .subscription_manager import SubscriptionManager
+from .node_finder import NodeManager
 
 def clear_terminal():
     os.system('cls' if os.name == 'nt' else 'clear')
-
 
 class OPCUAClient:
     """
@@ -20,18 +21,6 @@ class OPCUAClient:
         self.client = Client(url)
         self.websocket = websocket
 
-        self.expected_axes_count = 0
-        self.sub_handler = SubHandler(name, websocket, lambda: self.expected_axes_count, mode="axes", client=self)
-        self.subscription = None
-
-        self.mode_subscription = None
-        self.mode_node = None
-        self.mode_sub_handler = None
-        self.custom_subscriptions = {}
-
-        self.event_subscription = None
-        self.event_handle = None
-
         self.is_robotics_server = False
         self.namespaces: list[str] = []
 
@@ -40,6 +29,8 @@ class OPCUAClient:
         self.goto_method_nodeid: str | None = None
         self.toggle_endeff_method_nodeid: str | None = None
 
+        # Initialize managers
+        self.subscription_manager = SubscriptionManager(self, name, websocket)
 
         self.running = False
 
@@ -63,7 +54,7 @@ class OPCUAClient:
         names = ["EndEffSkill","toggleEndEff", "toggle_end_eff", "toggleEndEffector", "toggleendeffector"]
         wanted = {self._norm(n) for n in names}
 
-        start = await self.find_child_by_name(["0:Objects"], "DeviceSet")
+        start = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not start:
             start = await self.client.nodes.root.get_child(["0:Objects"])
 
@@ -144,7 +135,7 @@ class OPCUAClient:
         names = ["JointPTPMoveSkill","go to", "goto", "go_to", "go-to", "Go To"]
         wanted = {self._norm(n) for n in names}
 
-        start = await self.find_child_by_name(["0:Objects"], "DeviceSet")
+        start = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not start:
             start = await self.client.nodes.root.get_child(["0:Objects"])
 
@@ -214,102 +205,6 @@ class OPCUAClient:
             return self.goto_method_nodeid
         return None
 
-    
-
-    async def find_descendant_by_name(self, start_node, target_name: str):
-        """
-        Broad search (BFS) from start_node for a node whose DisplayName.Text
-        OR BrowseName.Name matches target_name (case-insensitive).
-        Cycles are prevented by ‘visited’.
-        """
-        target = (target_name or "").strip().lower()
-        if not target:
-            return None
-
-        from collections import deque
-        q = deque([start_node])
-        visited = set()
-
-        while q:
-            node = q.popleft()
-            try:
-                nid = node.nodeid.to_string()
-                if nid in visited:
-                    continue
-                visited.add(nid)
-
-                # DisplayName
-                try:
-                    dn = await node.read_display_name()
-                    dn_txt = getattr(dn, "Text", str(dn)) or ""
-                except Exception:
-                    dn_txt = ""
-
-                # BrowseName
-                try:
-                    bn = await node.read_browse_name()
-                    bn_name = getattr(bn, "Name", "") or ""
-                except Exception:
-                    bn_name = ""
-
-                if dn_txt.lower() == target or bn_name.lower() == target:
-                    return node
-
-                for child in await node.get_children():
-                    q.append(child)
-            except Exception:
-                continue
-        return None
-
-
-
-
-
-    async def find_child_by_name(self, start_path: list[str], name: str):
-        """
-        Search recursively from the node under start_path for BrowseName.Name == name
-        (case-insensitive), cycle-proof.
-        """
-        try:
-            start_node = await self.client.nodes.root.get_child(start_path)
-            return await self._search_by_name(start_node, name)
-        except Exception as e:
-            print(f"[{self.name}] ❌ Error in find_child_by_name: {e}")
-            return None
-
-    async def _search_by_name(self, node, target_name: str):
-        target = (target_name or "").strip().lower()
-        if not target:
-            return None
-
-        from collections import deque
-        q = deque([node])
-        visited = set()
-        while q:
-            cur = q.popleft()
-            try:
-                nid = cur.nodeid.to_string()
-                if nid in visited:
-                    continue
-                visited.add(nid)
-
-                try:
-                    bn = await cur.read_browse_name()
-                    bn_name = getattr(bn, "Name", "") or ""
-                except Exception:
-                    bn_name = ""
-
-                if bn_name.lower() == target:
-                    uri = self.namespaces[bn.NamespaceIndex] if bn.NamespaceIndex < len(self.namespaces) else None
-                    print(f"[{self.name}] ✅ Found: {bn_name} (Namespace: {uri})")
-                    return cur
-
-                for child in await cur.get_children():
-                    q.append(child)
-            except Exception:
-                continue
-        return None
-
     async def connect(self):
         await self.client.connect()
 
@@ -340,8 +235,8 @@ class OPCUAClient:
 
     async def disconnect(self):
         self.running = False
-        if self.subscription:
-            await self.subscription.delete()
+        if self.subscription_manager.subscription:
+            await self.subscription_manager.subscription.delete()
         await self.client.disconnect()
         print(f"[{self.name}] Connection lost.")
 
@@ -437,171 +332,6 @@ class OPCUAClient:
             print(f"[CALL] ❌ Fehler: {e}")
             return {"status": None, "output_arguments": [], "error": f"Error when calling method: {e}"}
 
-    async def subscribe_axes_actual_positions(self):
-        """Search for all axes under DeviceSet → Axes and subscribe to their ActualPosition (robust)."""
-        device_set = await self.find_child_by_name(["0:Objects"], "DeviceSet")
-        if not device_set:
-            print(f"[{self.name}] ⚠️ No ‘DeviceSet’ node found.")
-            return
-
-        axes_node = await self.find_descendant_by_name(device_set, "Axes")
-        if not axes_node:
-            print(f"[{self.name}] ⚠️ No ‘Axes’ node found.")
-            return
-
-        axis_nodes = []
-        for child in await axes_node.get_children():
-            dn = await child.read_display_name()
-            txt = (getattr(dn, "Text", str(dn)) or "").lower()
-            if txt.startswith("axis") or txt.startswith("joint") or txt.startswith("ax"):
-                axis_nodes.append(child)
-        if not axis_nodes:
-            axis_nodes = await axes_node.get_children()  
-        print(f"[{self.name}] {len(axis_nodes)} Axles found.")
-
-        actual_position_nodes = []
-        for axis in axis_nodes:
-            try:
-                paramset = await self.find_descendant_by_name(axis, "ParameterSet")
-                if not paramset:
-                    print(f"[{self.name}] ⚠️ No parameter set under {axis}")
-                    continue
-                actual_pos = await self.find_descendant_by_name(paramset, "ActualPosition")
-                if actual_pos:
-                    actual_position_nodes.append(actual_pos)
-                else:
-                    print(f"[{self.name}] ⚠️ No ActualPosition unter {axis}")
-            except Exception as e:
-                print(f"[{self.name}] ⚠️ Fehler bei {axis}: {e}")
-
-        if not actual_position_nodes:
-            print(f"[{self.name}] ⚠️ No ActualPosition-Nodes found.")
-            return
-
-        self.expected_axes_count = len(actual_position_nodes)
-        self.sub_handler.reset()
-
-        if not self.subscription:
-            self.subscription = await self.client.create_subscription(50, self.sub_handler)
-
-        await self.subscription.subscribe_data_change(actual_position_nodes)
-        print(f"[{self.name}] ✅ {len(actual_position_nodes)} ActualPosition values subscribed.")
-
-
-    async def stop_axes_subscription(self):
-        """Ends the axis position subscription."""
-        if self.subscription:
-            try:
-                await self.subscription.delete()
-                print(f"[{self.name}] Joint position stream cancelled.")
-            except Exception as e:
-                print(f"[{self.name}] ⚠️ Error deleting subscription: {e}")
-        self.subscription = None
-        self.sub_handler.reset()
-
-    async def subscribe_mode(self):
-        try:
-            device_set = await self.find_child_by_name(["0:Objects"], "DeviceSet")
-            if not device_set:
-                print(f"[{self.name}] ⚠️ No ‘DeviceSet’ node found.")
-                return
-
-            controller = await self.find_descendant_by_name(device_set, "RobotState")
-            if not controller:
-                print(f"[{self.name}] ⚠️ No ‘RobotState’ node found.")
-                return
-
-            self.mode_node = controller
-            if not self.mode_sub_handler:
-                self.mode_sub_handler = SubHandler(self.name, self.websocket, mode="mode", client=self)
-            if not self.mode_subscription:
-                self.mode_subscription = await self.client.create_subscription(50, self.mode_sub_handler)
-
-            await self.mode_subscription.subscribe_data_change(controller)
-            print(f"[{self.name}] ✅ Mode-Node subscribed: {controller}")
-
-        except Exception as e:
-            print(f"[{self.name}] ❌ Error subscribing to Mode: {e}")
-
-
-    async def stop_mode_subscription(self):
-        """Explicitly terminates the mode subscription."""
-        try:
-            if self.mode_subscription:
-                await self.mode_subscription.delete()
-                print(f"[{self.name}] ❌ Mode-Subscription stopped.")
-        except Exception as e:
-            print(f"[{self.name}] ⚠️ Error deleting fashion subscription: {e}")
-        self.mode_subscription = None
-        self.mode_node = None
-        if self.mode_sub_handler:
-            self.mode_sub_handler.reset()
-
-    async def subscribe_custom(self, node_id, websocket):
-        """
-        Creates a subscription to any NodeId.
-        """
-        node = self.client.get_node(node_id)
-        handler = SubHandler(self.name, websocket, mode="custom", client=self)
-        subscription = await self.client.create_subscription(50, handler)
-        await subscription.subscribe_data_change(node)
-        self.custom_subscriptions[node_id] = subscription
-        return subscription
-
-    async def unsubscribe_custom(self, node_id: str):
-        """
-        Removes (deletes) a custom subscription for a specific NodeId.
-        """
-        try:
-            if node_id in self.custom_subscriptions:
-                subscription = self.custom_subscriptions[node_id]
-                await subscription.delete()
-                del self.custom_subscriptions[node_id]
-                print(f"[{self.name}] ✅ Custom subscription removed for NodeId {node_id}")
-                return True
-            else:
-                print(f"[{self.name}] ⚠️ No custom subscription found for NodeId {node_id}")
-                return False
-        except Exception as e:
-            print(f"[{self.name}] ❌ Error removing custom subscription for NodeId {node_id}: {e}")
-            return False
-        
-
-    async def subscribe_events_on_node(self, node_id: str):
-        """
-        Subscribe to events on a specific node.
-        """
-        try:
-            node = self.client.get_node(node_id)
-            handler = SubHandler(self.name, self.websocket, mode="event", client=self)
-            subscription = await self.client.create_subscription(100, handler)
-            handle = await subscription.subscribe_events(node)
-
-            self.event_subscription = subscription
-            self.event_handle = handle
-
-            print(f"[{self.name}] ✅ Event subscription on node {node_id} active.")
-            return True
-        except Exception as e:
-            print(f"[{self.name}] ❌ Error subscribing to events on node {node_id}: {e}")
-            return False
-
-    async def unsubscribe_events(self):
-        try:
-            if self.event_subscription and self.event_handle:
-                await self.event_subscription.unsubscribe(self.event_handle)
-                await self.event_subscription.delete()
-                print(f"[{self.name}] ✅ Event subscription removed.")
-                self.event_subscription = None
-                self.event_handle = None
-                return True
-            return False
-        except Exception as e:
-            print(f"[{self.name}] ❌ Error removing event subscription: {e}")
-            return False
-        
-
-
     async def check_robotics_support(self) -> bool:
         """Checks whether ‘http://opcfoundation.org/UA/Robotics/’ is contained in the NamespaceArray."""
         try:
@@ -644,10 +374,10 @@ class OPCUAClient:
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
-            device_set = await self.find_child_by_name(["0:Objects"], "DeviceSet")
+            device_set = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
                 return "None"
-            node = await self.find_descendant_by_name(device_set, "Model")
+            node = await NodeManager.find_descendant_by_name(device_set, "Model")
             
             if node:
                 val = await node.read_value()
@@ -661,10 +391,10 @@ class OPCUAClient:
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
-            device_set = await self.find_child_by_name(["0:Objects"], "DeviceSet")
+            device_set = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
                 return "None"
-            node = await self.find_descendant_by_name(device_set, "SerialNumber")
+            node = await NodeManager.find_descendant_by_name(device_set, "SerialNumber")
             if node:
                 val = await node.read_value()
                 return val.Text if hasattr(val, 'Text') else str(val)
@@ -678,10 +408,10 @@ class OPCUAClient:
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
-            device_set = await self.find_child_by_name(["0:Objects"], "DeviceSet")
+            device_set = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
                 return "None"
-            node = await self.find_descendant_by_name(device_set, "Manufacturer")
+            node = await NodeManager.find_descendant_by_name(device_set, "Manufacturer")
             if node:
                 val = await node.read_value()
                 return val.Text if hasattr(val, 'Text') else str(val)
