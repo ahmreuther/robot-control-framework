@@ -31,6 +31,7 @@ class OPCUAClient:
 
         # Initialize managers
         self.subscription_manager = SubscriptionManager(self, name, websocket)
+        self.node_manager = NodeManager(self)
 
         self.running = False
 
@@ -54,7 +55,7 @@ class OPCUAClient:
         names = ["EndEffSkill","toggleEndEff", "toggle_end_eff", "toggleEndEffector", "toggleendeffector"]
         wanted = {self._norm(n) for n in names}
 
-        start = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
+        start = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not start:
             start = await self.client.nodes.root.get_child(["0:Objects"])
 
@@ -135,7 +136,7 @@ class OPCUAClient:
         names = ["JointPTPMoveSkill","go to", "goto", "go_to", "go-to", "Go To"]
         wanted = {self._norm(n) for n in names}
 
-        start = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
+        start = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not start:
             start = await self.client.nodes.root.get_child(["0:Objects"])
 
@@ -223,7 +224,7 @@ class OPCUAClient:
             except Exception as e:
                 print(f"[{self.name}] ⚠️ resolve_goto_method failed: {e}")
             try:
-                await self.EndEffSkill()
+                await self.resolve_toggle_endeff_method()
             except Exception as e:
                 print(f"[{self.name}] ⚠️ resolve_toggle_endeff_method failed: {e}")
             await self.send_robot_info_to_frontend()
@@ -374,10 +375,10 @@ class OPCUAClient:
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
-            device_set = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
+            device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
                 return "None"
-            node = await NodeManager.find_descendant_by_name(device_set, "Model")
+            node = await self.node_manager.find_descendant_by_name(device_set, "Model")
             
             if node:
                 val = await node.read_value()
@@ -391,10 +392,10 @@ class OPCUAClient:
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
-            device_set = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
+            device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
                 return "None"
-            node = await NodeManager.find_descendant_by_name(device_set, "SerialNumber")
+            node = await self.node_manager.find_descendant_by_name(device_set, "SerialNumber")
             if node:
                 val = await node.read_value()
                 return val.Text if hasattr(val, 'Text') else str(val)
@@ -408,10 +409,10 @@ class OPCUAClient:
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
-            device_set = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
+            device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
                 return "None"
-            node = await NodeManager.find_descendant_by_name(device_set, "Manufacturer")
+            node = await self.node_manager.find_descendant_by_name(device_set, "Manufacturer")
             if node:
                 val = await node.read_value()
                 return val.Text if hasattr(val, 'Text') else str(val)

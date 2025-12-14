@@ -1,7 +1,13 @@
 class NodeManager:
     """Manages OPC UA node operations for the client."""
 
-    @staticmethod
+    def __init__(self, opcua_client):
+        self.opcua = opcua_client              # wrapper
+        self.client = opcua_client.client      # asyncua.Client
+
+        self.namespaces = opcua_client.namespaces
+        self.name = opcua_client.name
+
     async def find_descendant_by_name(self, start_node, target_name: str):
         """
         Broad search (BFS) from start_node for a node whose DisplayName.Text
@@ -48,9 +54,6 @@ class NodeManager:
         return None
 
 
-
-
-    @staticmethod
     async def find_child_by_name(self, start_path: list[str], name: str):
         """
         Search recursively from the node under start_path for BrowseName.Name == name
@@ -63,9 +66,8 @@ class NodeManager:
             print(f"[{self.name}] ❌ Error in find_child_by_name: {e}")
             return None
         
-
-    @staticmethod
     async def _search_by_name(self, node, target_name: str):
+        "helper method"
         target = (target_name or "").strip().lower()
         if not target:
             return None

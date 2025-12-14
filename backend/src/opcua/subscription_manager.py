@@ -5,11 +5,18 @@ from .node_finder import NodeManager
 class SubscriptionManager:
     """Manages OPC UA subscriptions for the client."""
 
-    def __init__(self, client, name: str = "Client", websocket: WebSocket = None):
+    def __init__(self, opcua_client, name: str = "Client", websocket: WebSocket = None):
 
-        self.client = client
+        self.opcua = opcua_client
+        self.client = opcua_client.client   # asyncua.Client
+        self.name = name
+        self.websocket = websocket
+
+        self.node_manager = NodeManager(opcua_client)
         self.expected_axes_count = 0
-        self.sub_handler = SubHandler(name, websocket, lambda: self.expected_axes_count, mode="axes", client=self)
+
+        self.sub_handler = SubHandler(name, websocket, lambda: self.expected_axes_count, mode="axes", node_manager = self.node_manager)
+
         self.subscription = None
 
         self.mode_subscription = None
@@ -22,12 +29,12 @@ class SubscriptionManager:
 
     async def subscribe_axes_actual_positions(self):
         """Search for all axes under DeviceSet → Axes and subscribe to their ActualPosition (robust)."""
-        device_set = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
+        device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not device_set:
-            print(f"[{self.client.name}] ⚠️ No ‘DeviceSet’ node found.")
+            print(f"[{self.name}] ⚠️ No ‘DeviceSet’ node found.")
             return
 
-        axes_node = await NodeManager.find_descendant_by_name(device_set, "Axes")
+        axes_node = await self.node_manager.find_descendant_by_name(device_set, "Axes")
         if not axes_node:
             print(f"[{self.name}] ⚠️ No ‘Axes’ node found.")
             return
@@ -45,15 +52,15 @@ class SubscriptionManager:
         actual_position_nodes = []
         for axis in axis_nodes:
             try:
-                paramset = await NodeManager.find_descendant_by_name(axis, "ParameterSet")
+                paramset = await self.node_manager.find_descendant_by_name(axis, "ParameterSet")
                 if not paramset:
                     print(f"[{self.name}] ⚠️ No parameter set under {axis}")
                     continue
-                actual_pos = await NodeManager.find_descendant_by_name(paramset, "ActualPosition")
+                actual_pos = await self.node_manager.find_descendant_by_name(paramset, "ActualPosition")
                 if actual_pos:
                     actual_position_nodes.append(actual_pos)
                 else:
-                    print(f"[{self.name}] ⚠️ No ActualPosition unter {axis}")
+                    print(f"[{self.clienname}] ⚠️ No ActualPosition unter {axis}")
             except Exception as e:
                 print(f"[{self.name}] ⚠️ Fehler bei {axis}: {e}")
 
@@ -84,19 +91,19 @@ class SubscriptionManager:
 
     async def subscribe_mode(self):
         try:
-            device_set = await NodeManager.find_child_by_name(["0:Objects"], "DeviceSet")
+            device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
                 print(f"[{self.name}] ⚠️ No ‘DeviceSet’ node found.")
                 return
 
-            controller = await NodeManager.find_descendant_by_name(device_set, "RobotState")
+            controller = await self.node_manager.find_descendant_by_name(device_set, "RobotState")
             if not controller:
                 print(f"[{self.name}] ⚠️ No ‘RobotState’ node found.")
                 return
 
             self.mode_node = controller
             if not self.mode_sub_handler:
-                self.mode_sub_handler = SubHandler(self.name, self.websocket, mode="mode", client=self)
+                self.mode_sub_handler = SubHandler(self.name, self.websocket, mode="mode", node_manager = self.node_manager)
             if not self.mode_subscription:
                 self.mode_subscription = await self.client.create_subscription(50, self.mode_sub_handler)
 
@@ -125,7 +132,7 @@ class SubscriptionManager:
         Creates a subscription to any NodeId.
         """
         node = self.client.get_node(node_id)
-        handler = SubHandler(self.name, websocket, mode="custom", client=self)
+        handler = SubHandler(self.name, websocket, mode="custom", node_manager = self.node_manager)
         subscription = await self.client.create_subscription(50, handler)
         await subscription.subscribe_data_change(node)
         self.custom_subscriptions[node_id] = subscription
@@ -156,7 +163,7 @@ class SubscriptionManager:
         """
         try:
             node = self.client.get_node(node_id)
-            handler = SubHandler(self.name, self.websocket, mode="event", client=self)
+            handler = SubHandler(self.name, self.websocket, mode="event", node_manager = self.node_manager)
             subscription = await self.client.create_subscription(100, handler)
             handle = await subscription.subscribe_events(node)
 
