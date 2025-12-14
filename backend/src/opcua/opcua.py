@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from asyncua import ua
 
 # Own modules
-from src.opcua.client import OPCUAClient
+from src.opcua.opcua_client import OPCUAClient
 from src.opcua.GetAddressSpace import collect_node_details
 
 
