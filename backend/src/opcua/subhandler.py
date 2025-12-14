@@ -11,7 +11,7 @@ class SubHandler:
     """
        Handler for OPC UA DataChange events, supports various modes (“axes,” “mode,” “custom”).
     """
-    def __init__(self, name="Client", websocket: WebSocket = None, get_expected_count=None, mode="custom", client=None):
+    def __init__(self, name="Client", websocket: WebSocket = None, get_expected_count=None, mode="custom", node_manager=None):
         self.name = name
         self.websocket = websocket
         self.latest_values = {}
@@ -19,8 +19,7 @@ class SubHandler:
         self.get_expected_count = get_expected_count or (lambda: 0)
         self.unit_type = None
         self.mode = mode   
-        self.client = client  
-
+        self.node_manager = node_manager
     
 
     @staticmethod
@@ -72,9 +71,9 @@ class SubHandler:
             axis_dn = await axis_node.read_display_name()
             axis_name = getattr(axis_dn, "Text", str(axis_dn))
 
-            if self.unit_type is None and self.client:
+            if self.unit_type is None and self.node_manager:
                 try:
-                    eu_node = await self.client.find_descendant_by_name(node, "EngineeringUnits")
+                    eu_node = await self.node_manager.find_descendant_by_name(node, "EngineeringUnits")
                     if eu_node:
                         self.unit_type = await eu_node.read_value()
                 except Exception as e:
