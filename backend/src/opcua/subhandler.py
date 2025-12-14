@@ -73,7 +73,7 @@ class SubHandler:
 
             if self.unit_type is None and self.node_manager:
                 try:
-                    eu_node = await self.find_descendant_by_name(node, "EngineeringUnits")
+                    eu_node = await self.node_manager.find_descendant_by_name(node, "EngineeringUnits")
                     if eu_node:
                         self.unit_type = await eu_node.read_value()
                 except Exception as e:
