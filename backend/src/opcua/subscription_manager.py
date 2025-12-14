@@ -60,7 +60,7 @@ class SubscriptionManager:
                 if actual_pos:
                     actual_position_nodes.append(actual_pos)
                 else:
-                    print(f"[{self.clienname}] ⚠️ No ActualPosition unter {axis}")
+                    print(f"[{self.name}] ⚠️ No ActualPosition unter {axis}")
             except Exception as e:
                 print(f"[{self.name}] ⚠️ Fehler bei {axis}: {e}")
 
