@@ -7,8 +7,8 @@ class SubscriptionManager:
 
     def __init__(self, opcua_client, name: str = "Client", websocket: WebSocket = None):
 
-        self.opcua = opcua_client
-        self.client = opcua_client.client   # asyncua.Client
+        self.opcua_client = opcua_client
+        self.asyncua_client = opcua_client.client   # asyncua.Client
         self.name = name
         self.websocket = websocket
 
@@ -72,7 +72,7 @@ class SubscriptionManager:
         self.sub_handler.reset()
 
         if not self.subscription:
-            self.subscription = await self.client.create_subscription(50, self.sub_handler)
+            self.subscription = await self.asyncua_client.create_subscription(50, self.sub_handler)
 
         await self.subscription.subscribe_data_change(actual_position_nodes)
         print(f"[{self.name}] ✅ {len(actual_position_nodes)} ActualPosition values subscribed.")
@@ -105,7 +105,7 @@ class SubscriptionManager:
             if not self.mode_sub_handler:
                 self.mode_sub_handler = SubHandler(self.name, self.websocket, mode="mode", node_manager = self.node_manager)
             if not self.mode_subscription:
-                self.mode_subscription = await self.client.create_subscription(50, self.mode_sub_handler)
+                self.mode_subscription = await self.asyncua_client.create_subscription(50, self.mode_sub_handler)
 
             await self.mode_subscription.subscribe_data_change(controller)
             print(f"[{self.name}] ✅ Mode-Node subscribed: {controller}")
@@ -131,9 +131,9 @@ class SubscriptionManager:
         """
         Creates a subscription to any NodeId.
         """
-        node = self.client.get_node(node_id)
+        node = self.asyncua_client.get_node(node_id)
         handler = SubHandler(self.name, websocket, mode="custom", node_manager = self.node_manager)
-        subscription = await self.client.create_subscription(50, handler)
+        subscription = await self.asyncua_client.create_subscription(50, handler)
         await subscription.subscribe_data_change(node)
         self.custom_subscriptions[node_id] = subscription
         return subscription
@@ -162,9 +162,9 @@ class SubscriptionManager:
         Subscribe to events on a specific node.
         """
         try:
-            node = self.client.get_node(node_id)
+            node = self.asyncua_client.get_node(node_id)
             handler = SubHandler(self.name, self.websocket, mode="event", node_manager = self.node_manager)
-            subscription = await self.client.create_subscription(100, handler)
+            subscription = await self.asyncua_client.create_subscription(100, handler)
             handle = await subscription.subscribe_events(node)
 
             self.event_subscription = subscription

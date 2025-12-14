@@ -18,7 +18,7 @@ class OPCUAClient:
     def __init__(self, url: str, name: str = "Client", websocket: WebSocket = None):
         self.url = url
         self.name = name
-        self.client = Client(url)
+        self.asyncua_client = Client(url)
         self.websocket = websocket
 
         self.is_robotics_server = False
@@ -57,7 +57,7 @@ class OPCUAClient:
 
         start = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not start:
-            start = await self.client.nodes.root.get_child(["0:Objects"])
+            start = await self.asyncua_client.nodes.root.get_child(["0:Objects"])
 
         from collections import deque
         q = deque([start])
@@ -138,7 +138,7 @@ class OPCUAClient:
 
         start = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not start:
-            start = await self.client.nodes.root.get_child(["0:Objects"])
+            start = await self.asyncua_client.nodes.root.get_child(["0:Objects"])
 
         from collections import deque
         q = deque([start])
@@ -207,14 +207,14 @@ class OPCUAClient:
         return None
 
     async def connect(self):
-        await self.client.connect()
+        await self.asyncua_client.connect()
 
-        ns_array_node = self.client.get_node("i=2255")  # NamespaceArray
+        ns_array_node = self.asyncua_client.get_node("i=2255")  # NamespaceArray
         self.namespaces = await ns_array_node.read_value()
         print(f"[{self.name}] Namespaces: {self.namespaces}")
 
         print(f"[{self.name}] Connected to {self.url}")
-        objects = await self.client.nodes.root.get_child(["0:Objects"])
+        objects = await self.asyncua_client.nodes.root.get_child(["0:Objects"])
         await self.browse_objects(objects)
         self.running = True
         # Check the robotics namespace and send robot info if necessary
@@ -238,13 +238,13 @@ class OPCUAClient:
         self.running = False
         if self.subscription_manager.subscription:
             await self.subscription_manager.subscription.delete()
-        await self.client.disconnect()
+        await self.asyncua_client.disconnect()
         print(f"[{self.name}] Connection lost.")
 
     async def call_method(self, node_id: str, inputs: dict[str, str]):
         """Dynamic method call via NodeId and input values."""
         try:
-            method_node = self.client.get_node(node_id)
+            method_node = self.asyncua_client.get_node(node_id)
             parent_node = await method_node.get_parent()
             input_args = []
             result_dict = {"status": None, "output_arguments": [], "error": None}
@@ -336,7 +336,7 @@ class OPCUAClient:
     async def check_robotics_support(self) -> bool:
         """Checks whether ‘http://opcfoundation.org/UA/Robotics/’ is contained in the NamespaceArray."""
         try:
-            server_array_node = self.client.get_node("i=2255")  # NamespaceArray
+            server_array_node = self.asyncua_client.get_node("i=2255")  # NamespaceArray
             values = await server_array_node.read_value()
             self.is_robotics_server = "http://opcfoundation.org/UA/Robotics/" in values
             return self.is_robotics_server

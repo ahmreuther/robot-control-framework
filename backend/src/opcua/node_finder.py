@@ -2,8 +2,8 @@ class NodeManager:
     """Manages OPC UA node operations for the client."""
 
     def __init__(self, opcua_client):
-        self.opcua = opcua_client              # wrapper
-        self.client = opcua_client.client      # asyncua.Client
+        self.opcua_client = opcua_client              # wrapper
+        self.asyncua_client = opcua_client.client      # asyncua.Client
 
         self.namespaces = opcua_client.namespaces
         self.name = opcua_client.name
@@ -60,7 +60,7 @@ class NodeManager:
         (case-insensitive), cycle-proof.
         """
         try:
-            start_node = await self.client.nodes.root.get_child(start_path)
+            start_node = await self.asyncua_client.nodes.root.get_child(start_path)
             return await self._search_by_name(start_node, name)
         except Exception as e:
             print(f"[{self.name}] ❌ Error in find_child_by_name: {e}")
