@@ -1,6 +1,6 @@
 from fastapi import WebSocket
 from .subhandler import SubHandler
-from .node_finder import NodeManager
+from .node_manager import NodeManager
 
 class SubscriptionManager:
     """Manages OPC UA subscriptions for the client."""

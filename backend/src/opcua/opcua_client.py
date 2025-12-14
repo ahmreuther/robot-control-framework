@@ -1,234 +1,124 @@
+# opcua_client.py
+
 import asyncio
 import os
 import json
-from asyncua import Client, ua
+from asyncua import Client, ua, Node
 from asyncua.ua.uatypes import VariantType
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 from .subscription_manager import SubscriptionManager
-from .node_finder import NodeManager
+from .node_manager import NodeManager
+
 
 def clear_terminal():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 class OPCUAClient:
     """
-    Establishes a connection to an OPC UA server, manages subscriptions and method calls.
+    Application-level wrapper around `asyncua.Client`.
+
+    Responsibilities:
+      - Manage connection lifecycle (connect/disconnect) and basic session state.
+      - Cache server metadata (NamespaceArray) and detect OPC UA Robotics support.
+      - Provide robotics-specific helpers (read manufacturer/model/serial, discover method NodeIds).
+      - Offer a dynamic method-call helper that converts string inputs to OPC UA argument types.
+      - Compose and expose helper managers:
+          - SubscriptionManager: subscription lifecycle + streaming setup
+          - NodeManager: address-space navigation helpers
+      - Optionally push selected information to a FastAPI WebSocket using the app's message format.
+      ~gpt
     """
-    def __init__(self, url: str, name: str = "Client", websocket: WebSocket = None):
-        self.url = url
+
+    
+    name: str
+    url: str
+    client: Client      # asyncua.Client
+    websocket: WebSocket
+    is_robotics_server:bool
+    namespaces: list[str]
+
+    goto_method_nodeid: str | None            # wtf is this shit
+    toggle_endeff_method_nodeid: str | None    # this too
+
+    # managers
+    subscription_manager: SubscriptionManager
+    node_manager: NodeManager
+
+    running: bool
+
+    
+
+    def __init__(
+            self, url: str, 
+            name: str = "Client", 
+            websocket: WebSocket = None
+            ):
         self.name = name
-        self.asyncua_client = Client(url)
+        self.url = url
+        # asyncua.Client instance
+        self.client = Client(url) # todo: error if renamed when connected to evo demo server
         self.websocket = websocket
-
-        self.is_robotics_server = False
-        self.namespaces: list[str] = []
-
-        #NodeIDs for methods
 
         self.goto_method_nodeid: str | None = None
         self.toggle_endeff_method_nodeid: str | None = None
 
+        self.is_robotics_server = False
+        self.namespaces= []
+
+        
+
         # Initialize managers
         self.subscription_manager = SubscriptionManager(self, name, websocket)
         self.node_manager = NodeManager(self)
-
         self.running = False
 
-    async def browse_objects(self, node):
-        """Outputs the DisplayNames of all direct children of a node."""
-        print(f"[{self.name}] Browsing node: {node}")
-        for child in await node.get_children():
-            display_name = await child.read_display_name()
-            print(f"  Child: {child}, DisplayName: {display_name.Text}")
-
-    def _norm(self, s: str | None) -> str:
-        return "".join((s or "").lower().split()) 
-
-    async def resolve_toggle_endeff_method(self) -> str | None:
-        """
-        Searches for a method node whose name looks like ‘Go To’ (GoTo/Go_To etc.).
-        Prefer a method with a joint array as input argument.
-        """
-        candidates_norm = {_norm for _norm in []}  
-
-        names = ["EndEffSkill","toggleEndEff", "toggle_end_eff", "toggleEndEffector", "toggleendeffector"]
-        wanted = {self._norm(n) for n in names}
-
-        start = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
-        if not start:
-            start = await self.asyncua_client.nodes.root.get_child(["0:Objects"])
-
-        from collections import deque
-        q = deque([start])
-        visited = set()
-        best_node = None
-        best_score = -1
-
-        while q:
-            node = q.popleft()
-            try:
-                nid = node.nodeid.to_string()
-                if nid in visited:
-                    continue
-                visited.add(nid)
-
-                try:
-                    dn = await node.read_display_name()
-                    dn_txt = getattr(dn, "Text", str(dn)) or ""
-                except Exception:
-                    dn_txt = ""
-                try:
-                    bn = await node.read_browse_name()
-                    bn_txt = getattr(bn, "Name", "") or ""
-                except Exception:
-                    bn_txt = ""
-
-                try:
-                    nclass = await node.read_node_class()
-                except Exception:
-                    nclass = None
-                if nclass != ua.NodeClass.Method:
-                    for c in await node.get_children():
-                        q.append(c)
-                    continue
-
-                norm_names = {self._norm(dn_txt), self._norm(bn_txt)}
-                if not (norm_names & wanted):
-                    continue
-
-                score = 1
-                try:
-                    ia_node = await node.get_child("0:InputArguments")
-                    args = await ia_node.read_value()
-                    for a in args or []:
-                        aname = (a.Name or "").lower()
-                        dtid = getattr(a.DataType, "Identifier", None)
-                        vrank = getattr(a, "ValueRank", -1)
-                        if ("joint" in aname or "joints" in aname) and vrank == 1:
-                            score = 3  
-                            break
-                        if vrank == 1 and dtid in (ua.ObjectIds.Float, ua.ObjectIds.Double):
-                            score = max(score, 2)
-                except Exception:
-                    pass
-
-                if score > best_score:
-                    best_score = score
-                    best_node = node
-
-            except Exception:
-                continue
-
-        if best_node:
-            self.toggle_endeff_method_nodeid = best_node.nodeid.to_string()
-            return self.toggle_endeff_method_nodeid
-        return None
-    
-
-    async def resolve_goto_method(self) -> str | None:
-        """
-        Searches for a method node whose name looks like ‘Go To’ (GoTo/Go_To etc.).
-        Prefer a method with a joint array as input argument.
-        """
-        candidates_norm = {_norm for _norm in []}  
-
-        names = ["JointPTPMoveSkill","go to", "goto", "go_to", "go-to", "Go To"]
-        wanted = {self._norm(n) for n in names}
-
-        start = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
-        if not start:
-            start = await self.asyncua_client.nodes.root.get_child(["0:Objects"])
-
-        from collections import deque
-        q = deque([start])
-        visited = set()
-        best_node = None
-        best_score = -1
-
-        while q:
-            node = q.popleft()
-            try:
-                nid = node.nodeid.to_string()
-                if nid in visited:
-                    continue
-                visited.add(nid)
-
-                try:
-                    dn = await node.read_display_name()
-                    dn_txt = getattr(dn, "Text", str(dn)) or ""
-                except Exception:
-                    dn_txt = ""
-                try:
-                    bn = await node.read_browse_name()
-                    bn_txt = getattr(bn, "Name", "") or ""
-                except Exception:
-                    bn_txt = ""
-
-                try:
-                    nclass = await node.read_node_class()
-                except Exception:
-                    nclass = None
-                if nclass != ua.NodeClass.Method:
-                    for c in await node.get_children():
-                        q.append(c)
-                    continue
-
-                norm_names = {self._norm(dn_txt), self._norm(bn_txt)}
-                if not (norm_names & wanted):
-                    continue
-
-                score = 1
-                try:
-                    ia_node = await node.get_child("0:InputArguments")
-                    args = await ia_node.read_value()
-                    for a in args or []:
-                        aname = (a.Name or "").lower()
-                        dtid = getattr(a.DataType, "Identifier", None)
-                        vrank = getattr(a, "ValueRank", -1)
-                        if ("joint" in aname or "joints" in aname) and vrank == 1:
-                            score = 3  
-                            break
-                        if vrank == 1 and dtid in (ua.ObjectIds.Float, ua.ObjectIds.Double):
-                            score = max(score, 2)
-                except Exception:
-                    pass
-
-                if score > best_score:
-                    best_score = score
-                    best_node = node
-
-            except Exception:
-                continue
-
-        if best_node:
-            self.goto_method_nodeid = best_node.nodeid.to_string()
-            return self.goto_method_nodeid
-        return None
-
     async def connect(self):
-        await self.asyncua_client.connect()
+        """
+            Connect to `asyncua.Client`.
 
-        ns_array_node = self.asyncua_client.get_node("i=2255")  # NamespaceArray
-        self.namespaces = await ns_array_node.read_value()
+            Responsibilities:
+                - Gets namespace-array from `asyncua_client` and assigns it to local array `namespaces`.
+                - Prints all child nodes of "OPC UA RootFolder"-Node.
+                - Resolves `goto`-method & `toggle_endeff`-method
+                - Starts infinite run loop, awaiting orders or sth
+
+            Raises:
+                Exception: If `goto`-method could not be resolved
+                Exception: If `toggle_endeff`-method could not be resolved 
+            
+        """
+        await self.client.connect()
+        
+        # Getting NamespaceArray variable via standard NodeId `ua.ObjectsIds.Server_NamespaceArray`,
+        # which is a constant with int value 2255.
+        nsarr_node: Node = self.client.get_node(ua.ObjectIds.Server_NamespaceArray)
+        self.namespaces: list[str] = await nsarr_node.read_value()
         print(f"[{self.name}] Namespaces: {self.namespaces}")
 
         print(f"[{self.name}] Connected to {self.url}")
-        objects = await self.asyncua_client.nodes.root.get_child(["0:Objects"])
-        await self.browse_objects(objects)
+        # Getting child of root-node with browse name `Objects` and namespace index `0`.
+        # Node `objects_node` is the standard OPC UA folder also called "RootFolder" / "Objects".
+        objects_node:Node = await self.client.nodes.root.get_child(["0:Objects"])
+        # Print DisplayNames of all direct children of `objects_node`.
+        await self.node_manager.browse_objects(objects_node)
+        
         self.running = True
-        # Check the robotics namespace and send robot info if necessary
-        if await self.check_robotics_support():
+        
+        # Check the robotics namespace, resolving `goto` & `toggle_endeff` methods.
+        # Send robot info if necessary (jp: i think on success).
+        if await self.has_robotics_namespace():
             try:
                 await self.resolve_goto_method()
             except Exception as e:
-                print(f"[{self.name}] ⚠️ resolve_goto_method failed: {e}")
+                print(f"[{self.name}] ERROR: resolve_goto_method failed: {e}")
             try:
                 await self.resolve_toggle_endeff_method()
             except Exception as e:
-                print(f"[{self.name}] ⚠️ resolve_toggle_endeff_method failed: {e}")
+                print(f"[{self.name}] ERROR: resolve_toggle_endeff_method failed: {e}")
             await self.send_robot_info_to_frontend()
-        asyncio.create_task(self.run_loop())
+        asyncio.create_task(self.run_loop())    
+
 
     async def run_loop(self):
         while self.running:
@@ -238,13 +128,13 @@ class OPCUAClient:
         self.running = False
         if self.subscription_manager.subscription:
             await self.subscription_manager.subscription.delete()
-        await self.asyncua_client.disconnect()
+        await self.client.disconnect()
         print(f"[{self.name}] Connection lost.")
 
     async def call_method(self, node_id: str, inputs: dict[str, str]):
         """Dynamic method call via NodeId and input values."""
         try:
-            method_node = self.asyncua_client.get_node(node_id)
+            method_node = self.client.get_node(node_id)
             parent_node = await method_node.get_parent()
             input_args = []
             result_dict = {"status": None, "output_arguments": [], "error": None}
@@ -333,15 +223,15 @@ class OPCUAClient:
             print(f"[CALL] ❌ Fehler: {e}")
             return {"status": None, "output_arguments": [], "error": f"Error when calling method: {e}"}
 
-    async def check_robotics_support(self) -> bool:
+    async def has_robotics_namespace(self) -> bool:
         """Checks whether ‘http://opcfoundation.org/UA/Robotics/’ is contained in the NamespaceArray."""
         try:
-            server_array_node = self.asyncua_client.get_node("i=2255")  # NamespaceArray
+            server_array_node = self.client.get_node("i=2255")  # NamespaceArray
             values = await server_array_node.read_value()
             self.is_robotics_server = "http://opcfoundation.org/UA/Robotics/" in values
             return self.is_robotics_server
         except Exception as e:
-            print(f"[check_robotics_support] Error: {e}")
+            print(f"[has_robotics_namespace] Error: {e}")
             self.is_robotics_server = False
             return False
 
@@ -368,7 +258,6 @@ class OPCUAClient:
 
         except Exception as e:
             print(f"[{self.name}] ❌ Error sending robot info: {e}")
-
 
     async def read_model(self) -> str:
         """Reads the model node robustly."""
@@ -403,7 +292,6 @@ class OPCUAClient:
         except Exception as e:
             return f"❌ SerialNumber read error: {e}"
 
-
     async def read_manufacturer(self) -> str:
         """Reads the manufacturer node reliably."""
         if not self.is_robotics_server:
@@ -420,4 +308,30 @@ class OPCUAClient:
         except Exception as e:
             return f"❌ Manufacturer read error: {e}"
 
+    async def resolve_toggle_endeff_method(self) -> str | None:
+        """
+        Searches for a method node whose name looks like ‘Go To’ (GoTo/Go_To etc.).
+        Prefer a method with a joint array as input argument.
+        """
+        names = ["EndEffSkill","toggleEndEff", "toggle_end_eff", "toggleEndEffector", "toggleendeffector"]
+        best_node = await self.node_manager.find_method_by_names(names)
+        
+        if best_node:
+            self.toggle_endeff_method_nodeid = best_node.nodeid.to_string()
+            return self.toggle_endeff_method_nodeid
+        return None
+    
+    async def resolve_goto_method(self) -> str | None:
+        """
+        Searches for a method node whose name looks like ‘Go To’ (GoTo/Go_To etc.).
+        Prefer a method with a joint array as input argument.
+        """
 
+        names = ["JointPTPMoveSkill","go to", "goto", "go_to", "go-to", "Go To"]
+        
+        best_node = await self.node_manager.find_method_by_names(names)
+
+        if best_node:
+            self.goto_method_nodeid = best_node.nodeid.to_string()
+            return self.goto_method_nodeid
+        return None
