@@ -1,6 +1,5 @@
-#root {
+html, body, #root {
   height: 100%;
-  width: 100%;
   margin: 0;
   padding: 0;
 }
@@ -47,6 +46,15 @@
   z-index: 10;
 }
 .MessageLog {
+  top: 70%;
   position: fixed;
   z-index: 10;
+}
+
+
+.live-status{
+  top: 70%;
+  left: 15%;
+  position: fixed;
+  z-index: 11;
 }

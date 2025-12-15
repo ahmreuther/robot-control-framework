@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import './App.css'
 
-import CornerLogo from './components/CornerLogo.tsx'
-import Live_Status from './components/Live_Status.tsx';
-import MessageLog from './components/MessageLog.tsx';
-import { Viewport } from "./components/Viewport.tsx";
-import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
+import Live_Status from './components/Live_Status';
+import MessageLog from './components/MessageLog';
+import { Viewport } from "./components/Viewport";
+import { URDFSelector, type URDFOptions } from './components/URDFSelector';
 
 
 const robotOptions: URDFOptions[] = [
@@ -21,7 +20,7 @@ export const App: React.FC = () => {
 
   return (
     <>
-      <Live_Status/>
+        <div className="live-status"><Live_Status /></div>
       <MessageLog />
       <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
       <Viewport urdfPath={selectedRobot.urdf} />
