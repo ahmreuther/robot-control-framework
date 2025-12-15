@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import './App.css'
 
 import Live_Status from './components/Live_Status';
 import MessageLog from './components/MessageLog';

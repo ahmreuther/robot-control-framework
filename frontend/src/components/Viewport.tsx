@@ -1,6 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import RobotLoader from '../utlis/RobotLoader.tsx';
+import RobotLoader from '../utils/RobotLoader.tsx';
 import { Suspense } from "react";
 import { Html, useProgress } from "@react-three/drei";
 
@@ -16,7 +16,7 @@ function Loader() {
 export function Viewport(props: ViewportProps) {
 
   return (
-    <div className="Viewport">
+    <div className="absolute inset-0 h-full w-full z-0 block">
       <Canvas
         camera={{ position: [3, 3, 3], fov: 50 }}
       >

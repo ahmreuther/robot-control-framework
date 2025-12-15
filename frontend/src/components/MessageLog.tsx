@@ -24,7 +24,7 @@ function MessageLog() {
     }, []);
 
     return (
-        <div className="MessageLog">
+        <div className="fixed z-10">
 
             <button onClick={() => setShowLogs((prev) => !prev)}>
                 {showLogs ? "Hide Logs" : "Show Logs"}
