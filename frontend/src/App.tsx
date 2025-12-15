@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import './App.css'
 
-import CornerLogo from './components/CornerLogo.tsx'
 import MessageLog from './components/MessageLog.tsx';
 import { Viewport } from "./components/Viewport.tsx";
 import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
+import {Menu} from "./components/Menu.tsx";
+import { initSocket,getSocket } from "./components/Connect";
 
 
 const robotOptions: URDFOptions[] = [
@@ -13,17 +15,23 @@ const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/ur5_description/urdf/ur5_robot.urdf', color: '#aaaab3', label: 'UR5e' },
 ];
 
-export const App: React.FC = () => {
+function App() {
 
+  const [count, setCount] = useState(0)
+  
   const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
+
+  initSocket("ws://127.0.0.1:8000/ws"); //initialize WebSocket connection
 
   return (
     <>
-      <MessageLog />
+      <MessageLog/> 
       <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
       <Viewport urdfPath={selectedRobot.urdf} />
+      <Menu />
+      
     </>
   )
-};
+}
 
 export default App
