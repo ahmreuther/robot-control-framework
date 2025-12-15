@@ -24,7 +24,11 @@ function MessageLog() {
     }, []);
 
     return (
-        <div className="fixed z-10">
+        <div className="fixed z-10" 
+        style={{position:"absolute",
+            left:0,
+            top:600
+        }}>
 
             <button onClick={() => setShowLogs((prev) => !prev)}>
                 {showLogs ? "Hide Logs" : "Show Logs"}
@@ -40,7 +44,7 @@ function MessageLog() {
                 </button>
                 <LazyLog
                     extraLines={1}
-                    height="520"
+                    height="200"
                     selectableLines
                     text={logs}
                     />

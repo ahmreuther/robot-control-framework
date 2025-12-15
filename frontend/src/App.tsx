@@ -25,8 +25,8 @@ function App() {
 
   return (
     <>
-      {/* <MessageLog /> */}
-      {/* <URDFSelector options={robotOptions} onSelect={setSelectedRobot} /> */}
+      <MessageLog/> 
+      <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
       <Viewport urdfPath={selectedRobot.urdf} />
       <Menu />
       

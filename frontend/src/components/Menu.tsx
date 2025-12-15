@@ -5,6 +5,11 @@ import Twin_Dashboard from "./Twin_Dashboard.tsx";
 
 export function Menu() {
   return (
+    <div
+      style={{position:"absolute",
+            left:350,
+            top:0
+        }}>
     <Tabs className="w-full max-w-md fixed z-10" orientation="vertical">
       <Tabs.ListContainer>
         <Tabs.List aria-label="Options">
@@ -32,5 +37,6 @@ export function Menu() {
         <Twin_Dashboard />
       </Tabs.Panel>
     </Tabs>
+    </div>
   );
 }
