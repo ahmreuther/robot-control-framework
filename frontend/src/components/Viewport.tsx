@@ -13,6 +13,7 @@ function Loader() {
     return <Html center className="text-4xl text-white">{progress} % loaded</Html>
 }
 
+
 export function Viewport(props: ViewportProps) {
 
   return (
