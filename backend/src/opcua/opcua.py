@@ -5,7 +5,7 @@ from asyncua import ua
 
 # Own modules
 from src.opcua.opcua_client import OPCUAClient
-from src.opcua.node_manager import collect_node_details
+from src.opcua.address_space_helpers import collect_node_details
 
 
 router = APIRouter()
