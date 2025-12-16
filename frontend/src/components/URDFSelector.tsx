@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ModelConfig } from '../utils/useSceneStore';
 
 export interface URDFOptions {
   urdf: string;
@@ -7,8 +8,8 @@ export interface URDFOptions {
 }
 
 interface URDFSelectorProps {
-  options: URDFOptions[];
-  onSelect: (option: URDFOptions) => void;
+  options: ModelConfig[];
+  onSelect: (option: ModelConfig) => void;
 }
 
 export const URDFSelector: React.FC<URDFSelectorProps> = ({ options, onSelect }) => (
@@ -25,7 +26,7 @@ export const URDFSelector: React.FC<URDFSelectorProps> = ({ options, onSelect })
   >
     {options.map(opt => (
       <li
-        key={opt.urdf}
+        key={opt.url}
         className="
           cursor-pointer 
           opacity-50 
@@ -33,7 +34,7 @@ export const URDFSelector: React.FC<URDFSelectorProps> = ({ options, onSelect })
           text-[20px] 
           font-thin
         "
-        style={{ cursor: 'pointer', color: opt.color }}
+        style={{ cursor: 'pointer', color: 'white' }}
         onClick={() => onSelect(opt)}
       >
         {opt.label}

@@ -1,8 +1,11 @@
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import RobotLoader from '../utils/RobotLoader.tsx';
+import { OrbitControls, TransformControls } from "@react-three/drei";
 import { Suspense } from "react";
 import { Html, useProgress } from "@react-three/drei";
+import React from "react";
+import { RobotWithIK } from "../utils/RobotWithIK";
+import { useRef } from "react";
+
 
 export interface ViewportProps {
   urdfPath: string;
@@ -16,66 +19,66 @@ function Loader() {
 
 export function Viewport(props: ViewportProps) {
 
+  const [goalPosition, setGoalPosition] = React.useState<[number, number, number]>([0.3, 0.0, 0.3]);
+  const [drag, setDrag] = React.useState<boolean>(false);
+  const [goalQuaternion, setGoalQuaternion] = React.useState<[number, number, number, number]>([0, 0, 0, 1]);
+  const [endEffectorReady, setEndEffectorReady] = React.useState(false);
+  const [jointAngles, setJointAngles] = React.useState<number[]>([]);
+  const [ikConverged, setIkConverged] = React.useState(true);
+
+  const handleEndEffectorReady = React.useCallback((pos: [number, number, number], quat: [number, number, number, number]) => {
+    setGoalPosition(pos);
+    setGoalQuaternion(quat);
+    setEndEffectorReady(true);
+  }, []);
+  
+  const handleJointAnglesUpdate = React.useCallback((angles: number[]) => {
+    setJointAngles(angles);
+  }, []);
+  
+  const orbitRef = useRef<any>(null);
+  const transformRef = useRef<any>(null);
+
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
-      <Canvas
-        camera={{ position: [3, 3, 3], fov: 50 }}
-      >
-        <gridHelper args={[10, 10]} />
-        <axesHelper />
+      <Canvas camera={{ position: [3, 3, 3], up: [0, 0, 1], fov: 50 }}>
+
+        <gridHelper args={[10, 10]} rotation={[Math.PI / 2, 0, 0]} />
+
         {/* Background color */}
         <color attach="background" args={["#202025"]} />
 
         {/* Lights */}
         <ambientLight intensity={0.4} />
         <directionalLight position={[5, 5, 5]} intensity={1.2} />
+        <directionalLight position={[-5, 5, -5]} intensity={1.2} />
 
         {/* Mouse controls */}
-        <OrbitControls />
+        <OrbitControls ref={orbitRef} enabled={!drag} />
+
+        {/* Robot with IK (includes GoalMarker) */}
         <Suspense fallback={<Loader />}>
-                <RobotLoader urdfPath={props.urdfPath} />
+          <RobotWithIK 
+            urdfPath={props.urdfPath}
+            goalPosition={goalPosition}
+            goalQuaternion={goalQuaternion}
+            onEndEffectorReady={handleEndEffectorReady}
+            onJointAnglesUpdate={handleJointAnglesUpdate}
+            onConvergedChange={setIkConverged}
+            onGoalPositionChange={setGoalPosition}
+            onDrag={setDrag}
+            converged={ikConverged}
+          />
         </Suspense>
       </Canvas>
+      <div className="absolute top-30 left-5 text-white text-xs space-y-1">
+        <div className="font-bold">Goal Position:</div>
+        <div>{goalPosition.map((n) => n.toFixed(3)).join(", ")}</div>
+        <div className="font-bold mt-2">Joint Angles (rad):</div>
+        {jointAngles.map((angle, i) => (
+          <div key={i}>J{i}: {angle.toFixed(3)}</div>
+        ))}
+      </div>
     </div>
   );
-};
-  {/*
-
-  useEffect(() => {
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    camera.position.set(0, 0, 5);
-    camera.lookAt(0, 0, 0);
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(500, 500);
-    renderer.setClearColor(0x222233);
-    mountRef.current?.appendChild(renderer.domElement);
-
-    const light = new THREE.AmbientLight(0xffffff, 1);
-    scene.add(light);
-
-
-    // Example: Load URDF robot here
-    const manager = new THREE.LoadingManager();
-    loadMeshFunc('/urdf/eva_description/meshes/part.stl', manager, (mesh, error) => {
-      if (mesh) {
-        scene.add(mesh);
-      } else {
-        console.error(error);
-      }
-    });
-
-    const animate = () => {
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    return () => {
-      mountRef.current?.removeChild(renderer.domElement);
-      renderer.dispose();
-    };
-  }, [urdfPath]);
-
-  return <div ref={mountRef} style={{ width: 500, height: 500 }} />;
-}; */}
+}

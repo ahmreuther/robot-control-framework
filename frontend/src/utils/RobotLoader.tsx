@@ -1,82 +1,54 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
 import URDFLoader from "urdf-loader";
+import type { URDFRobot } from "urdf-loader/src/URDFClasses";
+
 export interface RobotLoaderProps {
     urdfPath: string;
+    onRobotReady?: (robot: URDFRobot, robotGroup: THREE.Group) => void;
 }
 
-const RobotLoader = ({ urdfPath }: RobotLoaderProps) => {
+const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
     const url = urdfPath;
     const { scene } = useThree();
     const robotRef = useRef<any | null>(null);
-    
-    const jointPositions = useRef([0, 0, 0, 0, 0, 0]);
-
-{/*
-    useEffect(() => {
-        const socket = new WebSocket("ws://localhost:5173/api/robotstate/monitor"); // Update with your WebSocket endpoint
-
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            jointPositions.current = data["Joint Position"];
-
-            // Negate the joint positions to match the URDF
-            jointPositions.current = jointPositions.current.map(value => -value);
-        };
-
-        socket.onopen = () => {
-            console.log("Robot State WebSocket Connected");
-        };
-
-        socket.onclose = () => {
-            console.log("Robot State WebSocket Disconnected");
-        };
-
-        return () => {
-            socket.close();
-        };
-    }, []);
-*/}
-
+    const groupRef = useRef<THREE.Group | null>(null);
 
     useEffect(() => {
         const manager = new THREE.LoadingManager();
         const loader = new URDFLoader(manager);
-        let robot: THREE.Object3D | null = null;
+        let robot: URDFRobot  | null = null;
+        let robotGroup: THREE.Group | null = null;
 
         loader.load(url, (loadedRobot) => {
             robot = loadedRobot;
 
-            // Rotate the robot
-            robot.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / -2);
+            // Wrap robot in a group (no rotation needed - scene is Z-up)
+            robotGroup = new THREE.Group();
+            robotGroup.add(robot);
+            
+            // Add axis helper to visualize robot orientation
+            const axesHelper = new THREE.AxesHelper(0.5);
+            robotGroup.add(axesHelper);
 
-            // Scale the robot
-            robot.scale.set(1, 1, 1);
-
-            scene.add(robot);
-
+            scene.add(robotGroup);
             robotRef.current = robot;
+            groupRef.current = robotGroup;
+            if (onRobotReady) {
+                onRobotReady(robot, robotGroup);
+            }
         });
 
         return () => {
-            if (robot) {
-                scene.remove(robot);
+            if (robotGroup) {
+                scene.remove(robotGroup);
+            }
+            if (robotRef.current === robot) {
+                robotRef.current = null;
             }
         };
     }, [url, scene]);
-
-    useFrame(() => {
-        if (robotRef.current) {
-            const joints = ["BJ", "SJ", "EJ", "W1J", "W2J", "W3J"];
-            joints.forEach((joint, index) => {
-                const jointObj = robotRef.current!.getObjectByName(joint);
-                if (jointObj) {
-                    jointObj.rotation.z = jointPositions.current[index];
-                }
-            });
-        }
-    });
 
     return null;
 };
