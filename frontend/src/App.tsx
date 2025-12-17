@@ -3,7 +3,7 @@ import './App.css'
 
 import Live_Status from './components/Live_Status';
 import MessageLog from './components/MessageLog';
-import { Viewport } from "./components/Viewport";
+import { Viewport } from "./components/viewport/Viewport";
 import {Menu} from "./components/Menu";
 import { initSocket, getSocket } from "./components/Connect";
 import { URDFSelector } from './components/URDFSelector';

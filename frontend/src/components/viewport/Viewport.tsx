@@ -3,7 +3,7 @@ import { OrbitControls, TransformControls } from "@react-three/drei";
 import { Suspense } from "react";
 import { Html, useProgress } from "@react-three/drei";
 import React from "react";
-import { RobotWithIK } from "../utils/RobotWithIK";
+import { RobotWithIK } from "./RobotWithIK";
 import { useRef } from "react";
 
 
