@@ -9,7 +9,7 @@ class NodeManager:
 
     def __init__(self, opcua_client):
         self.opcua_client = opcua_client              # wrapper
-        self.asyncua_client = opcua_client.client      # asyncua.Client
+        self.client = opcua_client.client      # asyncua.Client
 
         self.namespaces = opcua_client.namespaces
         self.name = opcua_client.name
@@ -99,7 +99,7 @@ class NodeManager:
         (case-insensitive), cycle-proof.
         """
         try:
-            start_node = await self.asyncua_client.nodes.root.get_child(start_path)
+            start_node = await self.client.nodes.root.get_child(start_path)
             return await self._find_by_browse_name(start_node, name)
         except Exception as e:
             print(f"[{self.name}] ❌ Error in find_child_by_name: {e}")
@@ -112,7 +112,10 @@ class NodeManager:
         start = await self.find_child_by_name(["0:Objects"], "DeviceSet")
         if not start:
             start = await self.client.nodes.root.get_child(["0:Objects"])
-    
+
+        best_node = None
+        best_score = -1
+
         async for node in self._bfs(start):
 
             try:
