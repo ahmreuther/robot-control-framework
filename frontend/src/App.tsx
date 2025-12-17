@@ -16,7 +16,7 @@ const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/ur5_description/urdf/ur5_robot.urdf', color: '#aaaab3', label: 'UR5e' },
 ];
 
-const LogContext = createContext({log: "test", setLogs: ()=>{}});
+const LogContext = createContext({log: "test\n", setLogs: ()=>{}});
 
 function App() {
 
@@ -24,7 +24,7 @@ function App() {
   
   const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
 
-  const [logs, setLogs] = useState("Start")
+  const [logs, setLogs] = useState("Start\n")
 
   const logWrapper = {logs, setLogs};
 

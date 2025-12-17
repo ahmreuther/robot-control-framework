@@ -1,6 +1,7 @@
 import { Button, Input, Label, Switch } from "@heroui/react";
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { useSocket } from "../hooks/use-socket";
+import { LogContext } from "/src/App";
 
 // type ConnectMessage = {
 //   type: "connect";
@@ -11,12 +12,13 @@ import { useSocket } from "../hooks/use-socket";
 function ConnectOPCUA() {
   const [url, seturl] = useState("");
   const socket = useSocket();
+  const { logs, setLogs } = useContext(LogContext);
 
   function handleConnect() {
     const trimmedUrl = url.trim();
 
     if (!trimmedUrl) {
-      alert("Please enter a valid OPC UA Server URL.");
+      setLogs(prev=> prev + "Please enter a valid OPC UA Server URL.\n");
       return;
     }
 
@@ -29,9 +31,9 @@ function ConnectOPCUA() {
 
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(msg);
-      console.log("Sent:", msg);
+      setLogs(prev=> prev + "Sent:" + msg + "\n");
     } else {
-      alert(`WebSocket is not ready! (State: ${socket.readyState})`);
+      setLogs(prev=> prev + `WebSocket is not ready! (State: ${socket.readyState})` + "\n");
     }
 
     localStorage.setItem("lastOpcUaUrl", trimmedUrl);
@@ -42,7 +44,7 @@ function ConnectOPCUA() {
     <div>
       <Input value={url} onChange={(e) => seturl(e.target.value)} aria-label="Server-Adress" className="w-64" placeholder="OPC UA Server URL" />
       <Button onPress={handleConnect}>Connect</Button>
-      <Button onPress={() => console.log("Button pressed")}>Disconnect</Button>
+      <Button onPress={() => setLogs(prev=> prev + "Disconnect pressed\n")}>Disconnect</Button>
       <Switch>
         <Switch.Control>
           <Switch.Thumb />
