@@ -6,8 +6,7 @@ import MessageLog from './components/MessageLog.tsx';
 import { Viewport } from "./components/Viewport.tsx";
 import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
 import {Menu} from "./components/Menu.tsx";
-import { initSocket,getSocket } from "./components/Connect";
-
+import { SocketProvider } from './hooks/use-socket.tsx';
 
 
 const robotOptions: URDFOptions[] = [
@@ -28,18 +27,22 @@ function App() {
 
   const useLog = () => useContext(AppContext);
 
-  initSocket("ws://127.0.0.1:8000/ws"); //initialize WebSocket connection
+  const [logs, setLogs] = useState("test")
+
+
+  const useLog = () => useContext(AppContext);
+
 
   return (
-    <>
+    <SocketProvider url='ws://127.0.0.1:8000/ws'>
     <AppContext.Provider value={logs} >
       <Live_Status />
       <MessageLog/> 
       <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
       <Viewport urdfPath={selectedRobot.urdf} />
       <Menu />
-    </AppContext.Provider>
-    </>
+      </AppContext.Provider>
+    </SocketProvider >
   )
 }
 
