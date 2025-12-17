@@ -6,11 +6,14 @@ import { urdfRobotToIKRoot, setUrdfFromIK, setIKFromUrdf, Goal, Solver } from "c
 import GoalMarker from "./GoalMarker";
 import * as THREE from "three";
 
+const clonePosition = (pos: [number, number, number]) => [...pos] as [number, number, number];
+
 // Local copy of SOLVE_STATUS to work with isolatedModules
 const SOLVE_STATUS = {
   CONVERGED: 0,
-  DIVERGED: 1,
-  TIMEOUT: 2,
+  STALLED: 1,
+  DIVERGED: 2,
+  TIMEOUT: 3,
 } as const;
 
 interface RobotWithIKProps {
@@ -44,6 +47,7 @@ export function RobotWithIK({
   const jointAnglesRef = useRef<number[]>([]);
   const initializedRef = useRef(false);
   const lastValidGoalPositionRef = useRef<[number, number, number]>([0.3, 0.0, 0.3]);
+  const isDraggingRef = useRef(false);
 
   const runIK = useCallback(() => {
     const robot = robotRef.current;
@@ -67,7 +71,7 @@ export function RobotWithIK({
 
     // Solve
     const statuses = solver.solve();
-    const converged = !statuses.includes(SOLVE_STATUS.DIVERGED);
+    const converged = statuses.every((status: number) => status === SOLVE_STATUS.CONVERGED);
 
     if (converged) {
       setUrdfFromIK(robot, ikRoot);
@@ -77,7 +81,7 @@ export function RobotWithIK({
       jointAnglesRef.current = nextAngles;
       
       // Store last valid goal position
-      lastValidGoalPositionRef.current = goalPosition;
+      lastValidGoalPositionRef.current = clonePosition(goalPosition);
       
       if (onJointAnglesUpdate) {
         onJointAnglesUpdate(nextAngles);
@@ -105,10 +109,10 @@ export function RobotWithIK({
         console.log('Distance to goal:', distance);
         console.log('Converged:', converged, 'Statuses:', statuses);
       }
-    } else {
+    } else if (!isDraggingRef.current) {
       // IK failed to converge - reset goal to last valid position
       if (onGoalPositionChange) {
-        onGoalPositionChange(lastValidGoalPositionRef.current);
+        onGoalPositionChange(clonePosition(lastValidGoalPositionRef.current));
       }
     }
     
@@ -239,7 +243,15 @@ export function RobotWithIK({
       {initializedRef.current && (
         <GoalMarker
           onPositionChange={onGoalPositionChange || (() => {})}
-          onDrag={onDrag || (() => {})}
+          onDrag={(dragging) => {
+            isDraggingRef.current = dragging;
+            if (onDrag) {
+              onDrag(dragging);
+            }
+            if (!dragging && !converged && onGoalPositionChange) {
+              onGoalPositionChange(clonePosition(lastValidGoalPositionRef.current));
+            }
+          }}
           initialPosition={goalPosition}
           converged={converged}
         />

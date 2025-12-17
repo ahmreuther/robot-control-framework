@@ -47,11 +47,7 @@ function GoalMarker({ onPositionChange, onDrag, initialPosition, converged = tru
   const handleMouseUp = () => {
     isDraggingRef.current = false;
     onDrag(false);
-    // Send final position on mouse up
-    if (meshRef.current) {
-      const { x, y, z } = meshRef.current.position;
-      onPositionChange([x, y, z]);
-    }
+    // Final position already emitted during drag; allow IK to revert if needed
   };
 
   return (

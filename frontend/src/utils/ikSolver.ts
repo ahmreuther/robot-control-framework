@@ -1,6 +1,5 @@
 import {
   Goal,
-  SOLVE_STATUS,
   Solver,
   setIKFromUrdf,
   setUrdfFromIK,
@@ -17,9 +16,18 @@ export interface SolveIKParams {
   endEffectorName?: string;
 }
 
+const SOLVE_STATUS = {
+  CONVERGED: 0,
+  STALLED: 1,
+  DIVERGED: 2,
+  TIMEOUT: 3,
+} as const;
+
+type SolveStatus = (typeof SOLVE_STATUS)[keyof typeof SOLVE_STATUS];
+
 export interface SolveIKResult {
   nextAngles: number[];
-  statuses: SOLVE_STATUS[];
+  statuses: SolveStatus[];
   converged: boolean;
 }
 
@@ -112,10 +120,10 @@ export function solveIK({
   goal.setMatrixNeedsUpdate();
 
   // Run solver with multiple iterations for better convergence
-  const statuses = solver.solve();
+  const statuses = solver.solve() as SolveStatus[];
   
-  // Consider it converged if not diverged (allow TIMEOUT status)
-  const converged = !statuses.includes(SOLVE_STATUS.DIVERGED);
+  // Converged only if all chains report success
+  const converged = statuses.every((status) => status === SOLVE_STATUS.CONVERGED);
   let nextAngles = currentAngles ?? [];
 
   if (converged) {
@@ -131,8 +139,8 @@ export function solveIK({
     goal2.setPosition(...goalPosition);
     goal2.setMatrixNeedsUpdate();
     
-    const statuses2 = solver.solve();
-    const converged2 = !statuses2.includes(SOLVE_STATUS.DIVERGED);
+    const statuses2 = solver.solve() as SolveStatus[];
+    const converged2 = statuses2.every((status) => status === SOLVE_STATUS.CONVERGED);
     
     if (converged2) {
       setUrdfFromIK(robot, ikRoot);
