@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
-import URDFIKManipulator from '../../URDFIKManipulator.js'
+import URDFIKManipulator from '../URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 

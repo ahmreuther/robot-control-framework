@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ModelConfig } from '../utils/useSceneStore';
+import type { ModelConfig } from './hooks/useSceneStore';
 
 export interface URDFOptions {
   urdf: string;

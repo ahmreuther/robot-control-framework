@@ -7,7 +7,7 @@ import { Viewport } from "./components/viewport/Viewport";
 import {Menu} from "./components/Menu";
 import { initSocket, getSocket } from "./components/Connect";
 import { URDFSelector } from './components/URDFSelector';
-import { useSceneStore } from './utils/useSceneStore';
+import { useSceneStore } from './components/hooks/useSceneStore';
 
 
 function App() {
