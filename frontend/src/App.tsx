@@ -24,17 +24,11 @@ function App() {
 
   const [logs, setLogs] = useState("test")
 
-
-  const useLog = () => useContext(AppContext);
-
-  const [logs, setLogs] = useState("test")
-
-
   const useLog = () => useContext(AppContext);
 
 
   return (
-    <SocketProvider url='ws://127.0.0.1:8000/ws'>
+    //<SocketProvider url='ws://127.0.0.1:8000/ws'>
     <AppContext.Provider value={logs} >
       <Live_Status />
       <MessageLog/> 
@@ -42,7 +36,7 @@ function App() {
       <Viewport urdfPath={selectedRobot.urdf} />
       <Menu />
       </AppContext.Provider>
-    </SocketProvider >
+    //</SocketProvider >
   )
 }
 
