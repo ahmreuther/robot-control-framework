@@ -1,8 +1,9 @@
 import { LazyLog } from "@melloware/react-logviewer";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
+
 
 function MessageLog() {
-    const [logs, setLogs] = useState("Start\n");
+    const [logs, setLogs] = useState("");
     const [showLogs, setShowLogs] = useState(false);
 
     function addManual() {
