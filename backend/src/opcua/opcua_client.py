@@ -38,8 +38,8 @@ class OPCUAClient:
     is_robotics_server:bool
     namespaces: list[str]
 
-    goto_method_nodeid: str | None            # wtf is this shit
-    toggle_endeff_method_nodeid: str | None    # this too
+    goto_method_nodeid: str | None
+    toggle_endeff_method_nodeid: str | None
 
     # managers
     subscription_manager: SubscriptionManager

@@ -4,8 +4,8 @@ from fastapi.templating import Jinja2Templates
 from asyncua import ua
 
 # Own modules
-from backend.src.opcua.opcua_client import OPCUAClient
-from src.opcua.GetAddressSpace import collect_node_details
+from backend.src_old.opcua.client import OPCUAClient
+from src_old.opcua.GetAddressSpace import collect_node_details
 
 
 router = APIRouter()
