@@ -264,6 +264,9 @@ class NodeManager:
         
         Args:
             node: The node whose children will be listed.
+        
+        Returns:
+            None
         """
 
         print(f"[{self.name}] Browsing node: {node}")
