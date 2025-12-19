@@ -4,8 +4,8 @@ from fastapi.templating import Jinja2Templates
 from asyncua import ua
 
 # Own modules
-from backend.src.opcua.opcua_client import OPCUAClient
-from src.opcua.GetAddressSpace import collect_node_details
+from backend.src_old.opcua.client import OPCUAClient
+from src_old.opcua.GetAddressSpace import collect_node_details
 
 
 router = APIRouter()
@@ -182,7 +182,7 @@ async def handle_connect(websocket, data):
     try:
         client = OPCUAClient(url, name=url, websocket=websocket)
         await client.connect()
-        await client.check_robotics_support()
+        await client.has_robotics_namespace()
         clients[url] = client
         if client.is_robotics_server:
             await websocket.send_text("✅ OPC UA server supports 'Robotics Namespace'.")
@@ -298,7 +298,7 @@ async def get_device_set(request: Request, url: str = Query(...)):
             {"request": request, "items": [], "error": f"No OPC UA client connected for URL: {url}"}
         )
     try:
-        root = client.asyncua_client.get_root_node()
+        root = client.client.get_root_node()
         detailed = await collect_node_details(root)
         return templates.TemplateResponse("device_set.html", {"request": request, "items": detailed})
     except Exception as e:
@@ -314,7 +314,7 @@ async def subtree_children(request: Request, url: str = Query(...), nodeid: str 
     client = get_client(url)
     if not client:
         return "No OPC UA client connected"
-    node = client.asyncua_client.get_node(nodeid)
+    node = client.client.get_node(nodeid)
     detailed = await collect_node_details(node, children_depth=2)
     return templates.TemplateResponse("children_fragment.html", {"request": request, "items": detailed})
 
@@ -324,7 +324,7 @@ async def node_rendered(request: Request, url: str = Query(...), nodeid: str = Q
     client = get_client(url)
     if not client:
         return "No OPC UA client for this URL"
-    node = client.asyncua_client.get_node(nodeid)
+    node = client.client.get_node(nodeid)
     detail = await collect_node_details(node, children_depth=0) 
     return templates.TemplateResponse("node_fragment.html", {"request": request, "item": detail})
 
@@ -336,7 +336,7 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
         return {"error": f"No OPC UA client connected for {url}"}
     
     try:
-        node = client.asyncua_client.get_node(nodeid)
+        node = client.client.get_node(nodeid)
         refs = await node.get_references()
 
         if refs:
@@ -344,7 +344,7 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
 
         async def safe_display_name(node_id):
             try:
-                dn_node = client.asyncua_client.get_node(node_id)
+                dn_node = client.client.get_node(node_id)
                 display_name = await dn_node.read_display_name()
                 text = display_name.Text.strip() if display_name and display_name.Text else ""
                 return text if text else "null"
