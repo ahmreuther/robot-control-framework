@@ -1,6 +1,7 @@
-"""WebSocket router for OPC UA operations.
+"""WebSocket router for OPC UA.
 
-Accepts connections and routes incoming messages to appropriate handlers.
+Accepts websocket connections and forwards messages to handlers.
+Prefer JSON messages: {"action":"...","payload":...}.
 """
 
 from typing import Dict
@@ -10,13 +11,13 @@ from src.api.websocket import handlers
 from src.opcua.client import OPCUAClient
 
 
-# --- WebSocket Endpoint ---
 router = APIRouter()
+"""FastAPI router for websocket endpoints."""
 
-# Temporary clients map. Will be replaced with a proper manager/service.
 clients: Dict[str, OPCUAClient] = {}
+"""Shared mapping (url -> OPCUAClient). Injected into handlers via
+`handlers.set_clients(clients)`. Replace with a `ClientRegistry` later."""
 
-# Message dispatch table: prefix -> handler function
 MESSAGE_HANDLERS = {
     "call|": handlers.handle_call,
     "subscribe|": handlers.handle_subscribe,
@@ -34,15 +35,12 @@ MESSAGE_HANDLERS = {
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time OPC UA communication.
-    
-    Accepts a connection and routes incoming messages to appropriate handlers
-    based on the message prefix (e.g., "subscribe|", "call|", etc.).
-    """
+    """Handle websocket connection and dispatch incoming messages."""
     await websocket.accept()
     print("WebSocket connected.")
     
-    # Give handlers access to clients dict
+    # Inject shared clients map into handlers so they operate on the
+    # same registry (simple dependency injection).
     handlers.set_clients(clients)
     
     try:
@@ -61,6 +59,7 @@ async def websocket_endpoint(websocket: WebSocket):
             
             # Handle special cases
             if not handled:
+                # `status` is a small built-in command to request server state
                 if data == "status":
                     await handlers.handle_status(websocket)
                 else:
@@ -68,7 +67,8 @@ async def websocket_endpoint(websocket: WebSocket):
     
     except Exception as e:
         print(f"WebSocket error: {e}")
-        # Cleanup disconnected clients
+        # Cleanup: disconnect and remove any OPCUA clients that belonged to
+        # this websocket. Handlers should also perform their own cleanup.
         for url, client in list(clients.items()):
             if hasattr(client, 'websocket') and client.websocket == websocket:
                 await client.disconnect()
