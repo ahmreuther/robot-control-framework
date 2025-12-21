@@ -7,9 +7,10 @@ import GoalMarker from "./GoalMarker";
 import * as THREE from "three";
 
 const clonePosition = (pos: [number, number, number]) => [...pos] as [number, number, number];
+const cloneQuaternion = (quat: [number, number, number, number]) => [...quat] as [number, number, number, number];
 
 // Local copy of SOLVE_STATUS to work with isolatedModules
-const SOLVE_STATUS = {
+export const SOLVE_STATUS = {
   CONVERGED: 0,
   STALLED: 1,
   DIVERGED: 2,
@@ -24,6 +25,8 @@ interface RobotWithIKProps {
   onJointAnglesUpdate?: (angles: number[]) => void;
   onConvergedChange?: (converged: boolean) => void;
   onGoalPositionChange?: (position: [number, number, number]) => void;
+  onGoalQuaternionChange?: (quaternion: [number, number, number, number]) => void;
+  onSolveStatusesChange?: (statuses: number[]) => void;
   onDrag?: (dragging: boolean) => void;
   converged?: boolean;
 }
@@ -36,6 +39,8 @@ export function RobotWithIK({
   onJointAnglesUpdate,
   onConvergedChange,
   onGoalPositionChange,
+  onGoalQuaternionChange,
+  onSolveStatusesChange,
   onDrag,
   converged = true,
 }: RobotWithIKProps) {
@@ -47,6 +52,7 @@ export function RobotWithIK({
   const jointAnglesRef = useRef<number[]>([]);
   const initializedRef = useRef(false);
   const lastValidGoalPositionRef = useRef<[number, number, number]>([0.3, 0.0, 0.3]);
+  const lastValidGoalQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
   const isDraggingRef = useRef(false);
 
   const runIK = useCallback(() => {
@@ -71,6 +77,9 @@ export function RobotWithIK({
 
     // Solve
     const statuses = solver.solve();
+    if (onSolveStatusesChange) {
+      onSolveStatusesChange([...statuses]);
+    }
     const converged = statuses.every((status: number) => status === SOLVE_STATUS.CONVERGED);
 
     if (converged) {
@@ -82,6 +91,7 @@ export function RobotWithIK({
       
       // Store last valid goal position
       lastValidGoalPositionRef.current = clonePosition(goalPosition);
+      lastValidGoalQuaternionRef.current = cloneQuaternion(goalQuaternion);
       
       if (onJointAnglesUpdate) {
         onJointAnglesUpdate(nextAngles);
@@ -114,12 +124,15 @@ export function RobotWithIK({
       if (onGoalPositionChange) {
         onGoalPositionChange(clonePosition(lastValidGoalPositionRef.current));
       }
+      if (onGoalQuaternionChange) {
+        onGoalQuaternionChange(cloneQuaternion(lastValidGoalQuaternionRef.current));
+      }
     }
     
     if (onConvergedChange) {
       onConvergedChange(converged);
     }
-  }, [goalPosition, goalQuaternion, onJointAnglesUpdate, onConvergedChange, onGoalPositionChange]);
+  }, [goalPosition, goalQuaternion, onJointAnglesUpdate, onConvergedChange, onGoalPositionChange, onGoalQuaternionChange, onSolveStatusesChange]);
 
   const handleRobotReady = useCallback(
     (robot: URDFRobot, robotGroup: THREE.Group) => {
@@ -132,7 +145,6 @@ export function RobotWithIK({
       // Initialize IK root once with default robot pose
       const jointNames = Object.keys(robot.joints ?? {});
       const ikRoot = urdfRobotToIKRoot(robot, false) as any;
-      setUrdfFromIK(robot, ikRoot);
       ikRoot.clearDoF(); // Lock the robot base
       setIKFromUrdf(ikRoot, robot);
       ikRootRef.current = ikRoot;
@@ -202,7 +214,9 @@ export function RobotWithIK({
           // Store initial position as last valid
           lastValidGoalPositionRef.current = [pos.x, pos.y, pos.z];
           
-          onEndEffectorReady([pos.x, pos.y, pos.z], [quat.x, quat.y, quat.z, quat.w]);
+          const effQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
+          lastValidGoalQuaternionRef.current = cloneQuaternion(effQuat);
+          onEndEffectorReady([pos.x, pos.y, pos.z], effQuat);
         }
       }
       
@@ -243,6 +257,8 @@ export function RobotWithIK({
       {initializedRef.current && (
         <GoalMarker
           onPositionChange={onGoalPositionChange || (() => {})}
+          onQuaternionChange={onGoalQuaternionChange || (() => {})}
+          initialQuaternion={goalQuaternion}
           onDrag={(dragging) => {
             isDraggingRef.current = dragging;
             if (onDrag) {
@@ -250,6 +266,9 @@ export function RobotWithIK({
             }
             if (!dragging && !converged && onGoalPositionChange) {
               onGoalPositionChange(clonePosition(lastValidGoalPositionRef.current));
+              if (onGoalQuaternionChange) {
+                onGoalQuaternionChange(cloneQuaternion(lastValidGoalQuaternionRef.current));
+              }
             }
           }}
           initialPosition={goalPosition}

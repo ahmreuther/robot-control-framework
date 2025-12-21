@@ -3,7 +3,7 @@ import { OrbitControls, TransformControls } from "@react-three/drei";
 import { Suspense } from "react";
 import { Html, useProgress } from "@react-three/drei";
 import React from "react";
-import { RobotWithIK } from "./RobotIKLogic";
+import { RobotWithIK, SOLVE_STATUS } from "./RobotIKLogic";
 import { useRef } from "react";
 
 
@@ -25,6 +25,19 @@ export function Viewport(props: ViewportProps) {
   const [endEffectorReady, setEndEffectorReady] = React.useState(false);
   const [jointAngles, setJointAngles] = React.useState<number[]>([]);
   const [ikConverged, setIkConverged] = React.useState(true);
+  const [solveStatuses, setSolveStatuses] = React.useState<number[]>([]);
+  const statusLookup = React.useMemo(() => {
+    const entries = Object.entries(SOLVE_STATUS) as Array<[keyof typeof SOLVE_STATUS, number]>;
+    const lookup: Record<number, string> = {};
+    entries.forEach(([label, value]) => {
+      lookup[value] = label;
+    });
+    return lookup;
+  }, []);
+
+  const solveStatusText = solveStatuses.length
+    ? solveStatuses.map((status) => statusLookup[status] ?? `UNKNOWN(${status})`).join(", ")
+    : "n/a";
 
   const handleEndEffectorReady = React.useCallback((pos: [number, number, number], quat: [number, number, number, number]) => {
     setGoalPosition(pos);
@@ -66,6 +79,8 @@ export function Viewport(props: ViewportProps) {
             onJointAnglesUpdate={handleJointAnglesUpdate}
             onConvergedChange={setIkConverged}
             onGoalPositionChange={setGoalPosition}
+            onGoalQuaternionChange={setGoalQuaternion}
+            onSolveStatusesChange={setSolveStatuses}
             onDrag={setDrag}
             converged={ikConverged}
           />
@@ -78,6 +93,8 @@ export function Viewport(props: ViewportProps) {
         {jointAngles.map((angle, i) => (
           <div key={i}>J{i}: {angle.toFixed(3)}</div>
         ))}
+        <div className="font-bold mt-2">IK Status:</div>
+        <div>{solveStatusText}</div>
       </div>
     </div>
   );

@@ -21,11 +21,11 @@ function App() {
 
   return (
     <>
-      <Live_Status />
-      <MessageLog/> 
+      {/* <Live_Status /> */}
+      {/* <MessageLog/>  */}
       <URDFSelector options={sceneStore.models} onSelect={setSelectedRobot} />
       <Viewport urdfPath={selectedRobot.url} />
-      <Menu />
+      {/* <Menu /> */}
     </>
   )
 }

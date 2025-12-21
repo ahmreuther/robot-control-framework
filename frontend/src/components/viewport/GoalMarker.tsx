@@ -1,19 +1,23 @@
 import { useFrame } from "@react-three/fiber";
 import { TransformControls } from "@react-three/drei";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Mesh } from "three";
 
 interface GoalMarkerProps {
   onPositionChange: (position: [number, number, number]) => void;
+  onQuaternionChange: (quaternion: [number, number, number, number]) => void;
   onDrag: (drag: boolean) => void;
   initialPosition?: [number, number, number];
+  initialQuaternion?: [number, number, number, number];
   converged?: boolean;
 }
 
-function GoalMarker({ onPositionChange, onDrag, initialPosition, converged = true }: GoalMarkerProps) {
+function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosition, initialQuaternion, converged = true }: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
   const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
+  const lastQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
   const isDraggingRef = useRef(false);
+  const [mode, setMode] = useState<"translate" | "rotate">("translate");
 
   useEffect(() => {
     if (meshRef.current && initialPosition) {
@@ -21,6 +25,27 @@ function GoalMarker({ onPositionChange, onDrag, initialPosition, converged = tru
       lastPositionRef.current = initialPosition;
     }
   }, [initialPosition]);
+
+  useEffect(() => {
+    if (meshRef.current && initialQuaternion) {
+      meshRef.current.quaternion.set(...initialQuaternion);
+      lastQuaternionRef.current = initialQuaternion;
+    }
+  }, [initialQuaternion]);
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement | null)?.tagName;
+      if (tag && ["INPUT", "TEXTAREA"].includes(tag)) return;
+      if (event.key === "w" || event.key === "W") {
+        setMode("translate");
+      } else if (event.key === "e" || event.key === "E") {
+        setMode("rotate");
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   useFrame(() => {
     const mesh = meshRef.current;
@@ -36,6 +61,14 @@ function GoalMarker({ onPositionChange, onDrag, initialPosition, converged = tru
     if (Math.abs(x - lastX) > 0.001 || Math.abs(y - lastY) > 0.001 || Math.abs(z - lastZ) > 0.001) {
       lastPositionRef.current = [x, y, z];
       onPositionChange([x, y, z]);
+    }
+
+    const { x: qx, y: qy, z: qz, w: qw } = mesh.quaternion;
+    const [lqx, lqy, lqz, lqw] = lastQuaternionRef.current;
+    if (Math.abs(qx - lqx) > 0.0005 || Math.abs(qy - lqy) > 0.0005 || Math.abs(qz - lqz) > 0.0005 || Math.abs(qw - lqw) > 0.0005) {
+      const nextQuat: [number, number, number, number] = [qx, qy, qz, qw];
+      lastQuaternionRef.current = nextQuat;
+      onQuaternionChange(nextQuat);
     }
   });
 
@@ -62,7 +95,7 @@ function GoalMarker({ onPositionChange, onDrag, initialPosition, converged = tru
       </mesh>
       <TransformControls
         object={meshRef}
-        mode="translate"
+        mode={mode}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
       />
