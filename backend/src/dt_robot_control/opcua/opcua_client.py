@@ -7,8 +7,8 @@ from asyncua import Client, ua, Node
 from asyncua.ua.uatypes import VariantType
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
-from .subscription_manager import SubscriptionManager
-from .node_manager import NodeManager
+from dt_robot_control.opcua.subscription_manager import SubscriptionManager
+from dt_robot_control.opcua.node_manager import NodeManager
 
 
 def clear_terminal():

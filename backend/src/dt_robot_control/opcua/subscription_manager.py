@@ -1,6 +1,6 @@
 from fastapi import WebSocket
-from .subhandler import SubHandler
-from .node_manager import NodeManager
+from dt_robot_control.opcua.subhandler import SubHandler
+from dt_robot_control.opcua.node_manager import NodeManager
 
 class SubscriptionManager:
     """Manages OPC UA subscriptions for the client."""
