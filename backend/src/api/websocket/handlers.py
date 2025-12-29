@@ -2,7 +2,7 @@ import json
 from fastapi import WebSocket
 from typing import Dict
 
-from src.opcua.client import OPCUAClient
+from src.opcua.opcua_client import OPCUAClient
 
 # Temporary: will be replaced with service later
 clients: Dict[str, OPCUAClient] = {}
@@ -25,6 +25,28 @@ def set_clients(clients_dict: Dict[str, OPCUAClient]) -> None:
 def get_client(url: str) -> OPCUAClient | None:
     """Get a client for the given URL or None."""
     return clients.get(url)
+
+
+# --- Helper Functions for Client Info ---
+
+async def try_read_model(client: OPCUAClient):
+    """Reads the model if available."""
+    if not client.is_robotics_server:
+        return
+    try:
+        return await client.read_model()
+    except Exception as e:
+        return f"❌ Model read error: {e}"
+
+async def try_read_serialnumber(client: OPCUAClient):
+    """Reads the serial number if available."""
+    if not client.is_robotics_server:
+        return
+    try:
+        return await client.read_serial_number()
+    except Exception as e:
+        return f"❌ SerialNumber read error: {e}"
+
 
 # --- WebSocket Handlers ---
 

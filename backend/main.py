@@ -4,10 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, TypedDict, Set
 
 from contextlib import asynccontextmanager
-import os
 
 import src.opcua.opcua as opcua
 import src.server.mcp_server as mcp_server
+from src.api.websocket import router as ws_router
 
 
 class State(TypedDict):
@@ -51,22 +51,8 @@ app.add_middleware(
 
 # --- Router Configuration ---
 
-# Feature flag: Switch between old and new WebSocket router implementation
-# Old: WebSocket handlers inline in src/opcua/opcua.py (original implementation)
-# New: WebSocket handlers extracted to src/api/websocket/ (refactored implementation)
-# Usage: Set environment variable USE_NEW_WEBSOCKET=true to test the new router
-# Once validated, remove this flag and keep only the new router
-USE_NEW_WEBSOCKET = os.getenv("USE_NEW_WEBSOCKET", "false") == "true"
-
-if USE_NEW_WEBSOCKET:
-    # Use refactored WebSocket router (handlers extracted to src/api/websocket/)
-    from src.api.websocket import router as ws_router
-    app.include_router(ws_router.router)
-    # Still need opcua router for REST endpoints (browsing nodes, etc.)
-    app.include_router(opcua.router)
-else:
-    # Use original implementation (WebSocket + REST endpoints in src/opcua/opcua.py)
-    app.include_router(opcua.router)
+app.include_router(ws_router.router)  # WebSocket endpoints
+app.include_router(opcua.router)  # REST endpoints for OPC UA browsing
 app.include_router(mcp_server.router)
 app.mount("/llm", mcp_server.mcp_app)
 

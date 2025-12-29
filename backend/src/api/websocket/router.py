@@ -8,7 +8,7 @@ from typing import Dict
 from fastapi import APIRouter, WebSocket
 
 from src.api.websocket import handlers
-from src.opcua.client import OPCUAClient
+from src.opcua.opcua_client import OPCUAClient
 
 
 router = APIRouter()
