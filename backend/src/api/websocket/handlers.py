@@ -3,28 +3,14 @@ from fastapi import WebSocket
 from typing import Dict
 
 from src.opcua.opcua_client import OPCUAClient
-
-# Temporary: will be replaced with service later
-clients: Dict[str, OPCUAClient] = {}
+from src.services.client_registry import client_registry
 
 # --- Helper Functions ---
-
-""" for handler to find connected robots, because router.py has its own clients dict
-    and handlers.py has its own clients dict. Need to share the same dict."""
-def set_clients(clients_dict: Dict[str, OPCUAClient]) -> None:
-    """Inject clients dict from router.
-    
-    Args:
-        clients_dict: Dictionary mapping URLs to OPCUAClient instances.
-    """
-    global clients
-    clients = clients_dict
-
 
 
 def get_client(url: str) -> OPCUAClient | None:
     """Get a client for the given URL or None."""
-    return clients.get(url)
+    return client_registry.get(url)
 
 
 # --- Helper Functions for Client Info ---
@@ -174,14 +160,14 @@ async def handle_unsubscribe(websocket: WebSocket, data: str) -> None:
 async def handle_connect(websocket: WebSocket, data: str) -> None:
     """Connects to an OPC UA server."""
     url = data.split("|", 1)[1].strip()
-    if url in clients:
+    if client_registry.has(url):
         await websocket.send_text(f"⚠️ Already connected to {url}")
         return
     try:
         client = OPCUAClient(url, name=url, websocket=websocket)
         await client.connect()
         await client.check_robotics_support()
-        clients[url] = client
+        client_registry.add(url, client)
         if client.is_robotics_server:
             await websocket.send_text("✅ OPC UA server supports 'Robotics Namespace'.")
             model_text = await try_read_model(client)
@@ -260,10 +246,11 @@ async def handle_cancel_stream_mode(websocket: WebSocket, data: str) -> None:
 
 async def handle_status(websocket: WebSocket) -> None:
     """Returns connection status and device information."""
-    if not clients:
+    all_clients = client_registry.all()
+    if not all_clients:
         await websocket.send_text("🔌 Disconnected")
         return
-    for url, client in clients.items():
+    for url, client in all_clients.items():
         try:
             model_text = await try_read_model(client)
             sn_text = await try_read_serialnumber(client)
@@ -283,7 +270,7 @@ async def handle_disconnect(websocket: WebSocket, data: str) -> None:
         for nodeid in list(client.custom_subscriptions.keys()):
             await client.unsubscribe_custom(nodeid)
         await client.disconnect()
-        del clients[url]
+        client_registry.remove(url)
         await websocket.send_text(f"🔌 Disconnected from {url}")
     else:
         await websocket.send_text(f"❌ No client found for {url}")

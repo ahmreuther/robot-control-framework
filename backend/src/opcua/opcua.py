@@ -6,11 +6,10 @@ from asyncua import ua
 # Own modules
 from src.opcua.opcua_client import OPCUAClient
 from src.opcua.address_space_helpers import collect_node_details
+from src.services.client_registry import client_registry
 
 
 router = APIRouter()
-
-clients: dict[str, OPCUAClient] = {}
 
 templates = Jinja2Templates(directory="templates")
 
@@ -19,7 +18,7 @@ templates = Jinja2Templates(directory="templates")
 
 def get_client(url: str) -> OPCUAClient | None:
     """Get a client for the given URL or None."""
-    return clients.get(url)
+    return client_registry.get(url)
 
 # --- OPC UA Node Utilities ---
 
