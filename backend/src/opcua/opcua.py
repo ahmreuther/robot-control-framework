@@ -14,8 +14,8 @@ clients: dict[str, OPCUAClient] = {}
 
 templates = Jinja2Templates(directory="templates")
 
-# --- Helper functions --- 
-#  ------  -> transported into handlers.py -------
+
+# --- Helper functions ---
 
 def get_client(url: str) -> OPCUAClient | None:
     """Get a client for the given URL or None."""
@@ -126,11 +126,11 @@ async def handle_subscribe(websocket, data):
             return
 
         # --- Prevent duplicate subscriptions ---
-        if hasattr(client, "custom_subscriptions") and node_id in client.custom_subscriptions:
+        if hasattr(client, "custom_subscriptions") and node_id in client.subscription_manager.custom_subscriptions:
             await websocket.send_text(f"⚠️ Already subscribed to variable at {node_id} on {url}")
             return
 
-        await client.subscribe_custom(node_id, websocket)
+        await client.subscription_manager.subscribe_custom(node_id, websocket)
         await websocket.send_text(f"✅ Subscribed to variable at {node_id} on {url}")
     except Exception as e:
         await websocket.send_text(f"❌ subscribe error: {e}")
@@ -155,7 +155,7 @@ async def handle_subscribe_event(websocket, data):
             await websocket.send_text(f"❌ No OPC UA client found for {url}")
             return
 
-        success = await client.subscribe_events_on_node(node_id)
+        success = await client.subscription_manager.subscribe_events_on_node(node_id)
         if success:
             await websocket.send_text(f"✅ Subscribed to events on node {node_id}")  # sends results back to frontend through websocket
         else:
@@ -174,7 +174,7 @@ async def handle_unsubscribe_event(websocket, data):
             await websocket.send_text(f"❌ No OPC UA client found for {url}")
             return
 
-        success = await client.unsubscribe_events()
+        success = await client.subscription_manager.unsubscribe_events()
         if success:
             await websocket.send_text(f"✅ Event subscription removed for {url}")
         else:
@@ -191,7 +191,7 @@ async def handle_unsubscribe(websocket, data):
         if not client:
             await websocket.send_text(f"❌ No subscription found for {node_id} on {url}")
             return
-        success = await client.unsubscribe_custom(node_id)
+        success = await client.subscription_manager.unsubscribe_custom(node_id)
         if success:
             msg = json.dumps({"nodeId": node_id, "url": url})
             await websocket.send_text(f"x|unsubscribe:{msg}")
@@ -210,7 +210,7 @@ async def handle_connect(websocket, data):
     try:
         client = OPCUAClient(url, name=url, websocket=websocket)
         await client.connect()
-        await client.check_robotics_support()
+        await client.has_robotics_namespace()
         clients[url] = client
         if client.is_robotics_server:
             await websocket.send_text("✅ OPC UA server supports 'Robotics Namespace'.")
@@ -237,7 +237,7 @@ async def handle_stream_joint_position(websocket, data):
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
-        await client.subscribe_axes_actual_positions()
+        await client.subscription_manager.subscribe_axes_actual_positions()
         await websocket.send_text(f"Streaming joint positions for {url}")
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
@@ -255,7 +255,7 @@ async def handle_cancel_stream_joint_position(websocket, data):
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
-        await client.stop_axes_subscription()
+        await client.subscription_manager.stop_axes_subscription()
         await websocket.send_text(f"Streaming 'Joint position' cancelled for {url}")
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
@@ -273,7 +273,7 @@ async def handle_stream_mode(websocket, data):
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
-        await client.subscribe_mode()
+        await client.subscription_manager.subscribe_mode()
         await websocket.send_text(f"Streaming Mode for {url}")
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
@@ -283,7 +283,7 @@ async def handle_cancel_stream_mode(websocket, data):
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
-        await client.stop_mode_subscription()
+        await client.subscription_manager.stop_mode_subscription()
         await websocket.send_text(f"Streaming 'Mode' cancelled for {url}")
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
@@ -308,10 +308,10 @@ async def handle_disconnect(websocket, data):
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
     if client:
-        await client.stop_axes_subscription()
-        await client.stop_mode_subscription()
-        for nodeid in list(client.custom_subscriptions.keys()):
-            await client.unsubscribe_custom(nodeid)
+        await client.subscription_manager.stop_axes_subscription()
+        await client.subscription_manager.stop_mode_subscription()
+        for nodeid in list(client.subscription_manager.custom_subscriptions.keys()):
+            await client.subscription_manager.unsubscribe_custom(nodeid)
         await client.disconnect()
         del clients[url]
         await websocket.send_text(f"🔌 Disconnected from {url}")
