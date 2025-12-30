@@ -207,20 +207,22 @@ class NodeManager:
             return None
     
 
-    async def find_method_by_names(self, name_variants: list[str]):
+    async def find_method_by_names(self, name_variants: list[str], return_score=False):
         """
         Searches for a Method node by either a DisplayName or BrowseName that matches any of the provided names in the list.
 
         Scoring:
+        ( -1 points: No match)
         - 1 point: Name match
         - 2 points: Above and the method has a 1 Dim. array as an input argument that is either Float or Double
         - 3 points: Above and the the 1 Dim. array argument name contains "joint" or "joints"
 
         Args:
             name_variants (list[str]): List of possible names for the method.
+            return_score (bool): Whether to return the score along with the node.
         
         Returns:
-            The highest scoring Method node if found, else None.
+            The highest scoring Method node if found, else None. If return_score is True, returns a tuple of the node and its score.
         """
 
         wanted = {self._norm(n) for n in name_variants}
@@ -272,7 +274,10 @@ class NodeManager:
 
             except Exception:
                 continue
-        return best_node                       
+        if return_score:
+            return best_node, best_score
+        return best_node
+                    
 
     async def browse_objects(self, node):
         """
@@ -280,6 +285,9 @@ class NodeManager:
         
         Args:
             node: The node whose children will be listed.
+        
+        Returns:
+            None
         """
 
         print(f"[{self.name}] Browsing node: {node}")

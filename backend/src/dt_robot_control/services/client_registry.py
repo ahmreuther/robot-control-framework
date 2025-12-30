@@ -6,7 +6,7 @@ Replaces duplicate clients dict in opcua.py and handlers.py.
 """
 
 from typing import Dict, Optional
-from src.opcua.opcua_client import OPCUAClient
+from dt_robot_control.opcua.opcua_client import OPCUAClient
 
 
 class ClientRegistry:

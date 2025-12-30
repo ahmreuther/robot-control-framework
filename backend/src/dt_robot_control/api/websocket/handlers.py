@@ -2,8 +2,8 @@ import json
 from fastapi import WebSocket
 from typing import Dict
 
-from src.opcua.opcua_client import OPCUAClient
-from src.services.client_registry import client_registry
+from dt_robot_control.opcua.opcua_client import OPCUAClient
+from dt_robot_control.services.client_registry import client_registry
 
 # --- Helper Functions ---
 

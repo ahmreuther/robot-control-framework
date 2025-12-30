@@ -6,8 +6,8 @@ Prefer JSON messages: {"action":"...","payload":...}.
 
 from fastapi import APIRouter, WebSocket
 
-from src.api.websocket import handlers
-from src.services.client_registry import client_registry
+from dt_robot_control.api.websocket import handlers
+from dt_robot_control.services.client_registry import client_registry
 
 
 router = APIRouter()

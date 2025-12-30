@@ -5,9 +5,9 @@ from typing import List, TypedDict, Set
 
 from contextlib import asynccontextmanager
 
-from src.opcua import opcua_nodes
-import src.server.mcp_server as mcp_server
-from src.api.websocket import router as ws_router
+from dt_robot_control.opcua import opcua_nodes
+import dt_robot_control.server.mcp_server as mcp_server
+from dt_robot_control.api.websocket import router as ws_router
 
 
 class State(TypedDict):

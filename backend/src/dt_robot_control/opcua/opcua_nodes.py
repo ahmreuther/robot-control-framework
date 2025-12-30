@@ -8,9 +8,9 @@ from fastapi import Request, Query, APIRouter
 from fastapi.templating import Jinja2Templates
 from asyncua import ua
 
-from src.opcua.opcua_client import OPCUAClient
-from src.opcua.address_space_helpers import collect_node_details
-from src.services.client_registry import client_registry
+from dt_robot_control.opcua.opcua_client import OPCUAClient
+from dt_robot_control.opcua.address_space_helpers import collect_node_details
+from dt_robot_control.services.client_registry import client_registry
 
 
 router = APIRouter()

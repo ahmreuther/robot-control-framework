@@ -1,5 +1,8 @@
 import asyncio
+import os
 import json
+from asyncua import Client, ua
+from asyncua.ua.uatypes import VariantType
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 

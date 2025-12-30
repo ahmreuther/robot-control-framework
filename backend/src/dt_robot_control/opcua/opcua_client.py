@@ -7,8 +7,8 @@ from asyncua import Client, ua, Node
 from asyncua.ua.uatypes import VariantType
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
-from .subscription_manager import SubscriptionManager
-from .node_manager import NodeManager
+from dt_robot_control.opcua.subscription_manager import SubscriptionManager
+from dt_robot_control.opcua.node_manager import NodeManager
 
 
 def clear_terminal():
@@ -38,8 +38,8 @@ class OPCUAClient:
     is_robotics_server:bool
     namespaces: list[str]
 
-    goto_method_nodeid: str | None
-    toggle_endeff_method_nodeid: str | None
+    goto_method_nodeid: str | None            # wtf is this shit
+    toggle_endeff_method_nodeid: str | None    # this too
 
     # managers
     subscription_manager: SubscriptionManager
