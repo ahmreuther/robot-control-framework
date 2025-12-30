@@ -80,6 +80,47 @@ class NodeManager:
             for child in children:
                 queue.append(child)
 
+    async def _safe_read_display_name(self, node) -> str:
+        """
+        Safely reads the DisplayName of a node.
+        
+        Args:
+            node: The node whose DisplayName we want to read.
+
+        Returns:
+            A tuple containing:
+            - The DisplayName object or None if it can't be read.
+            - The DisplayName.Text of the node or an empty string if it can't be read.
+        """
+        
+        try:
+            dn = await node.read_display_name()
+            dn_txt = self._norm(getattr(dn, "Text", str(dn)) or "")
+            return dn, dn_txt
+        except Exception:
+            return None, ""
+
+
+    async def _safe_read_browse_name(self, node) -> str:
+        """
+        Safely reads the BrowseName of a node.
+        
+        Args:
+            node: The node whose BrowseName we want to read.
+
+        Returns:
+            A tuple containing:
+            - The BrowseName object or None if it can't be read.
+            - The BrowseName.Name of the node or an empty string if it can't be read.
+        """
+       
+        try:
+            bn = await node.read_browse_name()
+            bn_name = self._norm(getattr(bn, "Name", "") or "")
+            return bn, bn_name
+        except Exception:
+            return None, ""
+    
     async def find_descendant_by_name(self, start_node, target_name: str):
         """
         Searches for a descendant node by DisplayName or BrowseName.
@@ -101,20 +142,9 @@ class NodeManager:
             return None
 
         async for node in self._bfs(start_node):
-            # DisplayName
-            try:
-                dn = await node.read_display_name()
-                dn_txt = self._norm(getattr(dn, "Text", str(dn)) or "")
-            except Exception:
-                dn_txt = ""
-
-            # BrowseName
-            try:
-                bn = await node.read_browse_name()
-                bn_name = self._norm(getattr(bn, "Name", "") or "")
-            except Exception:
-                bn_name = ""
-
+            
+            dn, dn_txt = await self._safe_read_display_name(node)
+            bn, bn_name = await self._safe_read_browse_name(node)
             if dn_txt == target or bn_name == target:
                 return node
         return None
@@ -140,12 +170,7 @@ class NodeManager:
             return None
         
         async for node in self._bfs(start_node):
-
-            try:
-                bn = await node.read_browse_name()
-                bn_name = self._norm(getattr(bn, "Name", "") or "")
-            except Exception:
-                bn_name = ""
+            bn, bn_name = await self._safe_read_browse_name(node)
 
             if bn_name == target:
                 uri = None
@@ -212,17 +237,8 @@ class NodeManager:
         async for node in self._bfs(start):
 
             try:
-                try:
-                    dn = await node.read_display_name()
-                    dn_txt = getattr(dn, "Text", str(dn)) or ""
-                except Exception:
-                    dn_txt = ""
-                    
-                try:
-                    bn = await node.read_browse_name()
-                    bn_txt = getattr(bn, "Name", "") or ""
-                except Exception:
-                    bn_txt = ""
+                dn, dn_txt = await self._safe_read_display_name(node)
+                bn, bn_txt = await self._safe_read_browse_name(node)
 
                 try:
                     nclass = await node.read_node_class()

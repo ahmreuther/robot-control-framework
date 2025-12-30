@@ -5,8 +5,9 @@ from typing import List, TypedDict, Set
 
 from contextlib import asynccontextmanager
 
-import src.dt_robot_control.opcua.opcua as opcua
-import src.dt_robot_control.server.mcp_server as mcp_server
+from dt_robot_control.opcua import opcua_nodes
+import dt_robot_control.server.mcp_server as mcp_server
+from dt_robot_control.api.websocket import router as ws_router
 
 
 class State(TypedDict):
@@ -48,7 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(opcua.router)
+# --- Router Configuration ---
+
+app.include_router(ws_router.router)  # WebSocket endpoints
+app.include_router(opcua_nodes.router)  # REST endpoints for OPC UA browsing
 app.include_router(mcp_server.router)
 app.mount("/llm", mcp_server.mcp_app)
 
