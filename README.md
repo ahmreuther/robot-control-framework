@@ -64,6 +64,7 @@ For development, you will need:
 Change to the backend directory:
 ```bash
 cd backend
+uv pip install -e .              # Installs the dependencies and builds the dt_robot_control package
 uv run main.py               # Start backend
 ```
 ### 2. Set up the frontend
