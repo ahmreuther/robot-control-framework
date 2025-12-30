@@ -5,7 +5,7 @@ from typing import List, TypedDict, Set
 
 from contextlib import asynccontextmanager
 
-import src.opcua.opcua as opcua
+from src.opcua import opcua_nodes
 import src.server.mcp_server as mcp_server
 from src.api.websocket import router as ws_router
 
@@ -52,7 +52,7 @@ app.add_middleware(
 # --- Router Configuration ---
 
 app.include_router(ws_router.router)  # WebSocket endpoints
-app.include_router(opcua.router)  # REST endpoints for OPC UA browsing
+app.include_router(opcua_nodes.router)  # REST endpoints for OPC UA browsing
 app.include_router(mcp_server.router)
 app.mount("/llm", mcp_server.mcp_app)
 

@@ -1,46 +1,26 @@
-import json
-from fastapi import WebSocket, Request, Query, APIRouter
+"""
+REST API endpoints for OPC UA node browsing and rendering.
+
+Extracted from opcua.py to separate API routing from OPC UA business logic.
+"""
+
+from fastapi import Request, Query, APIRouter
 from fastapi.templating import Jinja2Templates
 from asyncua import ua
 
-# Own modules
 from src.opcua.opcua_client import OPCUAClient
 from src.opcua.address_space_helpers import collect_node_details
 from src.services.client_registry import client_registry
 
 
 router = APIRouter()
-
 templates = Jinja2Templates(directory="templates")
 
-
-# --- Helper functions ---
 
 def get_client(url: str) -> OPCUAClient | None:
     """Get a client for the given URL or None."""
     return client_registry.get(url)
 
-# --- OPC UA Node Utilities ---
-
-async def try_read_model(client: OPCUAClient):
-    """Reads the model if available."""
-    if not client.is_robotics_server:
-        return
-    try:
-        return await client.read_model()
-    except Exception as e:
-        return f"❌ Model read error: {e}"
-
-async def try_read_serialnumber(client: OPCUAClient):
-    """Reads the serial number if available."""
-    if not client.is_robotics_server:
-        return
-    try:
-        return await client.read_serial_number()
-    except Exception as e:
-        return f"❌ SerialNumber read error: {e}"
-
-# --- REST API Endpoints for Node Rendering ---
 
 @router.get("/device_set_rendered")
 async def get_device_set(request: Request, url: str = Query(...)):
@@ -62,6 +42,7 @@ async def get_device_set(request: Request, url: str = Query(...)):
             {"request": request, "items": [], "error": str(e)}
         )
 
+
 @router.get("/subtree_children")
 async def subtree_children(request: Request, url: str = Query(...), nodeid: str = Query(...)):
     """Shows the children of a node."""
@@ -72,6 +53,7 @@ async def subtree_children(request: Request, url: str = Query(...), nodeid: str 
     detailed = await collect_node_details(node, children_depth=2)
     return templates.TemplateResponse("children_fragment.html", {"request": request, "items": detailed})
 
+
 @router.get("/node_rendered")
 async def node_rendered(request: Request, url: str = Query(...), nodeid: str = Query(...)):
     """Shows details of a single node."""
@@ -81,6 +63,7 @@ async def node_rendered(request: Request, url: str = Query(...), nodeid: str = Q
     node = client.client.get_node(nodeid)
     detail = await collect_node_details(node, children_depth=0) 
     return templates.TemplateResponse("node_fragment.html", {"request": request, "item": detail})
+
 
 @router.get("/references")
 async def get_references(url: str = Query(...), nodeid: str = Query(...)):
@@ -94,7 +77,7 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
         refs = await node.get_references()
 
         if refs:
-            refs = refs[1:]  # <-- remove first element
+            refs = refs[1:]  # Remove first element
 
         async def safe_display_name(node_id):
             try:
