@@ -1,0 +1,17 @@
+{
+  "eva_description": {
+    "joints": ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"],
+    "homePosition": [0, 0, -90, 0, -90, 0],
+    "homePositionDegrees": true
+  },
+  "ur5": {
+    "joints": ["shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"],
+    "homePosition": [0, -90, -90, 0, 0, 0],
+    "homePositionDegrees": true
+  },
+  "fr3": {
+    "joints": ["panda_joint1", "panda_joint2", "panda_joint3", "panda_joint4", "panda_joint5", "panda_joint6", "panda_joint7"],
+    "homePosition": [0, 0, 0, 0, -90, 0, 90, -45, 0],
+    "homePositionDegrees": true
+  }
+}

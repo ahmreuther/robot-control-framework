@@ -28,7 +28,7 @@ export function Viewport(props: ViewportProps) {
   const [ikConverged, setIkConverged] = React.useState(true);
   const [solveStatuses, setSolveStatuses] = React.useState<number[]>([]);
   const [manualJointAngles, setManualJointAngles] = React.useState<number[]>([]);
-  const [manualMode, setManualMode] = React.useState(false);
+  const [manualMode, setManualMode] = React.useState(true); // Start in manual mode to allow home pose to load
   const statusLookup = React.useMemo(() => {
     const entries = Object.entries(SOLVE_STATUS) as Array<[keyof typeof SOLVE_STATUS, number]>;
     const lookup: Record<number, string> = {};
@@ -50,10 +50,9 @@ export function Viewport(props: ViewportProps) {
   
   const handleJointAnglesUpdate = React.useCallback((angles: number[]) => {
     setJointAngles(angles);
-    if (!manualMode) {
-      setManualJointAngles(angles);
-    }
-  }, [manualMode]);
+    // Always sync manual joint angles so home pose is preserved when starting in manual mode
+    setManualJointAngles(angles);
+  }, []);
   
   const orbitRef = useRef<any>(null);
   const transformRef = useRef<any>(null);

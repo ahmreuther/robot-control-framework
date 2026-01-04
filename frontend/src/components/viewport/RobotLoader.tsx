@@ -21,29 +21,6 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
         let robot: URDFRobot  | null = null;
         let robotGroup: THREE.Group | null = null;
 
-        const applyEvaHomePose = (evaRobot: URDFRobot | null) => {
-            if (!evaRobot) return;
-            const name = (evaRobot.robotName || evaRobot.name || "").toLowerCase();
-            if (!name.includes("eva_description")) return;
-
-            const jointNames = Object.keys(evaRobot.joints ?? {});
-            if (!jointNames.length) return;
-            const degToRad = (deg: number) => (deg * Math.PI) / 180;
-            const setJoint = (index: number, value: number) => {
-                const jointName = jointNames[index];
-                if (jointName) {
-                    evaRobot.setJointValue(jointName, value);
-                }
-            };
-
-            setJoint(1, 0);
-            setJoint(2, degToRad(-10));
-            setJoint(3, 0);
-            setJoint(4, 0);
-            setJoint(5, 0);
-            evaRobot.updateMatrixWorld(true);
-        };
-
         loader.load(url, (loadedRobot) => {
             robot = loadedRobot;
 
@@ -55,7 +32,6 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
             const axesHelper = new THREE.AxesHelper(0.5);
             robotGroup.add(axesHelper);
 
-            applyEvaHomePose(robot);
             scene.add(robotGroup);
             robotRef.current = robot;
             groupRef.current = robotGroup;
