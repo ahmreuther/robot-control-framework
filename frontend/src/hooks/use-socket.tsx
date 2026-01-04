@@ -18,6 +18,7 @@ export function SocketProvider(props: SocketProviderProps) {
     if (wsCtx.readyState !== ReadyState.OPEN) {
       return (
         <div>
+          <pre>  {JSON.stringify(wsCtx, null, 2)}</pre>
           <p>You are not connected.</p>
           <code>Status: {wsCtx.readyState}</code>
         </div>
@@ -30,23 +31,6 @@ export function SocketProvider(props: SocketProviderProps) {
         </SocketContext.Provider>
     )
 }
-
-// export function initSocket(url: string) {
-//   if (!socket || socket.readyState === WebSocket.CLOSED) {
-//     socket = new WebSocket(url);
-
-//     socket.onopen = () => console.log("WebSocket connected");
-//     socket.onmessage = (event) => console.log("Message from backend:", event.data);
-//     socket.onclose = () => console.log("WebSocket closed");
-//     socket.onerror = (err) => console.error("WebSocket error", err);
-//   }
-
-//   return socket;
-// }
-
-// export function getSocket() {
-//   return socket;
-// }
 
 export function useSocket(): WebSocketLike {
   const wsCtx = useContext(SocketContext)

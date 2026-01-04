@@ -12,7 +12,7 @@ function ConnectOPCUA() {
   const [url, seturl] = useState("");
   const socket = useSocket();
 
-  function handleConnect() {
+  function send_message(connectType: string ){
     const trimmedUrl = url.trim();
 
     if (!trimmedUrl) {
@@ -20,12 +20,7 @@ function ConnectOPCUA() {
       return;
     }
 
-    const msg = `connect|${trimmedUrl}`;
-    // const msg = JSON.stringify({
-    //   type: "connect",
-    //   url: trimmedUrl,
-    //   password: "",
-    // } satisfies ConnectMessage)
+    const msg = `${connectType}|${trimmedUrl}`;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(msg);
@@ -38,11 +33,28 @@ function ConnectOPCUA() {
   }
 
 
+
+
+  function handleConnect() {
+    
+    // const msg = JSON.stringify({
+    //   type: "connect",
+    //   url: trimmedUrl,
+    //   password: "",
+    // } satisfies ConnectMessage)
+    send_message("connect")
+  }
+
+  function handleDisconnect(){
+    send_message("disconnect")
+  }
+
+
   return (
     <div>
       <Input value={url} onChange={(e) => seturl(e.target.value)} aria-label="Server-Adress" className="w-64" placeholder="OPC UA Server URL" />
       <Button onPress={handleConnect}>Connect</Button>
-      <Button onPress={() => console.log("Button pressed")}>Disconnect</Button>
+      <Button onPress={handleDisconnect}>Disconnect</Button>
       <Switch>
         <Switch.Control>
           <Switch.Thumb />
