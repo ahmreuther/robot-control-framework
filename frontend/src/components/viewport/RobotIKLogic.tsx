@@ -31,6 +31,7 @@ interface RobotWithIKProps {
   converged?: boolean;
   manualJointAngles?: number[];
   manualMode?: boolean;
+  showAxisHelpers?: boolean;
 }
 
 export function RobotWithIK({
@@ -47,6 +48,7 @@ export function RobotWithIK({
   converged = true,
   manualJointAngles = [],
   manualMode = false,
+  showAxisHelpers = true,
 }: RobotWithIKProps) {
   const robotRef = useRef<URDFRobot | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
@@ -415,7 +417,7 @@ export function RobotWithIK({
 
   return (
     <>
-      <RobotLoader urdfPath={urdfPath} onRobotReady={handleRobotReady} />
+      <RobotLoader urdfPath={urdfPath} onRobotReady={handleRobotReady} showAxisHelpers={showAxisHelpers} />
       {initializedRef.current && (
         <GoalMarker
           onPositionChange={onGoalPositionChange || (() => {})}

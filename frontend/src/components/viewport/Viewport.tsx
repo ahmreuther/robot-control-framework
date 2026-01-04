@@ -29,6 +29,7 @@ export function Viewport(props: ViewportProps) {
   const [solveStatuses, setSolveStatuses] = React.useState<number[]>([]);
   const [manualJointAngles, setManualJointAngles] = React.useState<number[]>([]);
   const [manualMode, setManualMode] = React.useState(true); // Start in manual mode to allow home pose to load
+  const [showAxisHelpers, setShowAxisHelpers] = React.useState(false);
   const statusLookup = React.useMemo(() => {
     const entries = Object.entries(SOLVE_STATUS) as Array<[keyof typeof SOLVE_STATUS, number]>;
     const lookup: Record<number, string> = {};
@@ -90,6 +91,7 @@ export function Viewport(props: ViewportProps) {
             converged={ikConverged}
             manualJointAngles={manualJointAngles}
             manualMode={manualMode}
+            showAxisHelpers={showAxisHelpers}
           />
         </Suspense>
       </Canvas>
@@ -97,6 +99,8 @@ export function Viewport(props: ViewportProps) {
         jointAngles={manualJointAngles}
         manualMode={manualMode}
         onModeToggle={setManualMode}
+        showAxisHelpers={showAxisHelpers}
+        onAxisHelpersToggle={setShowAxisHelpers}
         onAngleChange={(index, value) => {
           const newAngles = [...manualJointAngles];
           newAngles[index] = value;
