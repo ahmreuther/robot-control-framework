@@ -16,30 +16,34 @@ const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/ur5_description/urdf/ur5_robot.urdf', color: '#aaaab3', label: 'UR5e' },
 ];
 
+const LogContext = createContext({log: "test\n", setLogs: ()=>{}});
+
 function App() {
 
   const [count, setCount] = useState(0)
   
   const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
 
-  const [logs, setLogs] = useState("test")
+  const [logs, setLogs] = useState("Start\n")
 
-  const useLog = () => useContext(AppContext);
+  const logWrapper = {logs, setLogs};
+
+  const useLog = useContext(LogContext);
 
 
   return (
-    //<SocketProvider url='ws://127.0.0.1:8000/ws'>
-    <AppContext.Provider value={logs} >
+    <SocketProvider url='ws://127.0.0.1:8000/ws'>
+    <LogContext.Provider value={logWrapper}>
       <Live_Status />
       <MessageLog/> 
       <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
       <Viewport urdfPath={selectedRobot.urdf} />
       <Menu />
-      </AppContext.Provider>
-    //</SocketProvider >
+      </LogContext.Provider>
+    </SocketProvider >
   )
 }
 
-export const AppContext = createContext(null);
+export { LogContext };
 
 export default App

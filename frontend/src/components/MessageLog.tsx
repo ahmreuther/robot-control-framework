@@ -1,28 +1,19 @@
 import { LazyLog } from "@melloware/react-logviewer";
 import { useState, useEffect, useContext } from "react";
+import { LogContext } from "/src/App";
 
 
 function MessageLog() {
-    const [logs, setLogs] = useState("");
+    const { logs, setLogs } = useContext(LogContext);
     const [showLogs, setShowLogs] = useState(false);
 
     function addManual() {
-        setLogs(prev => prev + "new log line\n");
+        setLogs(prev=> prev + "new log line\n");
     }
     
     function clearLog(){
         setLogs("Cleared\n")
     }
-
-    useEffect(() => {
-        const socket = new WebSocket("ws://127.0.0.1:8000/ws");
-
-        socket.onmessage = (event) => {
-            setLogs(prev => prev + event.data + "\n");
-        };
-
-        return () => socket.close();
-    }, []);
 
     return (
         <div className="fixed z-10" 
