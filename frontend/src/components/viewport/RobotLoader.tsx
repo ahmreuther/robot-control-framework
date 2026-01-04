@@ -37,9 +37,9 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
             };
 
             setJoint(1, 0);
-            setJoint(2, degToRad(-90));
+            setJoint(2, degToRad(-10));
             setJoint(3, 0);
-            setJoint(4, degToRad(-90));
+            setJoint(4, 0);
             setJoint(5, 0);
             evaRobot.updateMatrixWorld(true);
         };

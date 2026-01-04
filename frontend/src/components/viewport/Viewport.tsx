@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Html, useProgress } from "@react-three/drei";
 import React from "react";
 import { RobotWithIK, SOLVE_STATUS } from "./RobotIKLogic";
+import { JointAnglesPanel } from "./JointAnglesPanel";
 import { useRef } from "react";
 
 
@@ -26,6 +27,8 @@ export function Viewport(props: ViewportProps) {
   const [jointAngles, setJointAngles] = React.useState<number[]>([]);
   const [ikConverged, setIkConverged] = React.useState(true);
   const [solveStatuses, setSolveStatuses] = React.useState<number[]>([]);
+  const [manualJointAngles, setManualJointAngles] = React.useState<number[]>([]);
+  const [manualMode, setManualMode] = React.useState(false);
   const statusLookup = React.useMemo(() => {
     const entries = Object.entries(SOLVE_STATUS) as Array<[keyof typeof SOLVE_STATUS, number]>;
     const lookup: Record<number, string> = {};
@@ -47,7 +50,10 @@ export function Viewport(props: ViewportProps) {
   
   const handleJointAnglesUpdate = React.useCallback((angles: number[]) => {
     setJointAngles(angles);
-  }, []);
+    if (!manualMode) {
+      setManualJointAngles(angles);
+    }
+  }, [manualMode]);
   
   const orbitRef = useRef<any>(null);
   const transformRef = useRef<any>(null);
@@ -83,19 +89,32 @@ export function Viewport(props: ViewportProps) {
             onSolveStatusesChange={setSolveStatuses}
             onDrag={setDrag}
             converged={ikConverged}
+            manualJointAngles={manualJointAngles}
+            manualMode={manualMode}
           />
         </Suspense>
       </Canvas>
-      <div className="absolute top-30 left-5 text-white text-xs space-y-1">
-        <div className="font-bold">Goal Position:</div>
-        <div>{goalPosition.map((n) => n.toFixed(3)).join(", ")}</div>
-        <div className="font-bold mt-2">Joint Angles (rad):</div>
-        {jointAngles.map((angle, i) => (
-          <div key={i}>J{i}: {angle.toFixed(3)}</div>
-        ))}
-        <div className="font-bold mt-2">IK Status:</div>
-        <div>{solveStatusText}</div>
-      </div>
+      <JointAnglesPanel 
+        jointAngles={manualJointAngles}
+        manualMode={manualMode}
+        onModeToggle={setManualMode}
+        onAngleChange={(index, value) => {
+          const newAngles = [...manualJointAngles];
+          newAngles[index] = value;
+          setManualJointAngles(newAngles);
+          if (manualMode) {
+            setJointAngles(newAngles);
+          }
+        }}
+        onReset={() => {
+          const zeros = jointAngles.map(() => 0);
+          setManualJointAngles(zeros);
+          if (manualMode) {
+            setJointAngles(zeros);
+          }
+        }}
+        solveStatusText={solveStatusText}
+      />
     </div>
   );
 }

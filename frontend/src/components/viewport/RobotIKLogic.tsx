@@ -29,6 +29,8 @@ interface RobotWithIKProps {
   onSolveStatusesChange?: (statuses: number[]) => void;
   onDrag?: (dragging: boolean) => void;
   converged?: boolean;
+  manualJointAngles?: number[];
+  manualMode?: boolean;
 }
 
 export function RobotWithIK({
@@ -43,6 +45,8 @@ export function RobotWithIK({
   onSolveStatusesChange,
   onDrag,
   converged = true,
+  manualJointAngles = [],
+  manualMode = false,
 }: RobotWithIKProps) {
   const robotRef = useRef<URDFRobot | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
@@ -237,18 +241,55 @@ export function RobotWithIK({
     const robot = robotRef.current;
     if (!robot || !jointAnglesRef.current.length) return;
     
-    // Apply current joint angles to robot
     const jointNames = Object.keys(robot.joints ?? {});
-    jointNames.forEach((name, index) => {
-      if (index < jointAnglesRef.current.length) {
-        const currentAngle = robot.joints[name]?.angle ?? 0;
-        const targetAngle = jointAnglesRef.current[index];
-        // Only update if different to avoid unnecessary computations
-        if (Math.abs(currentAngle - targetAngle) > 0.0001) {
-          robot.setJointValue(name, targetAngle);
+    
+    if (manualMode && manualJointAngles.length > 0) {
+      // Forward kinematics: apply manual angles directly
+      jointNames.forEach((name, index) => {
+        if (index < manualJointAngles.length) {
+          robot.setJointValue(name, manualJointAngles[index]);
+        }
+      });
+      robot.updateMatrixWorld(true);
+      
+      // Update goal position based on end effector
+      const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
+      let endEffector: any = null;
+      for (const name of endEffectorNames) {
+        endEffector = robot.getObjectByName(name);
+        if (endEffector) break;
+      }
+      if (!endEffector) {
+        robot.traverse((obj: any) => {
+          if (obj.isURDFLink) endEffector = obj;
+        });
+      }
+      if (endEffector) {
+        endEffector.updateMatrixWorld(true);
+        const pos = new THREE.Vector3();
+        const quat = new THREE.Quaternion();
+        endEffector.getWorldPosition(pos);
+        endEffector.getWorldQuaternion(quat);
+        if (onGoalPositionChange) {
+          onGoalPositionChange([pos.x, pos.y, pos.z]);
+        }
+        if (onGoalQuaternionChange) {
+          onGoalQuaternionChange([quat.x, quat.y, quat.z, quat.w]);
         }
       }
-    });
+    } else {
+      // IK mode: apply angles from solver
+      jointNames.forEach((name, index) => {
+        if (index < jointAnglesRef.current.length) {
+          const currentAngle = robot.joints[name]?.angle ?? 0;
+          const targetAngle = jointAnglesRef.current[index];
+          // Only update if different to avoid unnecessary computations
+          if (Math.abs(currentAngle - targetAngle) > 0.0001) {
+            robot.setJointValue(name, targetAngle);
+          }
+        }
+      });
+    }
   });
 
   return (
