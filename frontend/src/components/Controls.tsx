@@ -2,6 +2,7 @@ import Buttons from "./Buttons";
 import { Selector } from "./Selector";
 import { GenSliders } from "./Sliderx";
 
+//Controls Tab
 function Controls() {
     return (
         <div className="fixed">

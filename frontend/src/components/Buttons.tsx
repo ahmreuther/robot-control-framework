@@ -1,6 +1,6 @@
 import {Checkbox, Label} from "@heroui/react";
 
-
+//buttons for the viewport settings like ignore joint limits, hide fixed joints, use radians, autocenter, show collision
 function Buttons() {
   return (
     <div>

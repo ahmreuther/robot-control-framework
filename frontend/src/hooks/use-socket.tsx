@@ -1,7 +1,10 @@
+//this hook ist used for providing a websocket connection throughout the app
+
 import { createContext, useContext, useMemo, type PropsWithChildren } from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import type { WebSocketHook, WebSocketLike } from "react-use-websocket/dist/lib/types";
 
+//this context is later wrapped around the app in App.tsx in order to keep track of current websocket connection
 type SocketContextType = WebSocketHook | null
 
 export const SocketContext = createContext<SocketContextType>(null);
@@ -32,6 +35,7 @@ export function SocketProvider(props: SocketProviderProps) {
     )
 }
 
+// used like : const socket = useSocket(); in order to use the websocket connection
 export function useSocket(): WebSocketLike {
   const wsCtx = useContext(SocketContext)
   const socket = wsCtx?.getWebSocket()

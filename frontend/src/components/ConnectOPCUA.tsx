@@ -9,11 +9,15 @@ import { LogContext } from "/src/App";
 //   password: string
 // }
 
+// Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
 function ConnectOPCUA() {
   const [url, seturl] = useState("");
   const socket = useSocket();
   const { logs, setLogs } = useContext(LogContext);
 
+
+  // funktion um die nachricht zu versenden, man muss nur den connect type übergeben (connect/disconnect), funktioniert nur wenn die 
+  //Nachricht die gesendet wird so aussieht:  "xxx|url". Die letzte url wird auch im localstorage gespeichert
   function send_message(connectType: string ){
     const trimmedUrl = url.trim();
 
@@ -36,7 +40,7 @@ function ConnectOPCUA() {
 
 
 
-
+  // muss noch in Json umgewandelt werden, backend muss jason empfangen können
   function handleConnect() {
     
     // const msg = JSON.stringify({
@@ -47,6 +51,7 @@ function ConnectOPCUA() {
     send_message("connect")
   }
 
+  // meine idee von disconnect handlen, chris hatte was anderes implementiert
   function handleDisconnect(){
     send_message("disconnect")
   }

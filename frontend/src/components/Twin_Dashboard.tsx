@@ -1,5 +1,5 @@
 
-
+//twin dashboard showing basic information about the connected twin
 function  Twin_Dashboard() {
     return (
         <div>

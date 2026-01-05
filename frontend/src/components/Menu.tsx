@@ -3,6 +3,8 @@ import Controls from './Controls.tsx';
 import ConnectOPCUA from "./ConnectOPCUA.tsx";
 import Twin_Dashboard from "./Twin_Dashboard.tsx";
 
+//tabs menu on the left
+
 export function Menu() {
   return (
     <div

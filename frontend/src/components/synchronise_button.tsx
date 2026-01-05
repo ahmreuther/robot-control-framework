@@ -1,3 +1,6 @@
+// Skizze für die synchronisierungs button logik, übernommen aus dem Vorgängerprojekt
+
+
 
 //wenn keine url connected ist kann nicht verbinden 
 
