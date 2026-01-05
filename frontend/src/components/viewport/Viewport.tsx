@@ -1,36 +1,30 @@
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, TransformControls } from "@react-three/drei";
-import { Suspense } from "react";
-import { Html, useProgress } from "@react-three/drei";
-import React from "react";
+import { OrbitControls, Html, useProgress } from "@react-three/drei";
+import { Suspense, useState, useCallback, useMemo } from "react";
 import { RobotWithIK, SOLVE_STATUS } from "./RobotIKLogic";
 import { JointAnglesPanel } from "./JointAnglesPanel";
-import { useRef } from "react";
-
 
 export interface ViewportProps {
   urdfPath: string;
 }
 
 function Loader() {
-    const { active, progress, errors, item, loaded, total } = useProgress()
+    const { progress } = useProgress()
     return <Html center className="text-4xl text-white">{progress} % loaded</Html>
 }
 
 
 export function Viewport(props: ViewportProps) {
-
-  const [goalPosition, setGoalPosition] = React.useState<[number, number, number]>([0.3, 0.0, 0.3]);
-  const [drag, setDrag] = React.useState<boolean>(false);
-  const [goalQuaternion, setGoalQuaternion] = React.useState<[number, number, number, number]>([0, 0, 0, 1]);
-  const [endEffectorReady, setEndEffectorReady] = React.useState(false);
-  const [jointAngles, setJointAngles] = React.useState<number[]>([]);
-  const [ikConverged, setIkConverged] = React.useState(true);
-  const [solveStatuses, setSolveStatuses] = React.useState<number[]>([]);
-  const [manualJointAngles, setManualJointAngles] = React.useState<number[]>([]);
-  const [manualMode, setManualMode] = React.useState(true); // Start in manual mode to allow home pose to load
-  const [showAxisHelpers, setShowAxisHelpers] = React.useState(false);
-  const statusLookup = React.useMemo(() => {
+  const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0.3, 0.0, 0.3]);
+  const [drag, setDrag] = useState<boolean>(false);
+  const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
+  const [jointAngles, setJointAngles] = useState<number[]>([]);
+  const [ikConverged, setIkConverged] = useState(true);
+  const [solveStatuses, setSolveStatuses] = useState<number[]>([]);
+  const [manualJointAngles, setManualJointAngles] = useState<number[]>([]);
+  const [manualMode, setManualMode] = useState(true); // Start in manual mode to allow home pose to load
+  
+  const statusLookup = useMemo(() => {
     const entries = Object.entries(SOLVE_STATUS) as Array<[keyof typeof SOLVE_STATUS, number]>;
     const lookup: Record<number, string> = {};
     entries.forEach(([label, value]) => {
@@ -43,20 +37,16 @@ export function Viewport(props: ViewportProps) {
     ? solveStatuses.map((status) => statusLookup[status] ?? `UNKNOWN(${status})`).join(", ")
     : "n/a";
 
-  const handleEndEffectorReady = React.useCallback((pos: [number, number, number], quat: [number, number, number, number]) => {
+  const handleEndEffectorReady = useCallback((pos: [number, number, number], quat: [number, number, number, number]) => {
     setGoalPosition(pos);
     setGoalQuaternion(quat);
-    setEndEffectorReady(true);
   }, []);
   
-  const handleJointAnglesUpdate = React.useCallback((angles: number[]) => {
+  const handleJointAnglesUpdate = useCallback((angles: number[]) => {
     setJointAngles(angles);
     // Always sync manual joint angles so home pose is preserved when starting in manual mode
     setManualJointAngles(angles);
   }, []);
-  
-  const orbitRef = useRef<any>(null);
-  const transformRef = useRef<any>(null);
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
@@ -73,7 +63,7 @@ export function Viewport(props: ViewportProps) {
         <directionalLight position={[-5, 5, -5]} intensity={1.2} />
 
         {/* Mouse controls */}
-        <OrbitControls ref={orbitRef} enabled={!drag} />
+        <OrbitControls enabled={!drag} />
 
         {/* Robot with IK (includes GoalMarker) */}
         <Suspense fallback={<Loader />}>
@@ -91,7 +81,6 @@ export function Viewport(props: ViewportProps) {
             converged={ikConverged}
             manualJointAngles={manualJointAngles}
             manualMode={manualMode}
-            showAxisHelpers={showAxisHelpers}
           />
         </Suspense>
       </Canvas>
@@ -99,8 +88,6 @@ export function Viewport(props: ViewportProps) {
         jointAngles={manualJointAngles}
         manualMode={manualMode}
         onModeToggle={setManualMode}
-        showAxisHelpers={showAxisHelpers}
-        onAxisHelpersToggle={setShowAxisHelpers}
         onAngleChange={(index, value) => {
           const newAngles = [...manualJointAngles];
           newAngles[index] = value;

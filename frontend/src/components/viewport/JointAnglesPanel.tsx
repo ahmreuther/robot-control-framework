@@ -4,8 +4,6 @@ export interface JointAnglesPanelProps {
   jointAngles: number[];
   manualMode: boolean;
   onModeToggle: (enabled: boolean) => void;
-  showAxisHelpers?: boolean;
-  onAxisHelpersToggle?: (enabled: boolean) => void;
   onAngleChange: (index: number, value: number) => void;
   onReset?: () => void;
   solveStatusText: string;
@@ -18,8 +16,6 @@ export function JointAnglesPanel({
   jointAngles,
   manualMode,
   onModeToggle,
-  showAxisHelpers = true,
-  onAxisHelpersToggle,
   onAngleChange,
   onReset,
   solveStatusText,
@@ -39,17 +35,6 @@ export function JointAnglesPanel({
           />
           <span>Manual Mode (FK)</span>
         </label>
-        {onAxisHelpersToggle && (
-          <label className="flex items-center gap-2 mb-2">
-            <input 
-              type="checkbox" 
-              checked={showAxisHelpers}
-              onChange={(e) => onAxisHelpersToggle(e.target.checked)}
-              className="cursor-pointer"
-            />
-            <span>Show Axis Helpers</span>
-          </label>
-        )}
       </div>
       
       <div className="font-bold mt-2">Joint Angles (rad):</div>

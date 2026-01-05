@@ -9,7 +9,6 @@ import * as THREE from "three";
 const clonePosition = (pos: [number, number, number]) => [...pos] as [number, number, number];
 const cloneQuaternion = (quat: [number, number, number, number]) => [...quat] as [number, number, number, number];
 
-// Local copy of SOLVE_STATUS to work with isolatedModules
 export const SOLVE_STATUS = {
   CONVERGED: 0,
   STALLED: 1,
@@ -31,7 +30,6 @@ interface RobotWithIKProps {
   converged?: boolean;
   manualJointAngles?: number[];
   manualMode?: boolean;
-  showAxisHelpers?: boolean;
 }
 
 export function RobotWithIK({
@@ -48,7 +46,6 @@ export function RobotWithIK({
   converged = true,
   manualJointAngles = [],
   manualMode = false,
-  showAxisHelpers = true,
 }: RobotWithIKProps) {
   const robotRef = useRef<URDFRobot | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
@@ -417,7 +414,7 @@ export function RobotWithIK({
 
   return (
     <>
-      <RobotLoader urdfPath={urdfPath} onRobotReady={handleRobotReady} showAxisHelpers={showAxisHelpers} />
+      <RobotLoader urdfPath={urdfPath} onRobotReady={handleRobotReady} />
       {initializedRef.current && (
         <GoalMarker
           onPositionChange={onGoalPositionChange || (() => {})}
