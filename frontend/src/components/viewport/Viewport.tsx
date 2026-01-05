@@ -1,11 +1,23 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Html, useProgress } from "@react-three/drei";
-import { Suspense, useState, useCallback, useMemo } from "react";
-import { RobotWithIK, SOLVE_STATUS } from "./RobotIKLogic";
+import { Suspense, useState, useCallback } from "react";
+import { RobotWithIK } from "./RobotIKLogic";
 import { JointAnglesPanel } from "./JointAnglesPanel";
+import { URDFSelector, ModelConfig } from "../URDFSelector";
 
 export interface ViewportProps {
   urdfPath: string;
+  onJointAnglesUpdate?: (angles: number[]) => void;
+  onSolveStatusesChange?: (statuses: number[]) => void;
+  onTransformDrag?: () => void;
+  fkJointAngles: number[];
+  fkMode: boolean;
+  onFkModeChange: (mode: boolean) => void;
+  onFkJointAnglesChange: (angles: number[]) => void;
+  onReset: () => void;
+  solveStatusText: string;
+  robotModels: ModelConfig[];
+  onRobotSelect: (robot: ModelConfig) => void;
 }
 
 function Loader() {
@@ -15,27 +27,25 @@ function Loader() {
 
 
 export function Viewport(props: ViewportProps) {
+  const { 
+    urdfPath, 
+    onJointAnglesUpdate,
+    onSolveStatusesChange,
+    onTransformDrag,
+    fkJointAngles, 
+    fkMode,
+    onFkModeChange,
+    onFkJointAnglesChange,
+    onReset,
+    solveStatusText,
+    robotModels,
+    onRobotSelect
+  } = props;
+  
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0.3, 0.0, 0.3]);
   const [drag, setDrag] = useState<boolean>(false);
   const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
-  const [jointAngles, setJointAngles] = useState<number[]>([]);
   const [ikConverged, setIkConverged] = useState(true);
-  const [solveStatuses, setSolveStatuses] = useState<number[]>([]);
-  const [manualJointAngles, setManualJointAngles] = useState<number[]>([]);
-  const [manualMode, setManualMode] = useState(true); // Start in manual mode to allow home pose to load
-  
-  const statusLookup = useMemo(() => {
-    const entries = Object.entries(SOLVE_STATUS) as Array<[keyof typeof SOLVE_STATUS, number]>;
-    const lookup: Record<number, string> = {};
-    entries.forEach(([label, value]) => {
-      lookup[value] = label;
-    });
-    return lookup;
-  }, []);
-
-  const solveStatusText = solveStatuses.length
-    ? solveStatuses.map((status) => statusLookup[status] ?? `UNKNOWN(${status})`).join(", ")
-    : "n/a";
 
   const handleEndEffectorReady = useCallback((pos: [number, number, number], quat: [number, number, number, number]) => {
     setGoalPosition(pos);
@@ -43,14 +53,12 @@ export function Viewport(props: ViewportProps) {
   }, []);
   
   const handleJointAnglesUpdate = useCallback((angles: number[]) => {
-    setJointAngles(angles);
-    // Always sync manual joint angles so home pose is preserved when starting in manual mode
-    setManualJointAngles(angles);
-  }, []);
+    if (onJointAnglesUpdate) onJointAnglesUpdate(angles);
+  }, [onJointAnglesUpdate]);
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
-      <Canvas camera={{ position: [3, 3, 3], up: [0, 0, 1], fov: 50 }}>
+      <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>
 
         <gridHelper args={[10, 10]} rotation={[Math.PI / 2, 0, 0]} />
 
@@ -68,7 +76,7 @@ export function Viewport(props: ViewportProps) {
         {/* Robot with IK (includes GoalMarker) */}
         <Suspense fallback={<Loader />}>
           <RobotWithIK 
-            urdfPath={props.urdfPath}
+            urdfPath={urdfPath}
             goalPosition={goalPosition}
             goalQuaternion={goalQuaternion}
             onEndEffectorReady={handleEndEffectorReady}
@@ -76,36 +84,34 @@ export function Viewport(props: ViewportProps) {
             onConvergedChange={setIkConverged}
             onGoalPositionChange={setGoalPosition}
             onGoalQuaternionChange={setGoalQuaternion}
-            onSolveStatusesChange={setSolveStatuses}
-            onDrag={setDrag}
-            onModeChange={(mode) => setManualMode(mode === 'fk')}
+            onSolveStatusesChange={onSolveStatusesChange}
+            onDrag={(dragging) => {
+              setDrag(dragging);
+              if (dragging && onTransformDrag) {
+                onTransformDrag();
+              }
+            }}
             converged={ikConverged}
-            manualJointAngles={manualJointAngles}
-            manualMode={manualMode}
+            manualJointAngles={fkJointAngles}
+            manualMode={fkMode}
           />
         </Suspense>
       </Canvas>
-      <JointAnglesPanel 
-        jointAngles={manualJointAngles}
-        manualMode={manualMode}
-        onModeToggle={setManualMode}
-        onAngleChange={(index, value) => {
-          const newAngles = [...manualJointAngles];
-          newAngles[index] = value;
-          setManualJointAngles(newAngles);
-          if (manualMode) {
-            setJointAngles(newAngles);
-          }
-        }}
-        onReset={() => {
-          const zeros = jointAngles.map(() => 0);
-          setManualJointAngles(zeros);
-          if (manualMode) {
-            setJointAngles(zeros);
-          }
-        }}
-        solveStatusText={solveStatusText}
-      />
+      <div className="absolute top-5 left-5 flex flex-col gap-4 pointer-events-none">
+        <URDFSelector options={robotModels} onSelect={onRobotSelect} />
+        <JointAnglesPanel
+          jointAngles={fkJointAngles}
+          manualMode={fkMode}
+          onModeToggle={onFkModeChange}
+          onAngleChange={(index, value) => {
+            const newAngles = [...fkJointAngles];
+            newAngles[index] = value;
+            onFkJointAnglesChange(newAngles);
+          }}
+          onReset={onReset}
+          solveStatusText={solveStatusText}
+        />
+      </div>
     </div>
   );
 }

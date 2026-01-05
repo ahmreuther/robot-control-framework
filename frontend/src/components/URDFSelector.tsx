@@ -18,32 +18,21 @@ interface URDFSelectorProps {
 }
 
 export const URDFSelector: React.FC<URDFSelectorProps> = ({ options, onSelect }) => (
-  <ul 
+  <div 
     id="urdf-selector"
-    className="
-      fixed 
-      top-[2%] left-[2%] 
-      z-10 
-      text-ellipsis 
-      list-none 
-      pl-0
-    "
+    className="text-white text-xs bg-black bg-opacity-50 p-4 rounded z-10 pointer-events-auto"
   >
-    {options.map(opt => (
-      <li
-        key={opt.url}
-        className="
-          cursor-pointer 
-          opacity-50 
-          hover:opacity-75 
-          text-[20px] 
-          font-thin
-        "
-        style={{ cursor: 'pointer', color: 'white' }}
-        onClick={() => onSelect(opt)}
-      >
-        {opt.label}
-      </li>
-    ))}
-  </ul>
+    <div className="font-bold mb-2">Robot Model:</div>
+    <ul className="list-none pl-0 space-y-1">
+      {options.map(opt => (
+        <li
+          key={opt.url}
+          className="cursor-pointer hover:text-blue-400 transition-colors"
+          onClick={() => onSelect(opt)}
+        >
+          {opt.label}
+        </li>
+      ))}
+    </ul>
+  </div>
 );

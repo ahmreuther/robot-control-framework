@@ -1,5 +1,8 @@
 import React from 'react';
 
+const radToDeg = (rad: number) => (rad * 180) / Math.PI;
+const degToRad = (deg: number) => (deg * Math.PI) / 180;
+
 export interface JointAnglesPanelProps {
   jointAngles: number[];
   manualMode: boolean;
@@ -19,12 +22,12 @@ export function JointAnglesPanel({
   onAngleChange,
   onReset,
   solveStatusText,
-  minAngle = -3.14,
-  maxAngle = 3.14,
-  step = 0.01,
+  minAngle = -180,
+  maxAngle = 180,
+  step = 1,
 }: JointAnglesPanelProps) {
   return (
-    <div className="absolute top-30 left-5 text-white text-xs space-y-1 max-h-[90vh] overflow-y-auto bg-black bg-opacity-50 p-4 rounded">
+    <div className="text-white text-xs space-y-1 max-h-[70vh] overflow-y-auto bg-black bg-opacity-50 p-4 rounded pointer-events-auto">
       <div>
         <label className="flex items-center gap-2 mb-2">
           <input 
@@ -33,11 +36,11 @@ export function JointAnglesPanel({
             onChange={(e) => onModeToggle(e.target.checked)}
             className="cursor-pointer"
           />
-          <span>Manual Mode (FK)</span>
+          <span>Forward Kinematics</span>
         </label>
       </div>
       
-      <div className="font-bold mt-2">Joint Angles (rad):</div>
+      <div className="font-bold mt-2">Joint Angles (°):</div>
       <div className="space-y-2">
         {jointAngles.map((angle, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -47,12 +50,12 @@ export function JointAnglesPanel({
               min={minAngle}
               max={maxAngle}
               step={step}
-              value={angle}
-              onChange={(e) => onAngleChange(i, parseFloat(e.target.value))}
+              value={radToDeg(angle)}
+              onChange={(e) => onAngleChange(i, degToRad(parseFloat(e.target.value)))}
               className="w-24"
               disabled={!manualMode}
             />
-            <span className="w-16 text-right">{angle.toFixed(3)}</span>
+            <span className="w-16 text-right">{radToDeg(angle).toFixed(1)}°</span>
           </div>
         ))}
       </div>

@@ -66,6 +66,7 @@ export function RobotWithIK({
   const animationDuration = 2.0; // seconds
   const homePositionRef = useRef<number[]>([]);
   const isAnimatingRef = useRef(false);
+  const isSyncingModeRef = useRef(false);
 
   const runIK = useCallback(() => {
     const robot = robotRef.current;
@@ -147,7 +148,7 @@ export function RobotWithIK({
     if (onConvergedChange) {
       onConvergedChange(converged);
     }
-  }, [goalPosition, goalQuaternion, onJointAnglesUpdate, onConvergedChange, onGoalPositionChange, onGoalQuaternionChange, onSolveStatusesChange]);
+  }, [goalPosition, goalQuaternion, onJointAnglesUpdate, onConvergedChange, onSolveStatusesChange]);
 
   const handleRobotReady = useCallback(
     async (robot: URDFRobot, robotGroup: THREE.Group) => {
@@ -288,13 +289,59 @@ export function RobotWithIK({
   useEffect(() => {
     // When switching from manual to IK mode, sync IK with current robot state
     if (!manualMode && ikRootRef.current && robotRef.current && !isInitialSetupRef.current) {
-      setIKFromUrdf(ikRootRef.current, robotRef.current);
+      const robot = robotRef.current;
+      
+      // Set flag to prevent IK from running until sync is complete
+      isSyncingModeRef.current = true;
+      
+      // Sync IK solver with current robot configuration
+      setIKFromUrdf(ikRootRef.current, robot);
+      
+      // CRITICAL: Update goal position to match current end-effector position
+      // This prevents the robot from jumping when IK re-engages
+      const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
+      let endEffector: any = null;
+      for (const name of endEffectorNames) {
+        endEffector = robot.getObjectByName(name);
+        if (endEffector) break;
+      }
+      if (!endEffector) {
+        robot.traverse((obj: any) => {
+          if (obj.isURDFLink) endEffector = obj;
+        });
+      }
+      
+      if (endEffector) {
+        endEffector.updateMatrixWorld(true);
+        const pos = new THREE.Vector3();
+        const quat = new THREE.Quaternion();
+        endEffector.getWorldPosition(pos);
+        endEffector.getWorldQuaternion(quat);
+        
+        // Update goal to current end-effector position
+        if (onGoalPositionChange) {
+          onGoalPositionChange([pos.x, pos.y, pos.z]);
+        }
+        if (onGoalQuaternionChange) {
+          onGoalQuaternionChange([quat.x, quat.y, quat.z, quat.w]);
+        }
+        
+        // Store as last valid position
+        lastValidGoalPositionRef.current = [pos.x, pos.y, pos.z];
+        lastValidGoalQuaternionRef.current = [quat.x, quat.y, quat.z, quat.w];
+        
+        // Clear sync flag - now safe to run IK
+        isSyncingModeRef.current = false;
+      } else {
+        isSyncingModeRef.current = false;
+      }
     }
-  }, [manualMode]);
+  }, [manualMode, onGoalPositionChange, onGoalQuaternionChange]);
 
   useEffect(() => {
     // Only run IK after initialization and after endeffector is ready (skip initial setup)
-    if (initializedRef.current && !isInitialSetupRef.current && !manualMode) {
+    // Also skip if we're currently syncing mode transition to prevent race conditions
+    if (initializedRef.current && !isInitialSetupRef.current && !manualMode && !isSyncingModeRef.current) {
       runIK();
     }
   }, [runIK, manualMode]);

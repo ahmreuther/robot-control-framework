@@ -56,16 +56,16 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosit
     
     const { x, y, z } = mesh.position;
     
-    // Only update if position actually changed
+    // Update every frame during drag for smooth IK
     const [lastX, lastY, lastZ] = lastPositionRef.current;
-    if (Math.abs(x - lastX) > 0.001 || Math.abs(y - lastY) > 0.001 || Math.abs(z - lastZ) > 0.001) {
+    if (Math.abs(x - lastX) > 0.0001 || Math.abs(y - lastY) > 0.0001 || Math.abs(z - lastZ) > 0.0001) {
       lastPositionRef.current = [x, y, z];
       onPositionChange([x, y, z]);
     }
 
     const { x: qx, y: qy, z: qz, w: qw } = mesh.quaternion;
     const [lqx, lqy, lqz, lqw] = lastQuaternionRef.current;
-    if (Math.abs(qx - lqx) > 0.0005 || Math.abs(qy - lqy) > 0.0005 || Math.abs(qz - lqz) > 0.0005 || Math.abs(qw - lqw) > 0.0005) {
+    if (Math.abs(qx - lqx) > 0.00001 || Math.abs(qy - lqy) > 0.00001 || Math.abs(qz - lqz) > 0.00001 || Math.abs(qw - lqw) > 0.00001) {
       const nextQuat: [number, number, number, number] = [qx, qy, qz, qw];
       lastQuaternionRef.current = nextQuat;
       onQuaternionChange(nextQuat);
