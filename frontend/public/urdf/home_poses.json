@@ -11,7 +11,7 @@
   },
   "fr3": {
     "joints": ["panda_joint1", "panda_joint2", "panda_joint3", "panda_joint4", "panda_joint5", "panda_joint6", "panda_joint7"],
-    "homePosition": [0, 0, 0, 0, -90, 0, 90, -45, 0],
+    "homePosition": [0, 0, 0, 0, -90, 0, 90, 0, 0],
     "homePositionDegrees": true
   }
 }

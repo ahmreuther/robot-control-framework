@@ -27,6 +27,7 @@ interface RobotWithIKProps {
   onGoalQuaternionChange?: (quaternion: [number, number, number, number]) => void;
   onSolveStatusesChange?: (statuses: number[]) => void;
   onDrag?: (dragging: boolean) => void;
+  onModeChange?: (mode: 'fk' | 'ik') => void;
   converged?: boolean;
   manualJointAngles?: number[];
   manualMode?: boolean;
@@ -43,6 +44,7 @@ export function RobotWithIK({
   onGoalQuaternionChange,
   onSolveStatusesChange,
   onDrag,
+  onModeChange,
   converged = true,
   manualJointAngles = [],
   manualMode = false,
@@ -184,7 +186,8 @@ export function RobotWithIK({
             robot.setJointValue(name, 0);
           });
           
-          // Start animation
+          // Start animation - enable FK mode
+          if (onModeChange) onModeChange('fk');
           animationStartTimeRef.current = performance.now();
           isAnimatingRef.current = true;
         }
@@ -356,6 +359,8 @@ export function RobotWithIK({
       if (t >= 1.0) {
         isAnimatingRef.current = false;
         animationStartTimeRef.current = null;
+        // Animation done - disable FK mode, enable IK
+        if (onModeChange) onModeChange('ik');
         // Now ready for IK solving
         isInitialSetupRef.current = false;
       }

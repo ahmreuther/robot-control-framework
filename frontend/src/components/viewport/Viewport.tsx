@@ -78,6 +78,7 @@ export function Viewport(props: ViewportProps) {
             onGoalQuaternionChange={setGoalQuaternion}
             onSolveStatusesChange={setSolveStatuses}
             onDrag={setDrag}
+            onModeChange={(mode) => setManualMode(mode === 'fk')}
             converged={ikConverged}
             manualJointAngles={manualJointAngles}
             manualMode={manualMode}
