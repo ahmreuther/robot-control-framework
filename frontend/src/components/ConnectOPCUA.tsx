@@ -1,35 +1,60 @@
-import {Input} from "@heroui/react";
-import {Button} from "@heroui/react";
-import {Label, Switch} from "@heroui/react";
-import { getSocket } from "./Connect";
-import {useState} from "react";
 
+import { Button, Input, Label, Switch } from "@heroui/react";
+import { useSocket } from "../hooks/use-socket";
+import {useState, useContext} from "react";
+import { LogContext } from "/src/App";
 
+// type ConnectMessage = {
+//   type: "connect";
+//   url: string;
+//   password: string
+// }
 
+// Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
 function ConnectOPCUA() {
+  const [url, seturl] = useState("");
+  const socket = useSocket();
+  const { logs, setLogs } = useContext(LogContext);
 
 
-    const [url, seturl] = useState("");
-
-    function handleConnect() {
+  // funktion um die nachricht zu versenden, man muss nur den connect type übergeben (connect/disconnect), funktioniert nur wenn die 
+  //Nachricht die gesendet wird so aussieht:  "xxx|url". Die letzte url wird auch im localstorage gespeichert
+  function send_message(connectType: string ){
     const trimmedUrl = url.trim();
 
     if (!trimmedUrl) {
-      alert("Please enter a valid OPC UA Server URL.");
+      setLogs(prev=> prev + "Please enter a valid OPC UA Server URL.\n");
       return;
     }
 
-    const message = `connect|${trimmedUrl}`;
-    const socket = getSocket();
+    const msg = `${connectType}|${trimmedUrl}`;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(message);
-      console.log("Sent:", message);
+      socket.send(msg);
+      setLogs(prev=> prev + "Sent:" + msg + "\n");
     } else {
-      alert("WebSocket is not connected.");
+      setLogs(prev=> prev + `WebSocket is not ready! (State: ${socket.readyState})` + "\n");
     }
 
     localStorage.setItem("lastOpcUaUrl", trimmedUrl);
+  }
+
+
+
+  // muss noch in Json umgewandelt werden, backend muss jason empfangen können
+  function handleConnect() {
+    
+    // const msg = JSON.stringify({
+    //   type: "connect",
+    //   url: trimmedUrl,
+    //   password: "",
+    // } satisfies ConnectMessage)
+    send_message("connect")
+  }
+
+  // meine idee von disconnect handlen, chris hatte was anderes implementiert
+  function handleDisconnect(){
+    send_message("disconnect")
   }
 
 
@@ -39,7 +64,7 @@ function ConnectOPCUA() {
       <div />
       <div className="">
         <Button onPress={handleConnect}>Connect</Button>
-        <Button onPress={() => console.log("Button pressed")}>Disconnect</Button>
+        <Button onPress={() => setLogs(prev=> prev + "Disconnect pressed\n")}>Disconnect</Button>
       </div>
       <div />
         <Switch>
@@ -53,3 +78,4 @@ function ConnectOPCUA() {
 }
 
 export default ConnectOPCUA;
+

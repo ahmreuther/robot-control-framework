@@ -15,7 +15,6 @@ interface MenuProps {
 
 export function SidebarMenu(MenuProps: MenuProps) {
   const [active, setActive] = useState<TabKey>("Controls");
-
   return (
     <div className="flex h-screen z-10 ">
       {/* SIDEBAR */}
