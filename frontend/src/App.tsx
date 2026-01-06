@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import './App.css'
 
-import Live_Status from './components/Live_Status.tsx';
-import { Viewport } from "./components/Viewport.tsx";
-import {type URDFOptions } from './components/URDFSelector.tsx';
-import { initSocket,getSocket } from "./components/Connect";
-import { SidebarMenu } from './components/Menu.tsx';
+import Live_Status from './components/Live_Status';
+import { Viewport } from "./components/Viewport";
+import {type URDFOptions } from './components/URDFSelector';
+import { initSocket } from "./components/Connect";
+import { SidebarMenu } from './components/Menu';
 
 const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/eva_description/urdf/eva_description.urdf', color: '#aaaab3', label: 'EVA Automata' },
