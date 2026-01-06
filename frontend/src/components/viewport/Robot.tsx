@@ -16,7 +16,7 @@ export const SOLVE_STATUS = {
   TIMEOUT: 3,
 } as const;
 
-interface RobotWithIKProps {
+interface RobotProps {
   urdfPath: string;
   goalPosition: [number, number, number];
   goalQuaternion: [number, number, number, number];
@@ -33,7 +33,7 @@ interface RobotWithIKProps {
   manualMode?: boolean;
 }
 
-export function RobotWithIK({
+export function Robot({
   urdfPath,
   goalPosition,
   goalQuaternion,
@@ -48,7 +48,7 @@ export function RobotWithIK({
   converged = true,
   manualJointAngles = [],
   manualMode = false,
-}: RobotWithIKProps) {
+}: RobotProps) {
   const robotRef = useRef<URDFRobot | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
   const ikRootRef = useRef<any>(null);

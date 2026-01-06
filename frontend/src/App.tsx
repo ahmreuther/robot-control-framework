@@ -6,7 +6,7 @@ import MessageLog from './components/MessageLog';
 import { Viewport } from "./components/viewport/Viewport";
 import {Menu} from "./components/Menu";
 import { initSocket, getSocket } from "./components/Connect";
-import { SOLVE_STATUS } from './components/viewport/RobotIKLogic';
+import { SOLVE_STATUS } from './components/viewport/Robot';
 import type { ModelConfig } from './components/URDFSelector';
 
 const ROBOT_MODELS: ModelConfig[] = [

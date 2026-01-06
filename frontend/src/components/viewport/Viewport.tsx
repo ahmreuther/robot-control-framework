@@ -1,7 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Html, useProgress } from "@react-three/drei";
 import { Suspense, useState, useCallback } from "react";
-import { RobotWithIK } from "./RobotIKLogic";
+import { Robot } from "./Robot";
 import { JointAnglesPanel } from "./JointAnglesPanel";
 import { URDFSelector, ModelConfig } from "../URDFSelector";
 
@@ -75,7 +75,7 @@ export function Viewport(props: ViewportProps) {
 
         {/* Robot with IK (includes GoalMarker) */}
         <Suspense fallback={<Loader />}>
-          <RobotWithIK 
+          <Robot 
             urdfPath={urdfPath}
             goalPosition={goalPosition}
             goalQuaternion={goalQuaternion}
