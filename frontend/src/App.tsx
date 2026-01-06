@@ -2,12 +2,10 @@ import { useState } from 'react'
 import './App.css'
 
 import Live_Status from './components/Live_Status.tsx';
-import MessageLog from './components/MessageLog.tsx';
 import { Viewport } from "./components/Viewport.tsx";
-import { URDFSelector, type URDFOptions } from './components/URDFSelector.tsx';
-import {Menu} from "./components/Menu.tsx";
+import {type URDFOptions } from './components/URDFSelector.tsx';
 import { initSocket,getSocket } from "./components/Connect";
-
+import { SidebarMenu } from './components/Menu.tsx';
 
 const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/eva_description/urdf/eva_description.urdf', color: '#aaaab3', label: 'EVA Automata' },
@@ -17,22 +15,17 @@ const robotOptions: URDFOptions[] = [
 ];
 
 function App() {
-
-  const [count, setCount] = useState(0)
   
   const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
 
   initSocket("ws://127.0.0.1:8000/ws"); //initialize WebSocket connection
 
   return (
-    <>
-        <Live_Status />
-      <MessageLog/> 
-      <URDFSelector options={robotOptions} onSelect={setSelectedRobot} />
+    <div className="h-screen flex">
+      <SidebarMenu options={robotOptions} onSelect={setSelectedRobot} />
+      <Live_Status />
       <Viewport urdfPath={selectedRobot.urdf} />
-      <Menu />
-      
-    </>
+    </div>
   )
 }
 

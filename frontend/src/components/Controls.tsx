@@ -4,7 +4,7 @@ import { GenSliders } from "./Sliderx";
 
 function Controls() {
     return (
-        <div className="fixed">
+        <div className="flex flex-col gap-4">
         {/* Control elements go here */}
         <Buttons />
         <Selector />
