@@ -12,32 +12,28 @@ interface URDFSelectorProps {
 }
 
 export const URDFSelector: React.FC<URDFSelectorProps> = ({ options, onSelect }) => (
-  <ul 
-    id="urdf-selector"
-    className="
-      fixed 
-      top-[2%] left-[2%] 
-      z-10 
-      text-ellipsis 
-      list-none 
-      pl-0
-    "
-  >
-    {options.map(opt => (
-      <li
-        key={opt.urdf}
-        className="
-          cursor-pointer 
-          opacity-50 
-          hover:opacity-75 
-          text-[20px] 
-          font-thin
-        "
-        style={{ cursor: 'pointer', color: opt.color }}
-        onClick={() => onSelect(opt)}
-      >
-        {opt.label}
-      </li>
-    ))}
-  </ul>
+  <div>
+    <ul 
+      id="urdf-selector"
+      className="bg-gray bg-opacity-60 p-3 rounded text-white"
+      
+    >
+      {options.map(opt => (
+        <li
+          key={opt.urdf}
+          className="
+            cursor-pointer 
+            opacity-50 
+            hover:opacity-75 
+            text-[20px] 
+            font-thin
+          "
+          style={{ cursor: 'pointer', color: opt.color }}
+          onClick={() => onSelect(opt)}
+        >
+          {opt.label}
+        </li>
+      ))}
+    </ul>
+  </div>
 );

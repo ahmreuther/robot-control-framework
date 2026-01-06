@@ -17,7 +17,7 @@ function MessageLog() {
 
     return (
         <div className="fixed z-10" 
-        style={{position:"absolute",
+        style={{position:"relative",
             left:0,
             top:600
         }}>
