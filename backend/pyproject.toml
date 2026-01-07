@@ -33,8 +33,18 @@ typecheck = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-exclude = ["__pycache__", ".venv", "venv"]
+exclude = ["__pycache__", ".venv", "venv", "src_old"]
+src = ["src"]
 
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "UP",  # pyupgrade
+  "B",   # flake8-bugbear
+  "SIM", # flake8-simplify
+  "I",   # isort
+]
 
 
 [tool.mypy]
