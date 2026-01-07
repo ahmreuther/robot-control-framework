@@ -9,6 +9,9 @@ import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
 import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
+import URDFLoader from 'urdf-loader/src/URDFLoader.js';
+import { addRobot as registerRobot, listRobots, setStatusListener } from './robotManager.js';
+
 
 customElements.define('urdf-viewer', URDFIKManipulator);
 
@@ -33,7 +36,11 @@ const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 1 / DEG2RAD;
 let sliders = {};
 
-import Stats from 'three/examples/jsm/libs/stats.module.js';
+// Multi-robot UI controls
+const multiRobotSelect = document.getElementById('multi-robot-model');
+const addRobotBtn = document.getElementById('add-robot-btn');
+const robotCountValue = document.getElementById('robot-count-value');
+let spawnIndex = 0;
 
 function setupMiniStats(viewerEl) {
   const container = document.getElementById('stats-output');
@@ -83,6 +90,86 @@ const setColor = color => {
     viewer.highlightColor = '#' + (new THREE.Color(0xffffff)).lerp(new THREE.Color(color), 0.35).getHexString();
 
 };
+
+// Multi-robot helpers
+const availableModels = [];
+
+const updateRobotCount = () => {
+    if (!robotCountValue) return;
+
+    const count = listRobots().length;
+    robotCountValue.textContent = count;
+};
+
+const initMultiRobotOptions = () => {
+    if (!multiRobotSelect) return;
+
+    availableModels.length = 0;
+
+    const elements = document.querySelectorAll('#urdf-options li[urdf]');
+
+
+    const options = Array.from(elements)
+        .map(element => ({
+            urdf: element.getAttribute('urdf'),
+            label: element.textContent.trim(),
+            color: element.getAttribute('color') || '#cccccc',
+        }));
+        
+    availableModels.push(...options);
+    multiRobotSelect.innerHTML = '';
+
+    options.forEach(opt => {
+        const optionEl = document.createElement('option');
+        optionEl.value = opt.urdf;
+        optionEl.textContent = opt.label;
+        multiRobotSelect.appendChild(optionEl);
+    });
+};
+
+setStatusListener(() => updateRobotCount());
+
+// Use a promise for URDFLoader so we can simplify async/await use.
+const loadUrdfModel = (urdfPath) => new Promise((resolve, reject) => {
+    const loader = new URDFLoader();
+    if (viewer.loadMeshFunc) loader.loadMeshCb = viewer.loadMeshFunc;
+    if (viewer.fetchOptions) loader.fetchOptions = viewer.fetchOptions;
+
+    loader.load(urdfPath, robot => resolve(robot), undefined, err => reject(err));
+});
+
+const spawnRobotInstance = async (urdfPath) => {
+    if (!urdfPath || !viewer) return null;
+
+    const offset = spawnIndex++;
+    const robot = await loadUrdfModel(urdfPath);
+
+    robot.position.x = offset * 1.5;
+    robot.name = robot.name || `robot_${offset}`;
+
+    viewer.world.add(robot);
+    viewer.redraw();
+
+    await registerRobot({ model: urdfPath, urdfPath, sceneNode: robot });
+    updateRobotCount();
+
+    return robot;
+};
+
+if (addRobotBtn && multiRobotSelect) {
+    addRobotBtn.addEventListener('click', async () => {
+        const urdfPath = multiRobotSelect.value;
+        if (!urdfPath) return;
+        try {
+            await spawnRobotInstance(urdfPath);
+        } catch (err) {
+            console.warn('Failed to add robot', err);
+        }
+    });
+}
+
+initMultiRobotOptions();
+updateRobotCount();
 
 
 limitsToggle.addEventListener('click', () => {

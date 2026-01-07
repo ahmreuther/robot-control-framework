@@ -99,6 +99,16 @@
             <li urdf="/urdf/fr3_description_with_wagon/urdf/fr3.urdf" color="#567554">Franka Research 3 & Wagon</li>
             <li urdf="/urdf/ur5_description/urdf/ur5_robot.urdf" color="#aaaab3">UR5e</li>
         </ul>
+
+        <div id="multi-robot-controls">
+            <div style="display:flex; gap:6px; align-items:center;">
+                <span style="font-size: 13px; color:#f2f2f2;">Add Robot:</span>
+                <select id="multi-robot-model"></select>
+                <button id="add-robot-btn" class="ds-btn ds-btn-primary">Add</button>
+                <span style="font-size: 12px; color: #f2f2f2;">Active: <span id="robot-count-value">0</span></span>
+            </div>
+        </div>
+        
         <div id="controls" class="hidden">
             <div id="toggle-controls"></div>
             <div id="ignore-joint-limits" class="toggle">Ignore Joint Limits</div>
