@@ -1,6 +1,6 @@
 
 import { Button, Input, Label, Switch } from "@heroui/react";
-import { useSocket } from "../hooks/use-socket";
+import { useSocket } from "../../hooks/use-socket";
 import {useState, useContext} from "react";
 import { LogContext } from "/src/App";
 

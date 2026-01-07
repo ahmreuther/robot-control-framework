@@ -3,7 +3,7 @@ import './App.css'
 
 import Live_Status from './components/Live_Status';
 import { Viewport } from "./components/Viewport";
-import {type URDFOptions } from './components/URDFSelector';
+import {type URDFOptions } from './components/MenuComponents/ControlsComponents/URDFSelector';
 import { initSocket } from "./components/Connect";
 import { SidebarMenu } from './components/Menu';
 import { SocketProvider } from './hooks/use-socket.tsx';

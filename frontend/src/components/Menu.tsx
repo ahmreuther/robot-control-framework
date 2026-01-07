@@ -1,9 +1,9 @@
 import { useState } from "react";
-import Controls from './Controls'; 
-import ConnectOPCUA from "./ConnectOPCUA";
-import Twin_Dashboard from "./Twin_Dashboard";
-import MessageLog from "./MessageLog";
-import { URDFSelector, type URDFOptions } from './URDFSelector';
+import Controls from './MenuComponents/Controls'; 
+import ConnectOPCUA from "./MenuComponents/ConnectOPCUA";
+import Twin_Dashboard from "./MenuComponents/Twin_Dashboard";
+import MessageLog from "./MenuComponents/Tab2Components/MessageLog";
+import { URDFSelector, type URDFOptions } from './MenuComponents/ControlsComponents/URDFSelector';
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
 
