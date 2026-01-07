@@ -317,17 +317,14 @@ export function Robot({
 
   // Using props for goal position/quaternion directly to avoid ref race conditions
 
-  useEffect(() => {
-    // Only run IK after initialization and after endeffector is ready (skip initial setup)
-    // Also skip if we're currently syncing mode transition to prevent race conditions
-    if (initializedRef.current && !isInitialSetupRef.current && !manualMode && !isSyncingModeRef.current) {
-      runIK();
-    }
-  }, [runIK, manualMode, goalPosition, goalQuaternion]);
-
   useFrame(() => {
     const robot = robotRef.current;
     if (!robot) return;
+
+    // Run IK each frame when in IK mode and initialized, but never during home-pose animation
+    if (initializedRef.current && !isInitialSetupRef.current && !manualMode && !isSyncingModeRef.current && !isAnimatingRef.current) {
+      runIK();
+    }
     
     const jointNames = Object.keys(robot.joints ?? {});
     
