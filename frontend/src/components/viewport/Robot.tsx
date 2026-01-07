@@ -390,6 +390,7 @@ export function Robot({
     // Run IK each frame when in IK mode and initialized, but never during home-pose animation
     if (initializedRef.current && !isInitialSetupRef.current && !fkMode && !isSyncingModeRef.current && !isAnimatingRef.current) {
       runIK();
+      return;
     }
 
     if (fkMode) {

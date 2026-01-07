@@ -43,9 +43,7 @@ function App() {
     : "n/a";
 
   const handleJointAnglesUpdate = (angles: number[]) => {
-    if (!fkMode) {
-      setFkJointAngles(angles);
-    }
+    setFkJointAngles(angles);
   };
 
   const handleTransformDrag = () => {
