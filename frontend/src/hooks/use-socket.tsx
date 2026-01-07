@@ -18,7 +18,7 @@ const useWs = (useWebSocket as any).default as typeof useWebSocket
 
 export function SocketProvider(props: SocketProviderProps) {
     const wsCtx = useWs(props.url, undefined, true);
-    if (wsCtx.readyState !== ReadyState.OPEN) {
+   /* if (wsCtx.readyState !== ReadyState.OPEN) {
       return (
         <div>
           <pre>  {JSON.stringify(wsCtx, null, 2)}</pre>
@@ -26,7 +26,7 @@ export function SocketProvider(props: SocketProviderProps) {
           <code>Status: {wsCtx.readyState}</code>
         </div>
       )
-    }
+    }*/
 
     return (
         <SocketContext.Provider value={wsCtx}>
