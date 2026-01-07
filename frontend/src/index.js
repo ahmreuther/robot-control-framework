@@ -10,7 +10,7 @@ import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 import URDFLoader from 'urdf-loader/src/URDFLoader.js';
-import { addRobot as registerRobot, listRobots, setStatusListener } from './robotManager.js';
+import { addRobot as registerRobot, listRobots, setStatusListener, getRobot } from './robotManager.js';
 
 
 customElements.define('urdf-viewer', URDFIKManipulator);
@@ -40,6 +40,7 @@ let sliders = {};
 const multiRobotSelect = document.getElementById('multi-robot-model');
 const addRobotBtn = document.getElementById('add-robot-btn');
 const robotCountValue = document.getElementById('robot-count-value');
+const activeRobotSelect = document.getElementById('active-robot-select');
 let nextOffset = 1;
 let initialRegistered = false;
 
@@ -102,6 +103,59 @@ const updateRobotCount = () => {
     robotCountValue.textContent = count;
 };
 
+const refreshActiveRobotSelect = () => {
+    if (!activeRobotSelect) return;
+
+    const robots = listRobots();
+    const previous = activeRobotSelect.value;
+
+    activeRobotSelect.innerHTML = '';
+
+    robots.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = r.model || r.id;
+        activeRobotSelect.appendChild(opt);
+    });
+
+    if (robots.length === 0) return;
+
+    const fallback = robots[robots.length - 1].id;
+    const chosen = robots.find(r => r.id === previous)?.id || fallback;
+    activeRobotSelect.value = chosen;
+};
+
+const centerCameraOnRobot = (robotId) => {
+    const record = getRobot(robotId);
+    const sceneNode = record?.sceneNode;
+    if (!sceneNode || !viewer || !viewer.camera) return;
+
+    sceneNode.updateMatrixWorld(true);
+
+    const box = new THREE.Box3().setFromObject(sceneNode);
+    const target = new THREE.Vector3();
+    if (box.isEmpty()) {
+        sceneNode.getWorldPosition(target);
+    } else {
+        box.getCenter(target);
+    }
+
+    const controls = viewer.controls;
+    if (controls && controls.target) {
+        const oldTarget = controls.target.clone();
+        const offset = viewer.camera.position.clone().sub(oldTarget);
+        controls.target.copy(target);
+        viewer.camera.position.copy(target.clone().add(offset));
+        controls.update();
+    } else {
+        viewer.camera.lookAt(target);
+    }
+
+    if (typeof viewer.redraw === 'function') {
+        viewer.redraw();
+    }
+};
+
 const initMultiRobotOptions = () => {
     if (!multiRobotSelect) return;
 
@@ -128,7 +182,10 @@ const initMultiRobotOptions = () => {
     });
 };
 
-setStatusListener(() => updateRobotCount());
+setStatusListener(() => {
+    updateRobotCount();
+    refreshActiveRobotSelect();
+});
 
 // Register the initially loaded robot so it counts as active.
 viewer.addEventListener('urdf-processed', async () => {
@@ -137,6 +194,7 @@ viewer.addEventListener('urdf-processed', async () => {
         await registerRobot({ model: viewer.urdf, urdfPath: viewer.urdf, sceneNode: viewer.robot });
         nextOffset = Math.max(nextOffset, 1);
         updateRobotCount();
+        refreshActiveRobotSelect();
         initialRegistered = true;
     } catch (err) {
         console.warn('Failed to register initial robot', err);
@@ -191,6 +249,7 @@ const spawnRobotInstance = async (urdfPath) => {
 
     await registerRobot({ model: urdfPath, urdfPath, sceneNode: robot });
     updateRobotCount();
+    refreshActiveRobotSelect();
 
     return robot;
 };
@@ -207,8 +266,13 @@ if (addRobotBtn && multiRobotSelect) {
     });
 }
 
+if (activeRobotSelect) {
+    activeRobotSelect.addEventListener('change', e => centerCameraOnRobot(e.target.value));
+}
+
 initMultiRobotOptions();
 updateRobotCount();
+refreshActiveRobotSelect();
 
 
 limitsToggle.addEventListener('click', () => {
