@@ -5,6 +5,8 @@ from typing import Dict
 from dt_robot_control.opcua.opcua_client import OPCUAClient
 from dt_robot_control.services.client_registry import client_registry
 
+from dt_robot_control.opcua.subscription_manager import SubscriptionManager
+
 # --- Helper Functions ---
 
 
@@ -74,6 +76,7 @@ async def handle_subscribe(websocket: WebSocket, data: str) -> None:
         payload = json.loads(data.split("|", 1)[1].strip())
         url, node_id = payload.get("url"), payload.get("nodeId")
         client = get_client(url)
+        manager = client.subscription_manager
         if not url or not node_id:
             await websocket.send_text("❌ subscribe: url and nodeId must be provided.")
             return
@@ -82,11 +85,11 @@ async def handle_subscribe(websocket: WebSocket, data: str) -> None:
             return
 
         # --- Prevent duplicate subscriptions ---
-        if hasattr(client, "custom_subscriptions") and node_id in client.custom_subscriptions:
+        if hasattr(client, "custom_subscriptions") and node_id in manager.custom_subscriptions:
             await websocket.send_text(f"⚠️ Already subscribed to variable at {node_id} on {url}")
             return
 
-        await client.subscribe_custom(node_id, websocket)
+        await manager.subscribe_custom(node_id, websocket)
         await websocket.send_text(f"✅ Subscribed to variable at {node_id} on {url}")
     except Exception as e:
         await websocket.send_text(f"❌ subscribe error: {e}")
@@ -107,11 +110,13 @@ async def handle_subscribe_event(websocket: WebSocket, data: str) -> None:
         node_id = payload.get("nodeId")
 
         client = get_client(url)
+        manager = client.subscription_manager
+
         if not client:
             await websocket.send_text(f"❌ No OPC UA client found for {url}")
             return
 
-        success = await client.subscribe_events_on_node(node_id)
+        success = await manager.subscribe_events_on_node(node_id)
         if success:
             await websocket.send_text(f"✅ Subscribed to events on node {node_id}")  # sends results back to frontend through websocket
         else:
@@ -126,11 +131,13 @@ async def handle_unsubscribe_event(websocket: WebSocket, data: str) -> None:
         url = payload.get("url")
 
         client = get_client(url)
+        manager = client.subscription_manager
+
         if not client:
             await websocket.send_text(f"❌ No OPC UA client found for {url}")
             return
 
-        success = await client.unsubscribe_events()
+        success = await manager.unsubscribe_events()
         if success:
             await websocket.send_text(f"✅ Event subscription removed for {url}")
         else:
@@ -144,10 +151,12 @@ async def handle_unsubscribe(websocket: WebSocket, data: str) -> None:
         payload = json.loads(data.split("|", 1)[1].strip())
         url, node_id = payload.get("url"), payload.get("nodeId")
         client = get_client(url)
+        manager = client.subscription_manager
+
         if not client:
             await websocket.send_text(f"❌ No subscription found for {node_id} on {url}")
             return
-        success = await client.unsubscribe_custom(node_id)
+        success = await manager.unsubscribe_custom(node_id)
         if success:
             msg = json.dumps({"nodeId": node_id, "url": url})
             await websocket.send_text(f"x|unsubscribe:{msg}")
@@ -166,7 +175,7 @@ async def handle_connect(websocket: WebSocket, data: str) -> None:
     try:
         client = OPCUAClient(url, name=url, websocket=websocket)
         await client.connect()
-        await client.check_robotics_support()
+        await client.has_robotics_namespace()
         client_registry.add(url, client)
         if client.is_robotics_server:
             await websocket.send_text("✅ OPC UA server supports 'Robotics Namespace'.")
@@ -192,8 +201,10 @@ async def handle_stream_joint_position(websocket: WebSocket, data: str) -> None:
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
+    manager = client.subscription_manager
+
     if client:
-        await client.subscribe_axes_actual_positions()
+        await manager.subscribe_axes_actual_positions()
         await websocket.send_text(f"Streaming joint positions for {url}")
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
@@ -210,8 +221,10 @@ async def handle_cancel_stream_joint_position(websocket: WebSocket, data: str) -
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
+    manager = client.subscription_manager
+
     if client:
-        await client.stop_axes_subscription()
+        await manager.stop_axes_subscription()
         await websocket.send_text(f"Streaming 'Joint position' cancelled for {url}")
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
@@ -228,8 +241,10 @@ async def handle_stream_mode(websocket: WebSocket, data: str) -> None:
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
+    manager = client.subscription_manager
+
     if client:
-        await client.subscribe_mode()
+        await manager.subscribe_mode()
         await websocket.send_text(f"Streaming Mode for {url}")
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
@@ -238,8 +253,10 @@ async def handle_cancel_stream_mode(websocket: WebSocket, data: str) -> None:
     """Stops streaming the operation mode."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
+    manager = client.subscription_manager
+
     if client:
-        await client.stop_mode_subscription()
+        await manager.stop_mode_subscription()
         await websocket.send_text(f"Streaming 'Mode' cancelled for {url}")
     else:
         await websocket.send_text(f"❌ No OPC UA client found for {url}")
@@ -264,11 +281,13 @@ async def handle_disconnect(websocket: WebSocket, data: str) -> None:
     """Disconnect from the OPC UA server and clean up subscriptions."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
+    manager = client.subscription_manager
+
     if client:
-        await client.stop_axes_subscription()
-        await client.stop_mode_subscription()
-        for nodeid in list(client.custom_subscriptions.keys()):
-            await client.unsubscribe_custom(nodeid)
+        await manager.stop_axes_subscription()
+        await manager.stop_mode_subscription()
+        for nodeid in list(manager.custom_subscriptions.keys()):
+            await manager.unsubscribe_custom(nodeid)
         await client.disconnect()
         client_registry.remove(url)
         await websocket.send_text(f"🔌 Disconnected from {url}")
