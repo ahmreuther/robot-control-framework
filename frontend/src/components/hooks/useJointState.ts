@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export type KinematicsMode = "ik" | "fk";
 
@@ -15,7 +15,6 @@ export interface JointStateApi {
   setJoint: (index: number, value: number) => void;
   setAll: (angles: number[]) => void;
   setFromIK: (angles: number[]) => void;
-  reset: () => void;
 }
 
 const EPS = 1e-6;
@@ -30,11 +29,8 @@ const areAnglesEqual = (a: number[], b: number[]) => {
 
 export function useJointState(options: UseJointStateOptions = {}): JointStateApi {
   const { initialAngles = [], initialMode = "ik" } = options;
-  const initialAnglesRef = useRef([...initialAngles]);
-  const initialModeRef = useRef<KinematicsMode>(initialMode);
-
-  const [jointAngles, setJointAngles] = useState<number[]>(initialAnglesRef.current);
-  const [mode, setMode] = useState<KinematicsMode>(initialModeRef.current);
+  const [jointAngles, setJointAngles] = useState<number[]>([...initialAngles]);
+  const [mode, setMode] = useState<KinematicsMode>(initialMode);
 
   const replaceAngles = useCallback((next: number[]) => {
     setJointAngles((prev) => (areAnglesEqual(prev, next) ? prev : [...next]));
@@ -67,13 +63,8 @@ export function useJointState(options: UseJointStateOptions = {}): JointStateApi
     setMode((prev) => (prev === "ik" ? "fk" : "ik"));
   }, []);
 
-  const reset = useCallback(() => {
-    replaceAngles(initialAnglesRef.current);
-    setMode(initialModeRef.current);
-  }, [replaceAngles]);
-
   return useMemo(
-    () => ({ jointAngles, mode, setMode, toggleMode, setJoint, setAll, setFromIK, reset }),
-    [jointAngles, mode, setMode, toggleMode, setJoint, setAll, setFromIK, reset]
+    () => ({ jointAngles, mode, setMode, toggleMode, setJoint, setAll, setFromIK }),
+    [jointAngles, mode, setMode, toggleMode, setJoint, setAll, setFromIK]
   );
 }

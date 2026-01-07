@@ -6,7 +6,6 @@ import { initSocket } from "./components/Connect";
 import { SOLVE_STATUS } from './components/viewport/Robot';
 import { URDFSelector, type ModelConfig } from './components/URDFSelector';
 import { JointAnglesPanel } from "./components/viewport/JointAnglesPanel";
-import { useJointState } from "./components/hooks/useJointState";
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -15,11 +14,17 @@ const ROBOT_MODELS: ModelConfig[] = [
   { id: 'ur5e', label: 'UR5e', url: '/urdf/ur5_description/urdf/ur5_robot.urdf' },
 ];
 
-function App() {
+type sceneState = 'loading' | 'fk' | 'ik';
 
+function App() {
   const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]); // Default to first robot(EVA Automata)
+
+  const [sceneState, setSceneState] = useState<sceneState | null>(null);
+
+  //Robot state
   const [fkMode, setFkMode] = useState(false);
   const [fkJointAngles, setFkJointAngles] = useState<number[]>([]);
+
   const [solveStatuses, setSolveStatuses] = useState<number[]>([]);
 
   initSocket("ws://127.0.0.1:8000/ws"); //initialize WebSocket connection
@@ -38,21 +43,15 @@ function App() {
     : "n/a";
 
   const handleJointAnglesUpdate = (angles: number[]) => {
-    setFkJointAngles(angles);
-  };
-
-  const handleFkJointAnglesChange = (angles: number[]) => {
-    if (!fkMode) setFkMode(true); // Auto-enable FK mode when dragging sliders
-    setFkJointAngles(angles);
-  };
-
-  const handleReset = () => {
-    if (!fkMode) setFkMode(true); // Auto-enable FK mode for reset
-    setFkJointAngles(new Array(fkJointAngles.length).fill(0));
+    if (!fkMode) {
+      setFkJointAngles(angles);
+    }
   };
 
   const handleTransformDrag = () => {
-    if (fkMode) setFkMode(false); // Auto-enable IK mode when dragging goal marker
+    if (fkMode) {
+      setFkMode(false);
+    }
   };
 
   const handleRobotSelect = (robot: ModelConfig) => {
@@ -71,8 +70,6 @@ function App() {
           onTransformDrag={handleTransformDrag}
           fkJointAngles={fkJointAngles}
           fkMode={fkMode}
-          onFkModeChange={setFkMode}
-          onFkJointAnglesChange={handleFkJointAnglesChange}
         />
         <div className="absolute top-5 left-5 pointer-events-none">
           <URDFSelector options={ROBOT_MODELS} onSelect={handleRobotSelect} />
@@ -88,7 +85,6 @@ function App() {
               newAngles[index] = value;
               setFkJointAngles(newAngles);
             }}
-            onReset={handleReset}
             solveStatusText={solveStatusText}
           />
         </div>

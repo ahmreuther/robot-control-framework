@@ -51,7 +51,6 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosit
     const mesh = meshRef.current;
     if (!mesh) return;
     
-    // Only update position during drag to reduce unnecessary IK calls
     if (!isDraggingRef.current) return;
     
     const { x, y, z } = mesh.position;
@@ -80,7 +79,6 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosit
   const handleMouseUp = () => {
     isDraggingRef.current = false;
     onDrag(false);
-    // Final position already emitted during drag; allow IK to revert if needed
   };
 
   return (

@@ -29,8 +29,8 @@ interface RobotProps {
   onDrag?: (dragging: boolean) => void;
   onModeChange?: (mode: 'fk' | 'ik') => void;
   converged?: boolean;
-  manualJointAngles?: number[];
-  manualMode?: boolean;
+  fkJointAngles?: number[];
+  fkMode?: boolean;
 }
 
 export function Robot({
@@ -46,8 +46,8 @@ export function Robot({
   onDrag,
   onModeChange,
   converged = true,
-  manualJointAngles = [],
-  manualMode = false,
+  fkJointAngles = [],
+  fkMode = false,
 }: RobotProps) {
   const robotRef = useRef<URDFRobot | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
@@ -263,180 +263,139 @@ export function Robot({
     [onEndEffectorReady]
   );
 
-  useEffect(() => {
-    // When switching from manual to IK mode, sync IK with current robot state
-    if (!manualMode && ikRootRef.current && robotRef.current && !isInitialSetupRef.current) {
-      const robot = robotRef.current;
-      
-      // Set flag to prevent IK from running until sync is complete
-      isSyncingModeRef.current = true;
-      
-      // Sync IK solver with current robot configuration
-      setIKFromUrdf(ikRootRef.current, robot);
-      
-      // CRITICAL: Update goal position to match current end-effector position
-      // This prevents the robot from jumping when IK re-engages
-      const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
-      let endEffector: any = null;
-      for (const name of endEffectorNames) {
-        endEffector = robot.getObjectByName(name);
-        if (endEffector) break;
+  // Helper: animate from zero to home pose during startup
+  const applyHomeAnimation = (robot: URDFRobot, jointNames: string[]) => {
+    if (!robot || animationStartTimeRef.current === null) return false;
+    const elapsed = (performance.now() - animationStartTimeRef.current) / 1000;
+    const t = Math.min(elapsed / animationDuration, 1.0);
+    const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+    jointNames.forEach((name, index) => {
+      if (index < homePositionRef.current.length) {
+        const startAngle = 0;
+        const targetAngle = homePositionRef.current[index];
+        const currentAngle = startAngle + (targetAngle - startAngle) * eased;
+        robot.setJointValue(name, currentAngle);
       }
-      if (!endEffector) {
-        robot.traverse((obj: any) => {
-          if (obj.isURDFLink) endEffector = obj;
-        });
+    });
+    robot.updateMatrixWorld(true);
+
+    // Update joint angles
+    jointAnglesRef.current = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
+    if (onJointAnglesUpdate) {
+      onJointAnglesUpdate(jointAnglesRef.current);
+    }
+
+    // Update goal position to follow end effector during animation
+    const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
+    let endEffector: any = null;
+    for (const name of endEffectorNames) {
+      endEffector = robot.getObjectByName(name);
+      if (endEffector) break;
+    }
+    if (!endEffector) {
+      robot.traverse((obj: any) => {
+        if (obj.isURDFLink) endEffector = obj;
+      });
+    }
+    if (endEffector) {
+      endEffector.updateMatrixWorld(true);
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      endEffector.getWorldPosition(pos);
+      endEffector.getWorldQuaternion(quat);
+      if (onGoalPositionChange) {
+        onGoalPositionChange([pos.x, pos.y, pos.z]);
       }
-      
-      if (endEffector) {
-        endEffector.updateMatrixWorld(true);
-        const pos = new THREE.Vector3();
-        const quat = new THREE.Quaternion();
-        endEffector.getWorldPosition(pos);
-        endEffector.getWorldQuaternion(quat);
-        
-        // Update goal to current end-effector position
-        if (onGoalPositionChange) {
-          onGoalPositionChange([pos.x, pos.y, pos.z]);
-        }
-        if (onGoalQuaternionChange) {
-          onGoalQuaternionChange([quat.x, quat.y, quat.z, quat.w]);
-        }
-        
-        // Store as last valid position
-        lastValidGoalPositionRef.current = [pos.x, pos.y, pos.z];
-        lastValidGoalQuaternionRef.current = [quat.x, quat.y, quat.z, quat.w];
-        
-        // Clear sync flag - now safe to run IK
-        isSyncingModeRef.current = false;
-      } else {
-        isSyncingModeRef.current = false;
+      if (onGoalQuaternionChange) {
+        onGoalQuaternionChange([quat.x, quat.y, quat.z, quat.w]);
       }
     }
-  }, [manualMode, onGoalPositionChange, onGoalQuaternionChange]);
 
-  // Using props for goal position/quaternion directly to avoid ref race conditions
+    if (t >= 1.0) {
+      isAnimatingRef.current = false;
+      animationStartTimeRef.current = null;
+      // Animation done - disable FK mode, enable IK
+      if (onModeChange) onModeChange('ik');
+      // Now ready for IK solving
+      isInitialSetupRef.current = false;
+    }
+
+    return true;
+  };
+
+  // Helper: apply solver angles (IK mode)
+  const applyInverseKinematics = (robot: URDFRobot, jointNames: string[]) => {
+    if (!robot || !jointAnglesRef.current.length) return;
+
+    jointNames.forEach((name, index) => {
+      if (index < jointAnglesRef.current.length) {
+        const currentAngle = robot.joints[name]?.angle ?? 0;
+        const targetAngle = jointAnglesRef.current[index];
+        if (Math.abs(currentAngle - targetAngle) > 0.0001) {
+          robot.setJointValue(name, targetAngle);
+        }
+      }
+    });
+  };
+
+  // Helper: forward kinematics (manual mode)
+  const applyForwardKinematics = (robot: URDFRobot, jointNames: string[]) => {
+    if (!robot || !fkJointAngles.length) return;
+
+    jointNames.forEach((name, index) => {
+      if (index < fkJointAngles.length) {
+        robot.setJointValue(name, fkJointAngles[index]);
+      }
+    });
+    robot.updateMatrixWorld(true);
+
+    // Update goal position based on end effector
+    const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
+    let endEffector: any = null;
+    for (const name of endEffectorNames) {
+      endEffector = robot.getObjectByName(name);
+      if (endEffector) break;
+    }
+    if (!endEffector) {
+      robot.traverse((obj: any) => {
+        if (obj.isURDFLink) endEffector = obj;
+      });
+    }
+    if (endEffector) {
+      endEffector.updateMatrixWorld(true);
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      endEffector.getWorldPosition(pos);
+      endEffector.getWorldQuaternion(quat);
+      if (onGoalPositionChange) {
+        onGoalPositionChange([pos.x, pos.y, pos.z]);
+      }
+      if (onGoalQuaternionChange) {
+        onGoalQuaternionChange([quat.x, quat.y, quat.z, quat.w]);
+      }
+    }
+  };
 
   useFrame(() => {
     const robot = robotRef.current;
     if (!robot) return;
+    const jointNames = Object.keys(robot.joints ?? {});
+    if (!jointNames.length) return;
+
+    if (isAnimatingRef.current && animationStartTimeRef.current !== null) {
+      if (applyHomeAnimation(robot, jointNames)) return;
+    }
 
     // Run IK each frame when in IK mode and initialized, but never during home-pose animation
-    if (initializedRef.current && !isInitialSetupRef.current && !manualMode && !isSyncingModeRef.current && !isAnimatingRef.current) {
+    if (initializedRef.current && !isInitialSetupRef.current && !fkMode && !isSyncingModeRef.current && !isAnimatingRef.current) {
       runIK();
     }
-    
-    const jointNames = Object.keys(robot.joints ?? {});
-    
-    // Handle animation from zero to home pose
-    if (isAnimatingRef.current && animationStartTimeRef.current !== null) {
-      const elapsed = (performance.now() - animationStartTimeRef.current) / 1000;
-      const t = Math.min(elapsed / animationDuration, 1.0);
-      
-      // Smooth easing function (ease-in-out)
-      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-      
-      jointNames.forEach((name, index) => {
-        if (index < homePositionRef.current.length) {
-          const startAngle = 0;
-          const targetAngle = homePositionRef.current[index];
-          const currentAngle = startAngle + (targetAngle - startAngle) * eased;
-          robot.setJointValue(name, currentAngle);
-        }
-      });
-      robot.updateMatrixWorld(true);
-      
-      // Update joint angles
-      jointAnglesRef.current = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
-      if (onJointAnglesUpdate) {
-        onJointAnglesUpdate(jointAnglesRef.current);
-      }
-      
-      // Update goal position to follow end effector during animation
-      const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
-      let endEffector: any = null;
-      for (const name of endEffectorNames) {
-        endEffector = robot.getObjectByName(name);
-        if (endEffector) break;
-      }
-      if (!endEffector) {
-        robot.traverse((obj: any) => {
-          if (obj.isURDFLink) endEffector = obj;
-        });
-      }
-      if (endEffector) {
-        endEffector.updateMatrixWorld(true);
-        const pos = new THREE.Vector3();
-        const quat = new THREE.Quaternion();
-        endEffector.getWorldPosition(pos);
-        endEffector.getWorldQuaternion(quat);
-        if (onGoalPositionChange) {
-          onGoalPositionChange([pos.x, pos.y, pos.z]);
-        }
-        if (onGoalQuaternionChange) {
-          onGoalQuaternionChange([quat.x, quat.y, quat.z, quat.w]);
-        }
-      }
-      
-      // Animation complete
-      if (t >= 1.0) {
-        isAnimatingRef.current = false;
-        animationStartTimeRef.current = null;
-        // Animation done - disable FK mode, enable IK
-        if (onModeChange) onModeChange('ik');
-        // Now ready for IK solving
-        isInitialSetupRef.current = false;
-      }
-      
-      return;
-    }
-    
-    if (manualMode && manualJointAngles.length > 0) {
-      // Forward kinematics: apply manual angles directly
-      jointNames.forEach((name, index) => {
-        if (index < manualJointAngles.length) {
-          robot.setJointValue(name, manualJointAngles[index]);
-        }
-      });
-      robot.updateMatrixWorld(true);
-      
-      // Update goal position based on end effector
-      const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
-      let endEffector: any = null;
-      for (const name of endEffectorNames) {
-        endEffector = robot.getObjectByName(name);
-        if (endEffector) break;
-      }
-      if (!endEffector) {
-        robot.traverse((obj: any) => {
-          if (obj.isURDFLink) endEffector = obj;
-        });
-      }
-      if (endEffector) {
-        endEffector.updateMatrixWorld(true);
-        const pos = new THREE.Vector3();
-        const quat = new THREE.Quaternion();
-        endEffector.getWorldPosition(pos);
-        endEffector.getWorldQuaternion(quat);
-        if (onGoalPositionChange) {
-          onGoalPositionChange([pos.x, pos.y, pos.z]);
-        }
-        if (onGoalQuaternionChange) {
-          onGoalQuaternionChange([quat.x, quat.y, quat.z, quat.w]);
-        }
-      }
+
+    if (fkMode) {
+      applyForwardKinematics(robot, jointNames);
     } else {
-      // IK mode: apply angles from solver
-      jointNames.forEach((name, index) => {
-        if (index < jointAnglesRef.current.length) {
-          const currentAngle = robot.joints[name]?.angle ?? 0;
-          const targetAngle = jointAnglesRef.current[index];
-          // Only update if different to avoid unnecessary computations
-          if (Math.abs(currentAngle - targetAngle) > 0.0001) {
-            robot.setJointValue(name, targetAngle);
-          }
-        }
-      });
+      applyInverseKinematics(robot, jointNames);
     }
   });
 

@@ -2,6 +2,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Html, useProgress } from "@react-three/drei";
 import { Suspense, useState, useCallback } from "react";
 import { Robot } from "./Robot";
+import type { sceneState } from "../../App";
 
 export interface ViewportProps {
   urdfPath: string;
@@ -10,8 +11,7 @@ export interface ViewportProps {
   onTransformDrag?: () => void;
   fkJointAngles: number[];
   fkMode: boolean;
-  onFkModeChange: (mode: boolean) => void;
-  onFkJointAnglesChange: (angles: number[]) => void;
+  sceneState: sceneState | null;
 }
 
 function Loader() {
@@ -27,9 +27,7 @@ export function Viewport(props: ViewportProps) {
     onSolveStatusesChange,
     onTransformDrag,
     fkJointAngles, 
-    fkMode,
-    onFkModeChange,
-    onFkJointAnglesChange
+    fkMode
   } = props;
   
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0.3, 0.0, 0.3]);
@@ -82,8 +80,8 @@ export function Viewport(props: ViewportProps) {
               }
             }}
             converged={ikConverged}
-            manualJointAngles={fkJointAngles}
-            manualMode={fkMode}
+            fkJointAngles={fkJointAngles}
+            fkMode={fkMode}
           />
         </Suspense>
       </Canvas>
