@@ -40,7 +40,8 @@ let sliders = {};
 const multiRobotSelect = document.getElementById('multi-robot-model');
 const addRobotBtn = document.getElementById('add-robot-btn');
 const robotCountValue = document.getElementById('robot-count-value');
-let spawnIndex = 0;
+let nextOffset = 1;
+let initialRegistered = false;
 
 function setupMiniStats(viewerEl) {
   const container = document.getElementById('stats-output');
@@ -129,8 +130,21 @@ const initMultiRobotOptions = () => {
 
 setStatusListener(() => updateRobotCount());
 
-// Use a promise for URDFLoader so we can simplify async/await use.
-const loadUrdfModel = (urdfPath) => new Promise((resolve, reject) => {
+// Register the initially loaded robot so it counts as active.
+viewer.addEventListener('urdf-processed', async () => {
+    if (initialRegistered || !viewer.robot) return;
+    try {
+        await registerRobot({ model: viewer.urdf, urdfPath: viewer.urdf, sceneNode: viewer.robot });
+        nextOffset = Math.max(nextOffset, 1);
+        updateRobotCount();
+        initialRegistered = true;
+    } catch (err) {
+        console.warn('Failed to register initial robot', err);
+    }
+});
+
+const loadUrdfModel = (urdfPath) => new Promise((resolve, reject) => { // promise for URDFLoader -> async/await is simpler
+
     const loader = new URDFLoader();
     if (viewer.loadMeshFunc) loader.loadMeshCb = viewer.loadMeshFunc;
     if (viewer.fetchOptions) loader.fetchOptions = viewer.fetchOptions;
@@ -138,17 +152,42 @@ const loadUrdfModel = (urdfPath) => new Promise((resolve, reject) => {
     loader.load(urdfPath, robot => resolve(robot), undefined, err => reject(err));
 });
 
+const renderForAFewFrames = (frames = 8) => new Promise(resolve => {
+    let count = 0;
+    const tick = () => {
+        if (viewer.controls && typeof viewer.controls.update === 'function') {
+            viewer.controls.update();
+        }
+        if (viewer.redraw) {
+            viewer.redraw();
+        } else if (viewer.renderer && viewer.scene && viewer.camera) {
+            viewer.renderer.render(viewer.scene, viewer.camera);
+        }
+        if (++count >= frames) return resolve();
+        requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+});
+
 const spawnRobotInstance = async (urdfPath) => {
     if (!urdfPath || !viewer) return null;
 
-    const offset = spawnIndex++;
+    const offset = nextOffset++;
     const robot = await loadUrdfModel(urdfPath);
 
     robot.position.x = offset * 1.5;
     robot.name = robot.name || `robot_${offset}`;
+    robot.traverse(node => {
+        if (node && node.isObject3D) {
+            node.frustumCulled = false; // avoid missing parts until camera moves
+        }
+    });
+    robot.updateMatrixWorld(true);
 
     viewer.world.add(robot);
-    viewer.redraw();
+    viewer.world.updateMatrixWorld(true);
+
+    await renderForAFewFrames();
 
     await registerRobot({ model: urdfPath, urdfPath, sceneNode: robot });
     updateRobotCount();
