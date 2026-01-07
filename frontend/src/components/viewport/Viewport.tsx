@@ -2,7 +2,6 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Html, useProgress } from "@react-three/drei";
 import { Suspense, useState, useCallback } from "react";
 import { Robot } from "./Robot";
-import type { sceneState } from "../../App";
 
 export interface ViewportProps {
   urdfPath: string;
@@ -11,14 +10,7 @@ export interface ViewportProps {
   onTransformDrag?: () => void;
   fkJointAngles: number[];
   fkMode: boolean;
-  sceneState: sceneState | null;
 }
-
-function Loader() {
-    const { progress } = useProgress()
-    return <Html center className="text-4xl text-white">{progress} % loaded</Html>
-}
-
 
 export function Viewport(props: ViewportProps) {
   const { 
@@ -62,7 +54,7 @@ export function Viewport(props: ViewportProps) {
         <OrbitControls enabled={!drag} />
 
         {/* Robot with IK (includes GoalMarker) */}
-        <Suspense fallback={<Loader />}>
+        <Suspense fallback={null}>
           <Robot 
             urdfPath={urdfPath}
             goalPosition={goalPosition}
