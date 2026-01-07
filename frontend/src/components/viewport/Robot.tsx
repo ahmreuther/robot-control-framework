@@ -112,29 +112,6 @@ export function Robot({
       if (onJointAnglesUpdate) {
         onJointAnglesUpdate(nextAngles);
       }
-      
-      // Debug: Check actual end effector position
-      const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
-      let endEffector: any = null;
-      for (const name of endEffectorNames) {
-        endEffector = robot.getObjectByName(name);
-        if (endEffector) break;
-      }
-      if (!endEffector) {
-        robot.traverse((obj: any) => {
-          if (obj.isURDFLink) endEffector = obj;
-        });
-      }
-      if (endEffector) {
-        endEffector.updateMatrixWorld(true);
-        const actualPos = new THREE.Vector3();
-        endEffector.getWorldPosition(actualPos);
-        const distance = actualPos.distanceTo(new THREE.Vector3(...goalPosition));
-        console.log('Goal:', goalPosition);
-        console.log('Actual EE:', [actualPos.x, actualPos.y, actualPos.z]);
-        console.log('Distance to goal:', distance);
-        console.log('Converged:', converged, 'Statuses:', statuses);
-      }
     } else if (!isDraggingRef.current) {
       // IK failed to converge - reset goal to last valid position
       if (onGoalPositionChange) {
@@ -148,7 +125,7 @@ export function Robot({
     if (onConvergedChange) {
       onConvergedChange(converged);
     }
-  }, [goalPosition, goalQuaternion, onJointAnglesUpdate, onConvergedChange, onSolveStatusesChange]);
+  }, [onJointAnglesUpdate, onConvergedChange, onSolveStatusesChange]);
 
   const handleRobotReady = useCallback(
     async (robot: URDFRobot, robotGroup: THREE.Group) => {
@@ -338,17 +315,19 @@ export function Robot({
     }
   }, [manualMode, onGoalPositionChange, onGoalQuaternionChange]);
 
+  // Using props for goal position/quaternion directly to avoid ref race conditions
+
   useEffect(() => {
     // Only run IK after initialization and after endeffector is ready (skip initial setup)
     // Also skip if we're currently syncing mode transition to prevent race conditions
     if (initializedRef.current && !isInitialSetupRef.current && !manualMode && !isSyncingModeRef.current) {
       runIK();
     }
-  }, [runIK, manualMode]);
+  }, [runIK, manualMode, goalPosition, goalQuaternion]);
 
   useFrame(() => {
     const robot = robotRef.current;
-    if (!robot || !jointAnglesRef.current.length) return;
+    if (!robot) return;
     
     const jointNames = Object.keys(robot.joints ?? {});
     

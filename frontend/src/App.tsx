@@ -1,13 +1,12 @@
 import { useState, useMemo } from 'react'
 import './App.css'
 
-import Live_Status from './components/Live_Status';
-import MessageLog from './components/MessageLog';
 import { Viewport } from "./components/viewport/Viewport";
-import {Menu} from "./components/Menu";
-import { initSocket, getSocket } from "./components/Connect";
+import { initSocket } from "./components/Connect";
 import { SOLVE_STATUS } from './components/viewport/Robot';
-import type { ModelConfig } from './components/URDFSelector';
+import { URDFSelector, type ModelConfig } from './components/URDFSelector';
+import { JointAnglesPanel } from "./components/viewport/JointAnglesPanel";
+import { useJointState } from "./components/hooks/useJointState";
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -18,8 +17,6 @@ const ROBOT_MODELS: ModelConfig[] = [
 
 function App() {
 
-  const [count, setCount] = useState(0)
-  
   const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]); // Default to first robot(EVA Automata)
   const [fkMode, setFkMode] = useState(false);
   const [fkJointAngles, setFkJointAngles] = useState<number[]>([]);
@@ -58,25 +55,45 @@ function App() {
     if (fkMode) setFkMode(false); // Auto-enable IK mode when dragging goal marker
   };
 
+  const handleRobotSelect = (robot: ModelConfig) => {
+    setSelectedRobot(robot);
+  };
+
   return (
     <>
-      {/* <Live_Status /> */}
-      {/* <MessageLog/>  */}
-      <Viewport 
-        urdfPath={selectedRobot.url}
-        onJointAnglesUpdate={handleJointAnglesUpdate}
-        onSolveStatusesChange={setSolveStatuses}
-        onTransformDrag={handleTransformDrag}
-        fkJointAngles={fkJointAngles}
-        fkMode={fkMode}
-        onFkModeChange={setFkMode}
-        onFkJointAnglesChange={handleFkJointAnglesChange}
-        onReset={handleReset}
-        solveStatusText={solveStatusText}
-        robotModels={ROBOT_MODELS}
-        onRobotSelect={setSelectedRobot}
-      />
-      {/* <Menu /> */}
+      <div className="relative w-screen h-screen overflow-hidden bg-[#202025] text-white">
+        {/* <Live_Status /> */}
+        {/* <MessageLog/>  */}
+        <Viewport 
+          urdfPath={selectedRobot.url}
+          onJointAnglesUpdate={handleJointAnglesUpdate}
+          onSolveStatusesChange={setSolveStatuses}
+          onTransformDrag={handleTransformDrag}
+          fkJointAngles={fkJointAngles}
+          fkMode={fkMode}
+          onFkModeChange={setFkMode}
+          onFkJointAnglesChange={handleFkJointAnglesChange}
+        />
+        <div className="absolute top-5 left-5 pointer-events-none">
+          <URDFSelector options={ROBOT_MODELS} onSelect={handleRobotSelect} />
+        </div>
+        <div className="absolute top-5 right-5 pointer-events-none">
+          <JointAnglesPanel
+            jointAngles={fkJointAngles}
+            manualMode={fkMode}
+            onModeToggle={(enabled) => setFkMode(enabled)}
+            onAngleChange={(index, value) => {
+              if (!fkMode) setFkMode(true);
+              const newAngles = [...fkJointAngles];
+              newAngles[index] = value;
+              setFkJointAngles(newAngles);
+            }}
+            onReset={handleReset}
+            solveStatusText={solveStatusText}
+          />
+        </div>
+        {/* <Menu /> */}
+      </div>
     </>
   )
 }

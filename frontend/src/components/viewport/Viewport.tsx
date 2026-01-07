@@ -2,8 +2,6 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Html, useProgress } from "@react-three/drei";
 import { Suspense, useState, useCallback } from "react";
 import { Robot } from "./Robot";
-import { JointAnglesPanel } from "./JointAnglesPanel";
-import { URDFSelector, ModelConfig } from "../URDFSelector";
 
 export interface ViewportProps {
   urdfPath: string;
@@ -14,10 +12,6 @@ export interface ViewportProps {
   fkMode: boolean;
   onFkModeChange: (mode: boolean) => void;
   onFkJointAnglesChange: (angles: number[]) => void;
-  onReset: () => void;
-  solveStatusText: string;
-  robotModels: ModelConfig[];
-  onRobotSelect: (robot: ModelConfig) => void;
 }
 
 function Loader() {
@@ -35,11 +29,7 @@ export function Viewport(props: ViewportProps) {
     fkJointAngles, 
     fkMode,
     onFkModeChange,
-    onFkJointAnglesChange,
-    onReset,
-    solveStatusText,
-    robotModels,
-    onRobotSelect
+    onFkJointAnglesChange
   } = props;
   
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0.3, 0.0, 0.3]);
@@ -97,21 +87,6 @@ export function Viewport(props: ViewportProps) {
           />
         </Suspense>
       </Canvas>
-      <div className="absolute top-5 left-5 flex flex-col gap-4 pointer-events-none">
-        <URDFSelector options={robotModels} onSelect={onRobotSelect} />
-        <JointAnglesPanel
-          jointAngles={fkJointAngles}
-          manualMode={fkMode}
-          onModeToggle={onFkModeChange}
-          onAngleChange={(index, value) => {
-            const newAngles = [...fkJointAngles];
-            newAngles[index] = value;
-            onFkJointAnglesChange(newAngles);
-          }}
-          onReset={onReset}
-          solveStatusText={solveStatusText}
-        />
-      </div>
     </div>
   );
 }
