@@ -14,17 +14,12 @@ const ROBOT_MODELS: ModelConfig[] = [
   { id: 'ur5e', label: 'UR5e', url: '/urdf/ur5_description/urdf/ur5_robot.urdf' },
 ];
 
-type sceneState = 'loading' | 'fk' | 'ik';
-
 function App() {
   const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]); // Default to first robot(EVA Automata)
-
-  const [sceneState, setSceneState] = useState<sceneState | null>(null);
 
   //Robot state
   const [fkMode, setFkMode] = useState(false);
   const [fkJointAngles, setFkJointAngles] = useState<number[]>([]);
-
   const [solveStatuses, setSolveStatuses] = useState<number[]>([]);
 
   initSocket("ws://127.0.0.1:8000/ws"); //initialize WebSocket connection
