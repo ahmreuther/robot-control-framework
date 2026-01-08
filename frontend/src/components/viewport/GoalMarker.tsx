@@ -14,22 +14,18 @@ interface GoalMarkerProps {
 
 function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosition, initialQuaternion, converged = true }: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
-  const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
-  const lastQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
   const isDraggingRef = useRef(false);
   const [mode, setMode] = useState<"translate" | "rotate">("translate");
 
   useEffect(() => {
     if (meshRef.current && initialPosition) {
       meshRef.current.position.set(...initialPosition);
-      lastPositionRef.current = initialPosition;
     }
   }, [initialPosition]);
 
   useEffect(() => {
     if (meshRef.current && initialQuaternion) {
       meshRef.current.quaternion.set(...initialQuaternion);
-      lastQuaternionRef.current = initialQuaternion;
     }
   }, [initialQuaternion]);
 
@@ -54,21 +50,10 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosit
     if (!isDraggingRef.current) return;
     
     const { x, y, z } = mesh.position;
-    
-    // Update every frame during drag for smooth IK
-    const [lastX, lastY, lastZ] = lastPositionRef.current;
-    if (Math.abs(x - lastX) > 0.0001 || Math.abs(y - lastY) > 0.0001 || Math.abs(z - lastZ) > 0.0001) {
-      lastPositionRef.current = [x, y, z];
-      onPositionChange([x, y, z]);
-    }
+    onPositionChange([x, y, z]);
 
     const { x: qx, y: qy, z: qz, w: qw } = mesh.quaternion;
-    const [lqx, lqy, lqz, lqw] = lastQuaternionRef.current;
-    if (Math.abs(qx - lqx) > 0.00001 || Math.abs(qy - lqy) > 0.00001 || Math.abs(qz - lqz) > 0.00001 || Math.abs(qw - lqw) > 0.00001) {
-      const nextQuat: [number, number, number, number] = [qx, qy, qz, qw];
-      lastQuaternionRef.current = nextQuat;
-      onQuaternionChange(nextQuat);
-    }
+    onQuaternionChange([qx, qy, qz, qw]);
   });
 
   const handleMouseDown = () => {
@@ -80,7 +65,6 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosit
   const handleMouseUp = () => {
     isDraggingRef.current = false;
     onDrag(false);
-    console.log("Mouse up");
   };
 
   return (
