@@ -74,11 +74,13 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosit
   const handleMouseDown = () => {
     isDraggingRef.current = true;
     onDrag(true);
+    
   };
 
   const handleMouseUp = () => {
     isDraggingRef.current = false;
     onDrag(false);
+    console.log("Mouse up");
   };
 
   return (

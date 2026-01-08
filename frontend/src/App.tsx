@@ -41,13 +41,8 @@ function App() {
     setFkJointAngles(angles);
   };
 
-  const handleTransformDrag = () => {
-    if (fkMode) {
-      setFkMode(false);
-    }
-  };
-
   const handleRobotSelect = (robot: ModelConfig) => {
+    setFkMode(false);
     setSelectedRobot(robot);
   };
 
@@ -60,7 +55,7 @@ function App() {
           urdfPath={selectedRobot.url}
           onJointAnglesUpdate={handleJointAnglesUpdate}
           onSolveStatusesChange={setSolveStatuses}
-          onTransformDrag={handleTransformDrag}
+          setFkMode={setFkMode}
           fkJointAngles={fkJointAngles}
           fkMode={fkMode}
         />
@@ -73,13 +68,20 @@ function App() {
             manualMode={fkMode}
             onModeToggle={(enabled) => setFkMode(enabled)}
             onAngleChange={(index, value) => {
-              if (!fkMode) setFkMode(true);
+              setFkMode(true);
               const newAngles = [...fkJointAngles];
               newAngles[index] = value;
               setFkJointAngles(newAngles);
             }}
             solveStatusText={solveStatusText}
           />
+        </div>
+
+        {/* FK mode indicator */}
+        <div className="absolute top-20 right-5 pointer-events-none">
+          <div className={`px-3 py-1 rounded text-sm font-medium ${fkMode ? "bg-green-600" : "bg-red-600"}`}>
+            FK Mode: {fkMode ? "ON" : "OFF"}
+          </div>
         </div>
         {/* <Menu /> */}
       </div>

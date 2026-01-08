@@ -19,6 +19,7 @@ export const SOLVE_STATUS = {
 interface RobotProps {
   urdfPath: string;
   goalPosition: [number, number, number];
+  drag: boolean;
   goalQuaternion: [number, number, number, number];
   onEndEffectorReady?: (position: [number, number, number], quaternion: [number, number, number, number]) => void;
   onJointAnglesUpdate?: (angles: number[]) => void;
@@ -37,6 +38,7 @@ export function Robot({
   urdfPath,
   goalPosition,
   goalQuaternion,
+  drag,
   onEndEffectorReady,
   onJointAnglesUpdate,
   onConvergedChange,
@@ -112,7 +114,7 @@ export function Robot({
       if (onJointAnglesUpdate) {
         onJointAnglesUpdate(nextAngles);
       }
-    } else if (!isDraggingRef.current) {
+    } else if (!drag) {
       // IK failed to converge - reset goal to last valid position
       if (onGoalPositionChange) {
         onGoalPositionChange(clonePosition(lastValidGoalPositionRef.current));
@@ -408,18 +410,7 @@ export function Robot({
           onPositionChange={onGoalPositionChange || (() => {})}
           onQuaternionChange={onGoalQuaternionChange || (() => {})}
           initialQuaternion={goalQuaternion}
-          onDrag={(dragging) => {
-            isDraggingRef.current = dragging;
-            if (onDrag) {
-              onDrag(dragging);
-            }
-            if (!dragging && !converged && onGoalPositionChange) {
-              onGoalPositionChange(clonePosition(lastValidGoalPositionRef.current));
-              if (onGoalQuaternionChange) {
-                onGoalQuaternionChange(cloneQuaternion(lastValidGoalQuaternionRef.current));
-              }
-            }
-          }}
+          onDrag={onDrag}
           initialPosition={goalPosition}
           converged={converged}
         />

@@ -7,7 +7,7 @@ export interface ViewportProps {
   urdfPath: string;
   onJointAnglesUpdate?: (angles: number[]) => void;
   onSolveStatusesChange?: (statuses: number[]) => void;
-  onTransformDrag?: () => void;
+  setFkMode?: (fkMode: boolean) => void;
   fkJointAngles: number[];
   fkMode: boolean;
 }
@@ -17,7 +17,7 @@ export function Viewport(props: ViewportProps) {
     urdfPath, 
     onJointAnglesUpdate,
     onSolveStatusesChange,
-    onTransformDrag,
+    setFkMode,
     fkJointAngles, 
     fkMode
   } = props;
@@ -59,6 +59,7 @@ export function Viewport(props: ViewportProps) {
             urdfPath={urdfPath}
             goalPosition={goalPosition}
             goalQuaternion={goalQuaternion}
+            drag={drag}
             onEndEffectorReady={handleEndEffectorReady}
             onJointAnglesUpdate={handleJointAnglesUpdate}
             onConvergedChange={setIkConverged}
@@ -67,8 +68,8 @@ export function Viewport(props: ViewportProps) {
             onSolveStatusesChange={onSolveStatusesChange}
             onDrag={(dragging) => {
               setDrag(dragging);
-              if (dragging && onTransformDrag) {
-                onTransformDrag();
+              if (dragging) {
+                setFkMode(false);
               }
             }}
             converged={ikConverged}
