@@ -1,6 +1,6 @@
 //this hook ist used for providing a websocket connection throughout the app
 
-import { createContext, useContext, useMemo, type PropsWithChildren } from "react";
+import { createContext, useContext, type PropsWithChildren } from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import type { WebSocketHook, WebSocketLike } from "react-use-websocket/dist/lib/types";
 

@@ -1,56 +1,81 @@
 // Skizze für die synchronisierungs button logik, übernommen aus dem Vorgängerprojekt
 
+import { useUrlContext } from "../../UrlContext";
+import { LogContext } from "../../../App";
+import { useContext, useState } from "react";
+import { Switch, Label } from "@heroui/react";
+import { useSocket } from "../../../hooks/use-socket";
+import {useSendMessage} from "../../../hooks/send-message";
 
 
-//wenn keine url connected ist kann nicht verbinden 
+export default function Synchronize_Button() {
 
-if (!connectedUrl) {
-        this.checked = false;
-        opcUaSyncEnabled = false;
-        logMessageToBox('❌ No OPC UA client connected. Please connect first.');
-        return;
-    }
+    const { url: connectedUrl } = useUrlContext();      //aktuelle verbundene url(oder nicht)
+    const { logs, setLogs } = useContext(LogContext);
+    const [isSyncActive, setIsSyncActive] = useState(false); // darf stream aktiv sein
+    const socket = useSocket();   
+    const { sendMessage } = useSendMessage(); 
 
-    // wenn keinen robotic namespace hat-> kann nicht verbinden 
-    if (!hasRoboticsNamespace) {
-        this.checked = false;
-        opcUaSyncEnabled = false;
-        logMessageToBox('❌ No OPC UA robotics server connected.');
-        return;
-    }
-    opcUaSyncEnabled = this.checked; ---->> default true ? 
-
-    const url = document.getElementById('opc-ua-url').value.trim(); //--> dann wieder url trimmen 
+    function synchronize(toggleState: boolean): boolean {
 
 
-    // dann : wenn alles stimmt : wieder 
+        if(!connectedUrl){
+            //this checked is false 
+            // opcUaSyncEnabled = false ?
+            console.log("No OPC UA client connected. Please connect first.");
+            setLogs(prev => prev + "❌ No OPC UA client connected. Please connect first.\n");
+            return (!toggleState);//--> siehe wahrheitstabelle papier 
+        }   
 
-      socket.send(`stream joint position|${url}`);
-            socket.send(`stream mode|${url}`);
+        //---------------------------------------------------------------
 
-    //senden -> in send_msg funktion in Opcuaconnect
+        // // wenn keinen robotic namespace hat-> kann nicht verbinden -> was ist der robotics namespace ? was ist der unterschied zu connectedUrl? 
+        // if (!hasRoboticsNamespace) {
+        //     setLogs(prev => prev+   "❌ No OPC UA robotics server connected.\n");
 
-    //und dann : buildet er axis to joint map? --> kann ich die copien einfach? 
-    // also ich denke er copiet die bewegungen einfach die der reale roboter performt -> ich denke so, also wenn man synct ist dann kann man den
-    //den arm nicht bewegen auf dem digital twin
+        // button wird ausgeschaltet
+        if (toggleState){
+                sendMessage("stream joint position");
+                sendMessage("stream mode");
+                setLogs(prev => prev + "🔄 Synchronization activated.\n");
 
-    // falls sync enabled = false -> } 
-        if (opcUaStreamActive && socket && socket.readyState === WebSocket.OPEN && url) {
-            socket.send(`cancel stream joint position|${url}`);
-            socket.send(`cancel stream mode|${url}`);
-            opcUaStreamActive = false;
+                 //liest joint array werte aus dem backend aus
+
         }
-        const modeField = document.getElementById('robot-mode-value');
-        if (modeField) modeField.textContent = '-';
-    }
-});
+        else {
+                sendMessage("cancel stream joint position");
+                sendMessage("cancel stream mode");
+                setLogs(prev => prev + "⏸️ Synchronization deactivated.\n");
 
-huuii
+                //liest joint array werte aus dem backend aus und schickt sie dann in einem number array an dennis
+        }
+        return true;
+
+
+    }
+    return (
+        <Switch
+        // next always changes the state :true->false, false->true
+        // der switch ist immer selected je nach dem ob isSyncActive true oder false ist(optisch) 
+            isSelected={isSyncActive}
+            onChange={(next) => {
+                const maySwitch = synchronize(next);
+                if (!maySwitch) return; 
+                setIsSyncActive(next);      
+        }}>
+            <Switch.Control>
+                <Switch.Thumb />
+            </Switch.Control>
+            <Label className="text-sm text-white">Syncronize OPC UA Server</Label>
+        </Switch>
+
+        )
+}
 
 
 // in dem container wird noch die propagation gestoppt was immer das heißt : 
 
-const opcUaSyncToggleContainer = document.getElementById('opc-ua-sync-toggle-container');
-opcUaSyncToggleContainer.addEventListener('click', function (e) {
-    e.stopPropagation();
-}, true);
+// const opcUaSyncToggleContainer = document.getElementById('opc-ua-sync-toggle-container');
+// opcUaSyncToggleContainer.addEventListener('click', function (e) {
+//     e.stopPropagation();
+// }, true);

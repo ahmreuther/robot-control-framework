@@ -4,9 +4,9 @@ import './App.css'
 import Live_Status from './components/Live_Status';
 import { Viewport } from "./components/Viewport";
 import {type URDFOptions } from './components/MenuComponents/ControlsComponents/URDFSelector';
-import { initSocket } from "./components/Connect";
 import { SidebarMenu } from './components/Menu';
-import { SocketProvider } from './hooks/use-socket.tsx';
+import { SocketProvider } from './hooks/use-socket';
+import { UrlProvider } from './components/UrlContext';
 
 
 const robotOptions: URDFOptions[] = [
@@ -20,26 +20,25 @@ const LogContext = createContext({log: "test\n", setLogs: ()=>{}});
 
 function App() {
   
-  const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
-
-  const [logs, setLogs] = useState("Start\n")
-
+  const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]);
+  const [logs, setLogs] = useState("Start\n");
+  const [opcuaUrl, setOpcuaUrl] = useState<string | null>(null);
+  
   const logWrapper = {logs, setLogs};
-
-  const useLog = useContext(LogContext);
-
+  
 
   return (
-
-  <SocketProvider url='ws://127.0.0.1:8000/ws'>
-    <LogContext.Provider value={logWrapper}>
-    <div className="h-screen flex">
-      <SidebarMenu options={robotOptions} onSelect={setSelectedRobot} />
-      <Live_Status />
-      <Viewport urdfPath={selectedRobot.urdf} />
-    </div>
-    </LogContext.Provider>
-  </SocketProvider >
+    <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
+      <SocketProvider url='ws://127.0.0.1:8000/ws'>
+        <LogContext.Provider value={logWrapper}>
+          <div className="h-screen flex">
+            <SidebarMenu options={robotOptions} onSelect={setSelectedRobot} />
+            <Live_Status />
+            <Viewport urdfPath={selectedRobot.urdf} />
+          </div>
+        </LogContext.Provider>
+      </SocketProvider>
+    </UrlProvider>
   )
 }
 
