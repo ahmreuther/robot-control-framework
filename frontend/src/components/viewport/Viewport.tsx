@@ -31,10 +31,13 @@ export function Viewport(props: ViewportProps) {
     setGoalPosition(pos);
     setGoalQuaternion(quat);
   }, []);
-  
-  const handleJointAnglesUpdate = useCallback((angles: number[]) => {
-    if (onJointAnglesUpdate) onJointAnglesUpdate(angles);
-  }, [onJointAnglesUpdate]);
+
+  const setDragandDisableFkMode = useCallback((isDragging: boolean) => {
+    setDrag(isDragging);
+    if (isDragging) {
+      setFkMode(false);
+    }
+  }, []);
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
@@ -61,17 +64,12 @@ export function Viewport(props: ViewportProps) {
             goalQuaternion={goalQuaternion}
             drag={drag}
             onEndEffectorReady={handleEndEffectorReady}
-            onJointAnglesUpdate={handleJointAnglesUpdate}
+            onJointAnglesUpdate={onJointAnglesUpdate}
             onConvergedChange={setIkConverged}
             onGoalPositionChange={setGoalPosition}
             onGoalQuaternionChange={setGoalQuaternion}
             onSolveStatusesChange={onSolveStatusesChange}
-            onDrag={(dragging) => {
-              setDrag(dragging);
-              if (dragging) {
-                setFkMode(false);
-              }
-            }}
+            onDrag={setDragandDisableFkMode}
             converged={ikConverged}
             fkJointAngles={fkJointAngles}
             fkMode={fkMode}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import RobotLoader from "./RobotLoader";
 import type { URDFRobot } from "urdf-loader/src/URDFClasses";
@@ -28,7 +28,6 @@ interface RobotProps {
   onGoalQuaternionChange?: (quaternion: [number, number, number, number]) => void;
   onSolveStatusesChange?: (statuses: number[]) => void;
   onDrag?: (dragging: boolean) => void;
-  onModeChange?: (mode: 'fk' | 'ik') => void;
   converged?: boolean;
   fkJointAngles?: number[];
   fkMode?: boolean;
@@ -46,7 +45,6 @@ export function Robot({
   onGoalQuaternionChange,
   onSolveStatusesChange,
   onDrag,
-  onModeChange,
   converged = true,
   fkJointAngles = [],
   fkMode = false,
@@ -57,18 +55,14 @@ export function Robot({
   const goalRef = useRef<any>(null);
   const solverRef = useRef<any>(null);
   const jointAnglesRef = useRef<number[]>([]);
-  const initializedRef = useRef(false);
-  const isInitialSetupRef = useRef(true);
   const lastValidGoalPositionRef = useRef<[number, number, number]>([0.3, 0.0, 0.3]);
   const lastValidGoalQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
-  const isDraggingRef = useRef(false);
   
   // Animation state for gradual home pose transition
   const animationStartTimeRef = useRef<number | null>(null);
   const animationDuration = 2.0; // seconds
   const homePositionRef = useRef<number[]>([]);
   const isAnimatingRef = useRef(false);
-  const isSyncingModeRef = useRef(false);
 
   const runIK = useCallback(() => {
     const robot = robotRef.current;
@@ -78,9 +72,6 @@ export function Robot({
     const ikRoot = ikRootRef.current;
     
     if (!robot || !robotGroup || !goal || !solver || !ikRoot) return;
-    
-    // Skip IK during initial setup
-    if (isInitialSetupRef.current) return;
 
     // Transform goal from world space to robot local space
     const worldPos = new THREE.Vector3(...goalPosition);
@@ -98,22 +89,23 @@ export function Robot({
     if (onSolveStatusesChange) {
       onSolveStatusesChange([...statuses]);
     }
+
     const converged = statuses.every((status: number) => status === SOLVE_STATUS.CONVERGED);
 
     if (converged) {
       setUrdfFromIK(robot, ikRoot);
       robot.updateMatrixWorld(true);
       const jointNames = Object.keys(robot.joints ?? {});
-      const nextAngles = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
+      const nextAngles: number[] = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
       jointAnglesRef.current = nextAngles;
       
       // Store last valid goal position
       lastValidGoalPositionRef.current = clonePosition(goalPosition);
       lastValidGoalQuaternionRef.current = cloneQuaternion(goalQuaternion);
-      
       if (onJointAnglesUpdate) {
         onJointAnglesUpdate(nextAngles);
       }
+
     } else if (!drag) {
       // IK failed to converge - reset goal to last valid position
       if (onGoalPositionChange) {
@@ -127,7 +119,16 @@ export function Robot({
     if (onConvergedChange) {
       onConvergedChange(converged);
     }
-  }, [onJointAnglesUpdate, onConvergedChange, onSolveStatusesChange]);
+  }, [
+    drag,
+    goalPosition,
+    goalQuaternion,
+    onConvergedChange,
+    onGoalPositionChange,
+    onGoalQuaternionChange,
+    onJointAnglesUpdate,
+    onSolveStatusesChange
+  ]);
 
   const handleRobotReady = useCallback(
     async (robot: URDFRobot, robotGroup: THREE.Group) => {
@@ -167,7 +168,6 @@ export function Robot({
           });
           
           // Start animation - enable FK mode
-          if (onModeChange) onModeChange('fk');
           animationStartTimeRef.current = performance.now();
           isAnimatingRef.current = true;
         }
@@ -219,9 +219,7 @@ export function Robot({
         (name) => robot.joints[name]?.angle ?? 0
       );
       
-      if (onJointAnglesUpdate) {
-        onJointAnglesUpdate(jointAnglesRef.current);
-      }
+      onJointAnglesUpdate(jointAnglesRef.current as number[]);
       
       // Get end effector position and notify parent
       if (onEndEffectorReady) {
@@ -253,14 +251,8 @@ export function Robot({
           const effQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
           lastValidGoalQuaternionRef.current = cloneQuaternion(effQuat);
           onEndEffectorReady([pos.x, pos.y, pos.z], effQuat);
-          
-          // Now that we know the actual end effector position, enable IK solving
-          isInitialSetupRef.current = false;
         }
       }
-      
-      // Mark as initialized - don't run IK on initial load
-      initializedRef.current = true;
     },
     [onEndEffectorReady]
   );
@@ -284,9 +276,7 @@ export function Robot({
 
     // Update joint angles
     jointAnglesRef.current = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
-    if (onJointAnglesUpdate) {
-      onJointAnglesUpdate(jointAnglesRef.current);
-    }
+    onJointAnglesUpdate(jointAnglesRef.current as number[]);
 
     // Update goal position to follow end effector during animation
     const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
@@ -317,10 +307,6 @@ export function Robot({
     if (t >= 1.0) {
       isAnimatingRef.current = false;
       animationStartTimeRef.current = null;
-      // Animation done - disable FK mode, enable IK
-      if (onModeChange) onModeChange('ik');
-      // Now ready for IK solving
-      isInitialSetupRef.current = false;
     }
 
     return true;
@@ -389,8 +375,7 @@ export function Robot({
       if (applyHomeAnimation(robot, jointNames)) return;
     }
 
-    // Run IK each frame when in IK mode and initialized, but never during home-pose animation
-    if (initializedRef.current && !isInitialSetupRef.current && !fkMode && !isSyncingModeRef.current && !isAnimatingRef.current) {
+    if (!fkMode) {
       runIK();
       return;
     }
@@ -405,16 +390,14 @@ export function Robot({
   return (
     <>
       <RobotLoader urdfPath={urdfPath} onRobotReady={handleRobotReady} />
-      {initializedRef.current && (
-        <GoalMarker
-          onPositionChange={onGoalPositionChange || (() => {})}
-          onQuaternionChange={onGoalQuaternionChange || (() => {})}
-          initialQuaternion={goalQuaternion}
-          onDrag={onDrag}
-          initialPosition={goalPosition}
-          converged={converged}
-        />
-      )}
+      <GoalMarker
+        onPositionChange={onGoalPositionChange}
+        onQuaternionChange={onGoalQuaternionChange}
+        initialQuaternion={goalQuaternion}
+        onDrag={onDrag}
+        initialPosition={goalPosition}
+        converged={converged}
+      />
     </>
   );
 }

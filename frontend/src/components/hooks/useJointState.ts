@@ -1,70 +1,78 @@
 import { useCallback, useMemo, useState } from "react";
-
-export type KinematicsMode = "ik" | "fk";
+import { SOLVE_STATUS } from "../viewport/Robot";
 
 export interface UseJointStateOptions {
   initialAngles?: number[];
-  initialMode?: KinematicsMode;
+  initialFkMode?: boolean;
 }
 
 export interface JointStateApi {
   jointAngles: number[];
-  mode: KinematicsMode;
-  setMode: (mode: KinematicsMode) => void;
+  fkMode: boolean;
+  setFkMode: (mode: boolean) => void;
   toggleMode: () => void;
-  setJoint: (index: number, value: number) => void;
-  setAll: (angles: number[]) => void;
-  setFromIK: (angles: number[]) => void;
+  setFkJoint: (index: number, value: number) => void;
+  setIkJoint: (angles: number[]) => void;
+  solveStatuses: number[];
+  setSolveStatuses: (statuses: number[]) => void;
+  solveStatusText: string;
 }
 
-const EPS = 1e-6;
-
-const areAnglesEqual = (a: number[], b: number[]) => {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (Math.abs(a[i] - b[i]) > EPS) return false;
-  }
-  return true;
-};
-
 export function useJointState(options: UseJointStateOptions = {}): JointStateApi {
-  const { initialAngles = [], initialMode = "ik" } = options;
+  const { initialAngles = [], initialFkMode = false } = options;
   const [jointAngles, setJointAngles] = useState<number[]>([...initialAngles]);
-  const [mode, setMode] = useState<KinematicsMode>(initialMode);
+  const [fkMode, setFkMode] = useState<boolean>(initialFkMode);
+  const [solveStatuses, setSolveStatusesState] = useState<number[]>([]);
 
-  const replaceAngles = useCallback((next: number[]) => {
-    setJointAngles((prev) => (areAnglesEqual(prev, next) ? prev : [...next]));
+  // Lookup map from solver status enum to readable labels
+  const statusLookup = useMemo(() => {
+    const entries = Object.entries(SOLVE_STATUS) as Array<[keyof typeof SOLVE_STATUS, number]>;
+    const lookup: Record<number, string> = {};
+    entries.forEach(([label, value]) => {
+      lookup[value] = label;
+    });
+    return lookup;
   }, []);
 
-  const setJoint = useCallback((index: number, value: number) => {
-    if (index < 0 || Number.isNaN(value)) return;
+  const solveStatusText = useMemo(() => {
+    return solveStatuses.length
+      ? solveStatuses.map((status) => statusLookup[status] ?? `UNKNOWN(${status})`).join(", ")
+      : "n/a";
+  }, [solveStatuses, statusLookup]);
+
+  const setFkJoint = useCallback((index: number, value: number) => {
+    setFkMode(true);
     setJointAngles((prev) => {
       const next = [...prev];
-      if (index >= next.length) {
-        const missing = index - next.length + 1;
-        next.push(...Array(missing).fill(0));
-      }
-      if (Math.abs(next[index] - value) <= EPS) return prev;
       next[index] = value;
       return next;
     });
   }, []);
 
-  const setAll = useCallback((angles: number[]) => {
-    if (!Array.isArray(angles)) return;
-    replaceAngles(angles);
-  }, [replaceAngles]);
+  const setIkJoint = useCallback((angles: number[]) => {
+    setJointAngles(angles);
+  }, []);
 
-  const setFromIK = useCallback((angles: number[]) => {
-    setAll(angles);
-  }, [setAll]);
+  const setSolveStatuses = useCallback((statuses: number[]) => {
+    setSolveStatusesState(statuses);
+  }, []);
 
   const toggleMode = useCallback(() => {
-    setMode((prev) => (prev === "ik" ? "fk" : "ik"));
+    setFkMode((prev) => !prev);
   }, []);
 
   return useMemo(
-    () => ({ jointAngles, mode, setMode, toggleMode, setJoint, setAll, setFromIK }),
-    [jointAngles, mode, setMode, toggleMode, setJoint, setAll, setFromIK]
+    () => ({
+      jointAngles,
+      fkMode,
+      setFkMode,
+      toggleMode,
+      setFkJoint,
+      setIkJoint,
+      solveStatuses,
+      setSolveStatuses,
+      solveStatusText,
+    }),
+    [jointAngles, fkMode, toggleMode, setFkJoint, setIkJoint, solveStatuses, setSolveStatuses, solveStatusText]
   );
 }

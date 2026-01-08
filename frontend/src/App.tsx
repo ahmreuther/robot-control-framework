@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import './App.css'
 
 import { Viewport } from "./components/viewport/Viewport";
 import { initSocket } from "./components/Connect";
-import { SOLVE_STATUS } from './components/viewport/Robot';
 import { URDFSelector, type ModelConfig } from './components/URDFSelector';
 import { JointAnglesPanel } from "./components/viewport/JointAnglesPanel";
+import { useJointState } from "./components/hooks/useJointState";
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -15,31 +15,21 @@ const ROBOT_MODELS: ModelConfig[] = [
 ];
 
 function App() {
-  const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]); // Default to first robot(EVA Automata)
-
-  //Robot state
-  const [fkMode, setFkMode] = useState(false);
-  const [fkJointAngles, setFkJointAngles] = useState<number[]>([]);
-  const [solveStatuses, setSolveStatuses] = useState<number[]>([]);
 
   initSocket("ws://127.0.0.1:8000/ws"); //initialize WebSocket connection
+  
+  const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]); // Default to first robot(EVA Automata)
 
-  const statusLookup = useMemo(() => {
-    const entries = Object.entries(SOLVE_STATUS) as Array<[keyof typeof SOLVE_STATUS, number]>;
-    const lookup: Record<number, string> = {};
-    entries.forEach(([label, value]) => {
-      lookup[value] = label;
-    });
-    return lookup;
-  }, []);
-
-  const solveStatusText = solveStatuses.length
-    ? solveStatuses.map((status) => statusLookup[status] ?? `UNKNOWN(${status})`).join(", ")
-    : "n/a";
-
-  const handleJointAnglesUpdate = (angles: number[]) => {
-    setFkJointAngles(angles);
-  };
+  // Joint state and solve status are centralized in this hook
+  const {
+    jointAngles: fkJointAngles,
+    fkMode,
+    setFkMode,
+    setIkJoint,
+    setFkJoint,
+    setSolveStatuses,
+    solveStatusText,
+  } = useJointState();
 
   const handleRobotSelect = (robot: ModelConfig) => {
     setFkMode(false);
@@ -53,7 +43,7 @@ function App() {
         {/* <MessageLog/>  */}
         <Viewport 
           urdfPath={selectedRobot.url}
-          onJointAnglesUpdate={handleJointAnglesUpdate}
+          onJointAnglesUpdate={setIkJoint}
           onSolveStatusesChange={setSolveStatuses}
           setFkMode={setFkMode}
           fkJointAngles={fkJointAngles}
@@ -66,17 +56,11 @@ function App() {
           <JointAnglesPanel
             jointAngles={fkJointAngles}
             manualMode={fkMode}
-            onModeToggle={(enabled) => setFkMode(enabled)}
-            onAngleChange={(index, value) => {
-              setFkMode(true);
-              const newAngles = [...fkJointAngles];
-              newAngles[index] = value;
-              setFkJointAngles(newAngles);
-            }}
+            onModeToggle={setFkMode}
+            onAngleChange={setFkJoint}
             solveStatusText={solveStatusText}
           />
         </div>
-
         {/* FK mode indicator */}
         <div className="absolute top-20 right-5 pointer-events-none">
           <div className={`px-3 py-1 rounded text-sm font-medium ${fkMode ? "bg-green-600" : "bg-red-600"}`}>
