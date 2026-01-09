@@ -22,15 +22,8 @@ export function Viewport(props: ViewportProps) {
     fkMode
   } = props;
   
-  const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0, 0, 0]);
-  const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
   const [drag, setDrag] = useState<boolean>(false);
   const [solveStatuses, setSolveStatusesState] = useState<number[]>([]);
-
-  const handleEndEffectorReady = useCallback((pos: [number, number, number], quat: [number, number, number, number]) => {
-    setGoalPosition(pos);
-    setGoalQuaternion(quat);
-  }, []);
 
   const setDragandDisableFkMode = useCallback((isDragging: boolean) => {
     setDrag(isDragging);
@@ -72,13 +65,8 @@ export function Viewport(props: ViewportProps) {
         <Suspense fallback={null}>
           <Robot 
             urdfPath={urdfPath}
-            goalPosition={goalPosition}
-            goalQuaternion={goalQuaternion}
             drag={drag}
-            onEndEffectorReady={handleEndEffectorReady}
             onJointAnglesUpdate={onJointAnglesUpdate}
-            onGoalPositionChange={setGoalPosition}
-            onGoalQuaternionChange={setGoalQuaternion}
             onSolveStatusesChange={handleSolveStatusesChange}
             onDrag={setDragandDisableFkMode}
             fkJointAngles={fkJointAngles}

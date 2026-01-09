@@ -7,27 +7,15 @@ interface GoalMarkerProps {
   onPositionChange: (position: [number, number, number]) => void;
   onQuaternionChange: (quaternion: [number, number, number, number]) => void;
   onDrag: (drag: boolean) => void;
-  initialPosition?: [number, number, number];
-  initialQuaternion?: [number, number, number, number];
+  goalPosition?: [number, number, number];
+  goalQuaternion?: [number, number, number, number];
   converged?: boolean;
+  endEffectorQuaternion?: [number, number, number, number];
 }
 
-function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosition, initialQuaternion, converged = true }: GoalMarkerProps) {
+function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition, goalQuaternion, converged = true, endEffectorQuaternion }: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
-  const isDraggingRef = useRef(false);
   const [mode, setMode] = useState<"translate" | "rotate">("translate");
-
-  useEffect(() => {
-    if (meshRef.current && initialPosition) {
-      meshRef.current.position.set(...initialPosition);
-    }
-  }, [initialPosition]);
-
-  useEffect(() => {
-    if (meshRef.current && initialQuaternion) {
-      meshRef.current.quaternion.set(...initialQuaternion);
-    }
-  }, [initialQuaternion]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -47,29 +35,28 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, initialPosit
     const mesh = meshRef.current;
     if (!mesh) return;
     
-    if (!isDraggingRef.current) return;
-    
     const { x, y, z } = mesh.position;
     onPositionChange([x, y, z]);
 
     const { x: qx, y: qy, z: qz, w: qw } = mesh.quaternion;
     onQuaternionChange([qx, qy, qz, qw]);
+
+    meshRef.current.position.set(...goalPosition);
+    meshRef.current.quaternion.set(...goalQuaternion);
+
   });
 
   const handleMouseDown = () => {
-    isDraggingRef.current = true;
     onDrag(true);
-    
   };
 
   const handleMouseUp = () => {
-    isDraggingRef.current = false;
     onDrag(false);
   };
 
   return (
     <>
-      <mesh ref={meshRef} position={initialPosition}>
+      <mesh ref={meshRef} position={goalPosition}>
         <sphereGeometry args={[0.03, 16, 16]} />
         <meshBasicMaterial 
           color={converged ? "#00ff00" : "#ff0000"} 
