@@ -15,16 +15,16 @@ export function Stats() {
 
     // Style the stats panel
     stats.dom.style.position = 'absolute';
-    stats.dom.style.left = '0px';
-    stats.dom.style.top = '0px';
+    //stats.dom.style.left = '0px';
+    //stats.dom.style.top = '0px';
+    //stats.dom.style.zIndex = '100';
 
     // Append to container
     statsRef.current.appendChild(stats.dom);
 
-    // Animation loop
+    // Animation loop - just update stats
     function animate() {
-      stats.begin();
-      stats.end();
+      stats.update();
       requestAnimationFrame(animate);
     }
     requestAnimationFrame(animate);

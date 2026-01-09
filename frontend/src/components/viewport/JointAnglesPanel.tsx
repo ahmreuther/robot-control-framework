@@ -3,10 +3,9 @@ const degToRad = (deg: number) => (deg * Math.PI) / 180;
 
 export interface JointAnglesPanelProps {
   jointAngles: number[];
-  manualMode: boolean;
-  onModeToggle: (enabled: boolean) => void;
+  fkMode: boolean;
+  setFkMode: (enabled: boolean) => void;
   onAngleChange: (index: number, value: number) => void;
-  solveStatusText: string;
   minAngle?: number;
   maxAngle?: number;
   step?: number;
@@ -14,17 +13,16 @@ export interface JointAnglesPanelProps {
 
 export function JointAnglesPanel({
   jointAngles,
-  manualMode,
-  onModeToggle,
+  fkMode,
+  setFkMode,
   onAngleChange,
-  solveStatusText,
   minAngle = -180, //Todo: adjust based on robot limits
   maxAngle = 180, //Todo: adjust based on robot limits
   step = 1,
 }: JointAnglesPanelProps) {
   const handleSliderClick = () => {
-    if (!manualMode) {
-      onModeToggle(true);
+    if (!fkMode) {
+      setFkMode(true);
     }
   };
   return (
@@ -49,9 +47,6 @@ export function JointAnglesPanel({
           </div>
         ))}
       </div>
-      
-      <div className="font-bold mt-2">IK Status:</div>
-      <div>{solveStatusText}</div>
     </div>
   );
 }
