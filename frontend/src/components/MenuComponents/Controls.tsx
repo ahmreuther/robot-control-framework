@@ -1,6 +1,6 @@
-import Buttons from "./Buttons";
-import { Selector } from "./Selector";
-import { GenSliders } from "./Sliderx";
+import Buttons from "./ControlsComponents/Buttons";
+import { Selector } from "./ControlsComponents/Selector";
+import { GenSliders } from "./ControlsComponents/Sliderx";
 
 //Controls Tab
 function Controls() {

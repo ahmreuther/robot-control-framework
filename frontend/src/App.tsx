@@ -2,11 +2,11 @@ import { createContext, useState } from 'react';
 import './App.css';
 
 import Live_Status from './components/Live_Status';
-import MessageLog from './components/MessageLog';
-import { Viewport } from './components/Viewport';
-import { URDFSelector, type URDFOptions } from './components/URDFSelector';
+import { Viewport } from "./components/Viewport";
+import {type URDFOptions } from './components/MenuComponents/ControlsComponents/URDFSelector';
 import { SidebarMenu } from './components/Menu';
 import { SocketProvider } from './hooks/use-socket';
+import { UrlProvider } from './components/UrlContext';
 
 // Example robot options
 const robotOptions: URDFOptions[] = [
@@ -26,23 +26,27 @@ export const LogContext = createContext<{
 });
 
 function App() {
+  
   const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]);
-  const [logs, setLogs] = useState("Start of log...\n");
-
-  const logWrapper = { logs, setLogs };
+  const [logs, setLogs] = useState("Start of logs...\n");
+  const [opcuaUrl, setOpcuaUrl] = useState<string | null>(null);
+  
+  const logWrapper = {logs, setLogs};
+  
 
   return (
+    <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
       <SocketProvider url='ws://127.0.0.1:8000/ws'>
         <LogContext.Provider value={logWrapper}>
           <div className="h-screen flex">
             <SidebarMenu options={robotOptions} onSelect={setSelectedRobot} />
             <Live_Status />
-            <MessageLog />
             <Viewport urdfPath={selectedRobot.urdf} />
           </div>
         </LogContext.Provider>
       </SocketProvider>
-  );
+    </UrlProvider>
+  )
 }
 
 export default App;
