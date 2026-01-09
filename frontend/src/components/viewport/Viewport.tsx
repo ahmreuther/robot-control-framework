@@ -26,7 +26,6 @@ export function Viewport(props: ViewportProps) {
   const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
   const [drag, setDrag] = useState<boolean>(false);
   const [solveStatuses, setSolveStatusesState] = useState<number[]>([]);
-  const [ikConverged, setIkConverged] = useState(true);
 
   const handleEndEffectorReady = useCallback((pos: [number, number, number], quat: [number, number, number, number]) => {
     setGoalPosition(pos);
@@ -46,6 +45,8 @@ export function Viewport(props: ViewportProps) {
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
+
+      {/* Viewport Stats */}
       <div className="absolute top-0 left-0 z-50 flex flex-col gap-11">
         <Stats/>
         <SolverStatus solveStatuses={solveStatuses} />
@@ -53,6 +54,7 @@ export function Viewport(props: ViewportProps) {
 
       <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>
 
+        {/* Grid Helper */}
         <gridHelper args={[10, 10]} rotation={[Math.PI / 2, 0, 0]} />
 
         {/* Background color */}
@@ -75,12 +77,10 @@ export function Viewport(props: ViewportProps) {
             drag={drag}
             onEndEffectorReady={handleEndEffectorReady}
             onJointAnglesUpdate={onJointAnglesUpdate}
-            onConvergedChange={setIkConverged}
             onGoalPositionChange={setGoalPosition}
             onGoalQuaternionChange={setGoalQuaternion}
             onSolveStatusesChange={handleSolveStatusesChange}
             onDrag={setDragandDisableFkMode}
-            converged={ikConverged}
             fkJointAngles={fkJointAngles}
             fkMode={fkMode}
           />

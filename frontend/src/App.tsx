@@ -16,9 +16,8 @@ const ROBOT_MODELS: ModelConfig[] = [
 ];
 
 function App() {
-  initSocket("ws://127.0.0.1:8000/ws");
   
-  const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]);
+  initSocket("ws://127.0.0.1:8000/ws");
 
   const {
     jointAngles: fkJointAngles,
@@ -28,6 +27,8 @@ function App() {
     setFkJoint,
   } = useJointState();
 
+  const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]);
+
   const handleRobotSelect = (robot: ModelConfig) => {
     setFkMode(false);
     setSelectedRobot(robot);
@@ -36,10 +37,13 @@ function App() {
   return (
     <div className="w-screen h-screen overflow-hidden bg-[#202025] text-white">
         {/* Left sidebar */}
-      <Group className="">
+      <Group>
         <Panel defaultSize="15%">
           <div className="flex flex-col gap-4 p-5 h-full bg-[#1a1a1f]">
-            <URDFSelector options={ROBOT_MODELS} onSelect={handleRobotSelect} />
+            <URDFSelector 
+              options={ROBOT_MODELS} 
+              onSelect={handleRobotSelect} 
+            />
             <JointAnglesPanel
               jointAngles={fkJointAngles}
               fkMode={fkMode}

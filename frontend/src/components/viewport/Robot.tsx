@@ -1,4 +1,4 @@
-import { useCallback, useRef, useMemo } from "react";
+import { useCallback, useRef, useMemo, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import RobotLoader from "./RobotLoader";
 import type { URDFRobot } from "urdf-loader/src/URDFClasses";
@@ -23,12 +23,10 @@ interface RobotProps {
   goalQuaternion: [number, number, number, number];
   onEndEffectorReady?: (position: [number, number, number], quaternion: [number, number, number, number]) => void;
   onJointAnglesUpdate?: (angles: number[]) => void;
-  onConvergedChange?: (converged: boolean) => void;
   onGoalPositionChange?: (position: [number, number, number]) => void;
   onGoalQuaternionChange?: (quaternion: [number, number, number, number]) => void;
   onSolveStatusesChange?: (statuses: number[]) => void;
   onDrag?: (dragging: boolean) => void;
-  converged?: boolean;
   fkJointAngles?: number[];
   fkMode?: boolean;
 }
@@ -40,12 +38,10 @@ export function Robot({
   drag,
   onEndEffectorReady,
   onJointAnglesUpdate,
-  onConvergedChange,
   onGoalPositionChange,
   onGoalQuaternionChange,
   onSolveStatusesChange,
   onDrag,
-  converged = true,
   fkJointAngles = [],
   fkMode = false,
 }: RobotProps) {
@@ -57,6 +53,7 @@ export function Robot({
   const jointAnglesRef = useRef<number[]>([]);
   const lastValidGoalPositionRef = useRef<[number, number, number]>([0.3, 0.0, 0.3]);
   const lastValidGoalQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
+  const convergedRef = useRef<boolean>(false);
   
   // Animation state for gradual home pose transition
   const animationStartTimeRef = useRef<number | null>(null);
@@ -86,13 +83,11 @@ export function Robot({
 
     // Solve
     const statuses = solver.solve();
-    if (onSolveStatusesChange) {
-      onSolveStatusesChange([...statuses]);
-    }
+    onSolveStatusesChange([...statuses]);
 
-    const converged = statuses.every((status: number) => status === SOLVE_STATUS.CONVERGED);
+    convergedRef.current = statuses.every((status: number) => status === SOLVE_STATUS.CONVERGED);
 
-    if (converged) {
+    if (convergedRef.current) {
       setUrdfFromIK(robot, ikRoot);
       robot.updateMatrixWorld(true);
       const jointNames = Object.keys(robot.joints ?? {});
@@ -115,15 +110,10 @@ export function Robot({
         onGoalQuaternionChange(cloneQuaternion(lastValidGoalQuaternionRef.current));
       }
     }
-    
-    if (onConvergedChange) {
-      onConvergedChange(converged);
-    }
   }, [
     drag,
     goalPosition,
     goalQuaternion,
-    onConvergedChange,
     onGoalPositionChange,
     onGoalQuaternionChange,
     onJointAnglesUpdate,
@@ -396,7 +386,7 @@ export function Robot({
         initialQuaternion={goalQuaternion}
         onDrag={onDrag}
         initialPosition={goalPosition}
-        converged={converged}
+        converged={convergedRef.current}
       />
     </>
   );
