@@ -1,7 +1,8 @@
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Html, useProgress } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import { Suspense, useState, useCallback } from "react";
 import { Robot } from "./Robot";
+import { Stats } from "./Stats";
 
 export interface ViewportProps {
   urdfPath: string;
@@ -22,9 +23,9 @@ export function Viewport(props: ViewportProps) {
     fkMode
   } = props;
   
-  const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0.3, 0.0, 0.3]);
-  const [drag, setDrag] = useState<boolean>(false);
+  const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0, 0, 0]);
   const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
+  const [drag, setDrag] = useState<boolean>(false);
   const [ikConverged, setIkConverged] = useState(true);
 
   const handleEndEffectorReady = useCallback((pos: [number, number, number], quat: [number, number, number, number]) => {
@@ -41,6 +42,8 @@ export function Viewport(props: ViewportProps) {
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
+      <Stats/>
+
       <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>
 
         <gridHelper args={[10, 10]} rotation={[Math.PI / 2, 0, 0]} />

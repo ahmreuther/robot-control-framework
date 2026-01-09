@@ -55,17 +55,11 @@ function App() {
         <div className="absolute top-5 right-5 pointer-events-none">
           <JointAnglesPanel
             jointAngles={fkJointAngles}
-            manualMode={fkMode}
+            fkMode={fkMode}
             onModeToggle={setFkMode}
             onAngleChange={setFkJoint}
             solveStatusText={solveStatusText}
           />
-        </div>
-        {/* FK mode indicator */}
-        <div className="absolute top-20 right-5 pointer-events-none">
-          <div className={`px-3 py-1 rounded text-sm font-medium ${fkMode ? "bg-green-600" : "bg-red-600"}`}>
-            FK Mode: {fkMode ? "ON" : "OFF"}
-          </div>
         </div>
         {/* <Menu /> */}
       </div>
