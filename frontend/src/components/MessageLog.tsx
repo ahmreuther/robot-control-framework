@@ -1,6 +1,6 @@
 import { LazyLog } from "@melloware/react-logviewer";
 import { useState, useEffect, useContext } from "react";
-import { LogContext } from "/src/App";
+import { LogContext } from "../App";
 
 
 function MessageLog() {

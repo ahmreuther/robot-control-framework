@@ -1,48 +1,48 @@
-import { createContext, useState, useContext } from 'react'
-import './App.css'
+import { createContext, useState } from 'react';
+import './App.css';
 
 import Live_Status from './components/Live_Status';
-import { Viewport } from "./components/Viewport";
-import {type URDFOptions } from './components/URDFSelector';
-import { initSocket } from "./components/Connect";
+import MessageLog from './components/MessageLog';
+import { Viewport } from './components/Viewport';
+import { URDFSelector, type URDFOptions } from './components/URDFSelector';
 import { SidebarMenu } from './components/Menu';
-import { SocketProvider } from './hooks/use-socket.tsx';
+import { SocketProvider } from './hooks/use-socket';
 
-
+// Example robot options
 const robotOptions: URDFOptions[] = [
   { urdf: '/urdf/eva_description/urdf/eva_description.urdf', color: '#aaaab3', label: 'EVA Automata' },
   { urdf: '/urdf/fr3_description/urdf/fr3.urdf', color: '#aaaab3', label: 'Franka Research 3' },
-  { urdf: '/urdf/fr3_description_with_wagon/urdf/fr3.urdf', color: '#aaaab3', label: 'Franka Research 3 & Wagon' },
-  { urdf: '/urdf/ur5_description/urdf/ur5_robot.urdf', color: '#aaaab3', label: 'UR5e' },
+  { urdf: '/urdf/fr3_description_with_wagon/ur3.urdf', color: '#aaaab3', label: 'Franka Research 3 & Wagon' },
+  { urdf: '/urdf/ur5_description/ur5_robot.urdf', color: '#aaaab3', label: 'UR5e' },
 ];
 
-const LogContext = createContext({log: "test\n", setLogs: ()=>{}});
+// Create context for logs
+export const LogContext = createContext<{
+  logs: string;
+  setLogs: React.Dispatch<React.SetStateAction<string>>;
+}>({
+  logs: '',
+  setLogs: () => {}
+});
 
 function App() {
-  
-  const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]); // Default to first robot(EVA Automata)
+  const [selectedRobot, setSelectedRobot] = useState<URDFOptions>(robotOptions[0]);
+  const [logs, setLogs] = useState("Start of log...\n");
 
-  const [logs, setLogs] = useState("Start\n")
-
-  const logWrapper = {logs, setLogs};
-
-  const useLog = useContext(LogContext);
-
+  const logWrapper = { logs, setLogs };
 
   return (
-
-  <SocketProvider url='ws://127.0.0.1:8000/ws'>
-    <LogContext.Provider value={logWrapper}>
-    <div className="h-screen flex">
-      <SidebarMenu options={robotOptions} onSelect={setSelectedRobot} />
-      <Live_Status />
-      <Viewport urdfPath={selectedRobot.urdf} />
-    </div>
-    </LogContext.Provider>
-  </SocketProvider >
-  )
+      <SocketProvider url='ws://127.0.0.1:8000/ws'>
+        <LogContext.Provider value={logWrapper}>
+          <div className="h-screen flex">
+            <SidebarMenu options={robotOptions} onSelect={setSelectedRobot} />
+            <Live_Status />
+            <MessageLog />
+            <Viewport urdfPath={selectedRobot.urdf} />
+          </div>
+        </LogContext.Provider>
+      </SocketProvider>
+  );
 }
 
-export { LogContext };
-
-export default App
+export default App;
