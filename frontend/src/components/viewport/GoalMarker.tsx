@@ -10,12 +10,12 @@ interface GoalMarkerProps {
   goalPosition?: [number, number, number];
   goalQuaternion?: [number, number, number, number];
   converged?: boolean;
-  endEffectorQuaternion?: [number, number, number, number];
 }
 
-function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition, goalQuaternion, converged = true, endEffectorQuaternion }: GoalMarkerProps) {
+function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition, goalQuaternion, converged = true}: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
   const [mode, setMode] = useState<"translate" | "rotate">("translate");
+  const [local , setLocal] = useState<boolean>(true);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -25,6 +25,8 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition
         setMode("translate");
       } else if (event.key === "e" || event.key === "E") {
         setMode("rotate");
+      } else if (event.key === "q" || event.key === "Q") {
+        setLocal(prev => !prev);
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -67,6 +69,7 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition
       <TransformControls
         object={meshRef}
         mode={mode}
+        space={local ? "local" : "world"}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
       />

@@ -44,12 +44,10 @@ export function Robot({
   const lastValidGoalPositionRef = useRef<[number, number, number]>([0, 0, 0]);
   const lastValidGoalQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
   const convergedRef = useRef<boolean>(false);
-  const endEffectorObjRef = useRef<THREE.Object3D | null>(null);
 
   //GoalMarker state
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0, 0, 0]);
   const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
-  const [endEffectorQuaternion, setEndEffectorQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
   
   // Animation state for gradual home pose transition
   const animationStartTimeRef = useRef<number | null>(null);
@@ -62,6 +60,29 @@ export function Robot({
       onDrag(isDragging);
     }
   }, []);
+
+  const updateEndEffector = (robot: URDFRobot) => {
+    const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
+    let endEffector: any = null;
+    for (const name of endEffectorNames) {
+      endEffector = robot.getObjectByName(name);
+      if (endEffector) break;
+    }
+    if (!endEffector) {
+      robot.traverse((obj: any) => {
+        if (obj.isURDFLink) endEffector = obj;
+      });
+    }
+    if (endEffector) {
+      endEffector.updateMatrixWorld(true);
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      endEffector.getWorldPosition(pos);
+      endEffector.getWorldQuaternion(quat);
+      setGoalPosition([pos.x, pos.y, pos.z]);
+      setGoalQuaternion([quat.x, quat.y, quat.z, quat.w]);
+    }
+  }
 
   const runIK = useCallback(() => {
     const robot = robotRef.current;
@@ -100,14 +121,6 @@ export function Robot({
       lastValidGoalPositionRef.current = clonePosition(goalPosition);
       lastValidGoalQuaternionRef.current = cloneQuaternion(goalQuaternion);
 
-      // Update end-effector quaternion from the scene object
-      const endEffector = endEffectorObjRef.current;
-      if (endEffector) {
-        endEffector.updateMatrixWorld(true);
-        const quat = new THREE.Quaternion();
-        endEffector.getWorldQuaternion(quat);
-        setEndEffectorQuaternion([quat.x, quat.y, quat.z, quat.w]);
-      }
       if (onJointAnglesUpdate) {
         onJointAnglesUpdate(nextAngles);
       }
@@ -232,7 +245,6 @@ export function Robot({
       }
        
       if (endEffector) {
-        endEffectorObjRef.current = endEffector;
         endEffector.updateMatrixWorld(true);
         const pos = new THREE.Vector3();
         const quat = new THREE.Quaternion();
@@ -243,7 +255,6 @@ export function Robot({
         lastValidGoalQuaternionRef.current = cloneQuaternion([quat.x, quat.y, quat.z, quat.w]);
         setGoalPosition([pos.x, pos.y, pos.z]);
         setGoalQuaternion([quat.x, quat.y, quat.z, quat.w]);
-        setEndEffectorQuaternion([quat.x, quat.y, quat.z, quat.w]);
       }
     },
     []
@@ -270,29 +281,7 @@ export function Robot({
     jointAnglesRef.current = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
     onJointAnglesUpdate(jointAnglesRef.current as number[]);
 
-    // Update goal position to follow end effector during animation
-    const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
-    let endEffector: any = null;
-    for (const name of endEffectorNames) {
-      endEffector = robot.getObjectByName(name);
-      if (endEffector) break;
-    }
-    if (!endEffector) {
-      robot.traverse((obj: any) => {
-        if (obj.isURDFLink) endEffector = obj;
-      });
-    }
-    if (endEffector) {
-      endEffectorObjRef.current = endEffector;
-      endEffector.updateMatrixWorld(true);
-      const pos = new THREE.Vector3();
-      const quat = new THREE.Quaternion();
-      endEffector.getWorldPosition(pos);
-      endEffector.getWorldQuaternion(quat);
-      setGoalPosition([pos.x, pos.y, pos.z]);
-      setGoalQuaternion([quat.x, quat.y, quat.z, quat.w]);
-      setEndEffectorQuaternion([quat.x, quat.y, quat.z, quat.w]);
-    }
+    updateEndEffector(robot);
 
     if (t >= 1.0) {
       isAnimatingRef.current = false;
@@ -328,29 +317,7 @@ export function Robot({
     });
     robot.updateMatrixWorld(true);
 
-    // Update goal position based on end effector
-    const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
-    let endEffector: any = null;
-    for (const name of endEffectorNames) {
-      endEffector = robot.getObjectByName(name);
-      if (endEffector) break;
-    }
-    if (!endEffector) {
-      robot.traverse((obj: any) => {
-        if (obj.isURDFLink) endEffector = obj;
-      });
-    }
-    if (endEffector) {
-      endEffectorObjRef.current = endEffector;
-      endEffector.updateMatrixWorld(true);
-      const pos = new THREE.Vector3();
-      const quat = new THREE.Quaternion();
-      endEffector.getWorldPosition(pos);
-      endEffector.getWorldQuaternion(quat);
-      setGoalPosition([pos.x, pos.y, pos.z]);
-      setGoalQuaternion([quat.x, quat.y, quat.z, quat.w]);
-      setEndEffectorQuaternion([quat.x, quat.y, quat.z, quat.w]);
-    }
+    updateEndEffector(robot);
   };
 
   useFrame(() => {
@@ -385,7 +352,6 @@ export function Robot({
         onDrag={onDragwithAnimationLock}
         goalPosition={goalPosition}
         converged={convergedRef.current}
-        endEffectorQuaternion={endEffectorQuaternion}
       />
     </>
   );
