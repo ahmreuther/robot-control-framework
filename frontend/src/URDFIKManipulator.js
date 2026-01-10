@@ -73,222 +73,48 @@ export default
     constructor(...args) {
         super(...args);
 
-        const controls = this.controls;
-
-        // Transform controls
-        const transformControls = new TransformControls(this.camera, this.renderer.domElement);
-        transformControls.setSpace('world');
-        transformControls.addEventListener('change', () => this.redraw());
-        transformControls.setSpace('local');
-        this.scene.add(transformControls.getHelper());
-
-        // Target marker object
-        const targetObject = new Group();
-        const geometry = new SphereGeometry(0.005, 32, 16);
-        const material = new MeshBasicMaterial({ color: 0xffff00 });
-        const sphere = new Mesh(geometry, material);
-        targetObject.add(sphere);
-
-        this.world.add(targetObject);
-        let transformControlsEnabled = true;
-        transformControls.attach(targetObject);
-
-        // Members
-        this.transformControls = transformControls;
-        this.targetObject = targetObject;
+        // IK members
         this.ikRoot = null;
         this.goal = null;
-        this.helper = null;
         this.solver = null;
+        this.targetObject = null;
+        this.transformControls = null;
+        this.labelSprite = null;
+        this.startPos = new Vector3();
 
-        this.solveAvgMs = 0;
-        this.solveCount = 0;
-
-
-        // Events
-        transformControls.addEventListener('dragging-changed', function (event) {
-            controls.enabled = !event.value;
-        });
-
-        transformControls.addEventListener('change', () => this.solve());
-        transformControls.addEventListener('mouseUp', () => this.resetGoal());
-
-        transformControls.addEventListener('mouseDown', () => {
-            controls.enabled = false;
-            this.dispatchEvent(new Event("manipulate-start"));
-        });
-
-        transformControls.addEventListener('mouseUp', () => {
-            controls.enabled = true;
-            this.dispatchEvent(new Event("manipulate-end"));
-        });
-
-        // Keyboard shortcuts for transform controls
-        window.addEventListener('keydown', e => {
-            switch (e.key) {
-                case 'w':
-                    transformControls.setMode('translate');
-                    break;
-                case 'e':
-                    transformControls.setMode('rotate');
-                    break;
-                case 'q':
-                    transformControls.setSpace(transformControls.space === 'local' ? 'world' : 'local');
-                    break;
-                case 't':
-                    if (transformControlsEnabled) {
-                        transformControls.detach();
-                        transformControlsEnabled = false;
-                        this.scene.remove(transformControls.getHelper());
-                    } else {
-                        transformControls.attach(this.targetObject);
-                        transformControlsEnabled = true;
-                        this.scene.add(transformControls.getHelper());
-                    }
-                    break;
-            }
-        });
-
+        //events
         this.addEventListener('urdf-processed', () => this.init());
 
         this.addEventListener('reset-angles', () => {
-            const robot = this.robot;
-            if (!robot) return;
-            applyDefaultPose(robot);
+            if (!this.robot) return;
 
-            // Apply pose and synchronize IK/Goal
-            robot.updateMatrixWorld(true);
+            applyDefaultPose(this.robot);
+            this.robot.updateMatrixWorld(true);
             this.dispatchEvent(new Event('angle-change')); // triggers setIKFromUrdf + resetGoal()
         });
 
         this.addEventListener('angle-change', () => {
-            setIKFromUrdf(this.ikRoot, this.robot);
+            if (this.ikRoot && this.robot) setIKFromUrdf(this.ikRoot, this.robot);
             this.resetGoal();
         });
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 356;
-        canvas.height = 94;
-        const ctx = canvas.getContext('2d');
-
-        this.drawLabelText = (delta) => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const radius = 20;
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.beginPath();
-            ctx.moveTo(radius, 0);
-            ctx.lineTo(canvas.width - radius, 0);
-            ctx.quadraticCurveTo(canvas.width, 0, canvas.width, radius);
-            ctx.lineTo(canvas.width, canvas.height - radius);
-            ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height);
-            ctx.lineTo(radius, canvas.height);
-            ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius);
-            ctx.lineTo(0, radius);
-            ctx.quadraticCurveTo(0, 0, radius, 0);
-            ctx.closePath();
-            ctx.fill();
-
-            if (!delta || typeof delta.x !== "number") {
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 42px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(`Δ: 0.0 mm`, canvas.width / 2, canvas.height / 2);
-                return;
-            }
-
-            const dx = delta.x * 1000;
-            const dy = delta.y * 1000;
-            const dz = delta.z * 1000;
-
-            const abs = { x: Math.abs(dx), y: Math.abs(dy), z: Math.abs(dz) };
-            let axis = 'x', value = dx;
-            if (abs.y > abs.x && abs.y >= abs.z) { axis = 'y'; value = dy; }
-            if (abs.z > abs.x && abs.z > abs.y) { axis = 'z'; value = dz; }
-
-            if (isNaN(value)) value = 0.0;
-
-            const labelText = `Δ${axis.toUpperCase()}: ${value.toFixed(1)} mm`;
-
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 42px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 6;
-            ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
-
-
-        };
-
-
-        this.drawLabelText();
-        const texture = new CanvasTexture(canvas);
-        const spriteMaterial = new SpriteMaterial({ map: texture, depthTest: false });
-        const sprite = new Sprite(spriteMaterial);
-        sprite.scale.set(0.12, 0.035, 1.0);
-        sprite.position.set(0.1, -0.15, 0);
-        sprite.visible = false;
-        sprite.raycast = () => { };
-        this.targetObject.add(sprite);
-
-        this.labelSprite = sprite;
-        this.labelCanvas = canvas;
-        this.labelCtx = ctx;
-        this.labelTexture = texture;
-        this.startPos = new Vector3();
-
-        transformControls.addEventListener('mouseDown', () => {
-            controls.enabled = false;
-            this.dispatchEvent(new Event("manipulate-start"));
-
-            this.targetObject.getWorldPosition(this.startPos);
-            this.labelSprite.visible = true;
-            this.drawLabelText(new Vector3());
-            this.labelTexture.needsUpdate = true;
-        });
-
-        transformControls.addEventListener('change', () => {
-            this.solve();
-            if (!this.labelSprite.visible) return;
-
-            const currentPos = new Vector3();
-            this.targetObject.getWorldPosition(currentPos);
-            const delta = currentPos.clone().sub(this.startPos);
-
-            this.drawLabelText(delta);
-            this.labelTexture.needsUpdate = true;
-        });
-
-        transformControls.addEventListener('mouseUp', () => {
-            controls.enabled = true;
-            this.dispatchEvent(new Event("manipulate-end"));
-
-            this.labelSprite.visible = false;
-        });
-    }
-
-    _loadUrdf(pkg, urdf) {
-        super._loadUrdf(pkg, urdf);
     }
 
     init() {
-        const robot = this.robot;
-        robot.updateMatrixWorld(true);
+        if (!this.robot) return;
+        this.robot.updateMatrixWorld(true);
 
         // Init IK root
         // Clear the degrees of freedom to lock the root of the model
-        const ik = urdfRobotToIKRoot(robot);
-        setUrdfFromIK(robot, ik);
+        const ik = urdfRobotToIKRoot(this.robot);
+        setUrdfFromIK(this.robot, ik);
         ik.clearDoF();
         this.ikRoot = ik;
 
-        // Set the joint angles for typical start poses according to URDF
-        applyDefaultPose(robot);
+        // Default pose
+        applyDefaultPose(this.robot);
 
         // Initialize IK with URDF pose
-        setIKFromUrdf(ik, robot);
+        setIKFromUrdf(ik, this.robot);
 
         // Init the goal
         const tool_point = ik.find(c => c.name === 'tool_point');
@@ -298,53 +124,216 @@ export default
         tool_point.getWorldQuaternion(goal.quaternion);
         goal.setMatrixNeedsUpdate();
         this.goal = goal;
+        // Init solver
         this.solver = new Solver(ik);
+
+        // Create target gizmo
+        this.createTargetGizmo(tool_point);
+
+        // Reset goal
         this.resetGoal();
+
+        // Catch debug output element
+        this.debugOutputEl = document.getElementById('output');
+    }
+    createTargetGizmo(tool_point) {
+        const targetObject = new Group();
+
+        // Sphere marker
+        const geometry = new SphereGeometry(0.005, 32, 16);
+        const material = new MeshBasicMaterial({ color: 0xffff00 });
+        const sphere = new Mesh(geometry, material);
+        targetObject.add(sphere);
+
+        // Label sprite
+        const canvas = document.createElement('canvas');
+        canvas.width = 356;
+        canvas.height = 94;
+        const ctx = canvas.getContext('2d');
+        const texture = new CanvasTexture(canvas);
+        const spriteMaterial = new SpriteMaterial({ map: texture, depthTest: false });
+        const sprite = new Sprite(spriteMaterial);
+        sprite.scale.set(0.12, 0.035, 1.0);
+        sprite.position.set(0.1, -0.15, 0);
+        sprite.visible = false;
+        sprite.raycast = () => { }; // Prevent raycast from blocking transform controls
+        this.targetObject.add(sprite);
+
+        this.labelSprite = sprite;
+        this.labelCanvas = canvas;
+        this.labelCtx = ctx;
+        this.labelTexture = texture;
+        
+        // Add gizmo to the scene
+        this.scene.add(targetObject);
+        this.targetObject = targetObject;
+        
+        // TransformControls setup
+        const controls = this.controls;
+        const transformControls = new TransformControls(this.camera, this.renderer.domElement);
+        transformControls.setSpace('world');
+        transformControls.attach(targetObject);
+        this.scene.add(transformControls);
+        this.scene.add(transformControls.getHelper());
+        this.transformControls = transformControls;
+
+        // TransformControls events
+        
+        transformControls.addEventListener('dragging-changed', e => controls.enabled = !e.value);
+        transformControls.addEventListener('mouseDown', () => this.onDragStart());
+        transformControls.addEventListener('change', () => this.onDragChange());
+        transformControls.addEventListener('mouseUp', () => this.onDragEnd());
+
+        // keyboard shortcuts
+        window.addEventListener('keydown', e => this.onKeyDown(e));
     }
 
     resetGoal() {
         // Reset the goal
-        const ik = this.ikRoot;
-        const goal = this.goal;
-        const tool_point = ik.find(c => c.name === 'tool_point');
-        tool_point.getWorldPosition(goal.position);
-        tool_point.getWorldQuaternion(goal.quaternion);
-        goal.setMatrixNeedsUpdate();
-        const targetObject = this.targetObject;
-        targetObject.position.set(...goal.position);
-        targetObject.quaternion.set(...goal.quaternion);
+        //const ik = this.ikRoot;
+        //const goal = this.goal;
+        //const targetObject = this.targetObject;
+        if (!this.ikRoot || !this.goal || !this.targetObject) return;
+
+
+        const tool_point = this.ikRoot.find(c => c.name === 'tool_point');
+        tool_point.getWorldPosition(this.goal.position);
+        tool_point.getWorldQuaternion(this.goal.quaternion);
+        this.goal.setMatrixNeedsUpdate();
+        
+        //this.targetObject.position.set(...this.goal.position);
+        //this.targetObject.quaternion.set(...this.goal.quaternion);
+        // Faster copy because we are reusing existing Vector3 and Quaternion objects instead of arrays
+        this.targetObject.position.copy(this.goal.position);
+        this.targetObject.quaternion.copy(this.goal.quaternion);
+
         this.redraw();
     }
     solve() {
-  const goal = this.goal;
-  const ik = this.ikRoot;
-  const robot = this.robot;
+        if(!this.goal || !this.ikRoot || !this.robot || !this.solver) return;
 
-  goal.setPosition(...this.targetObject.position);
-  goal.setQuaternion(...this.targetObject.quaternion);
-  setIKFromUrdf(ik, robot);
+        this.goal.position.copy(this.targetObject.position);
+        this.goal.quaternion.copy(this.targetObject.quaternion);        
+        setIKFromUrdf(this.ikRoot, this.robot);
 
-  const t0 = performance.now();
+        const statuses = this.solver.solve();
 
-  const statuses = this.solver.solve();
-
-  const dt = performance.now() - t0;
-
-  if (!statuses.includes(SOLVE_STATUS.DIVERGED)) {
-    setUrdfFromIK(robot, ik);
-    this.dispatchEvent(new Event('angle-change'));
-  }
-
-  const el = document.getElementById('output');
-    if (el) {
-        if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
-            const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
-            el.innerText = `${names}\n`;
+        // Update if successful
+        if (!statuses.includes(SOLVE_STATUS.DIVERGED)) {
+            setUrdfFromIK(this.robot, this.ikRoot);
+            this.dispatchEvent(new Event('angle-change'));
         }
+        // Debug output with caching
+        if (this.debugOutputEl && Array.isArray(statuses) && SOLVE_STATUS_NAMES) {
+            const text = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
+            if (this.debugOutputEl.innerText !== text) {
+                this.debugOutputEl.innerText = text;
+            }
+        }
+
+        this.redraw();
     }
 
-  this.redraw();
-}
+    
+    onDragStart() {
+        this.controls.enabled = false;
 
+        this.targetObject.getWorldPosition(this.startPos);
+        this.labelSprite.visible = true;
+        this.drawLabelText(new Vector3());
+        this.labelTexture.needsUpdate = true;
 
+        this.dispatchEvent(new Event("manipulate-start"));
+    }
+
+    onDragChange() {
+        this.solve();
+        if (!this.labelSprite.visible) return;
+
+        const delta = new Vector3();
+        this.targetObject.getWorldPosition(delta).sub(this.startPos);
+
+        this.drawLabelText(delta);
+        this.labelTexture.needsUpdate = true;
+
+        //this.redraw(); // Already called in solve()
+    }
+
+    onDragEnd() {
+        this.resetGoal();
+
+        this.controls.enabled = true;
+        this.labelSprite.visible = false;
+        this.dispatchEvent(new Event("manipulate-end"));
+
+    }
+
+    drawLabelText(delta) {
+        const ctx = this.labelCtx;
+        const canvas = this.labelCanvas;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const radius = 20;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(canvas.width - radius, 0);
+        ctx.quadraticCurveTo(canvas.width, 0, canvas.width, radius);
+        ctx.lineTo(canvas.width, canvas.height - radius);
+        ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height);
+        ctx.lineTo(radius, canvas.height);
+        ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        let labelText = 'Δ: 0.0 mm';
+        if (delta && typeof delta.x === "number") {
+            const dx = delta.x * 1000;
+            const dy = delta.y * 1000;
+            const dz = delta.z * 1000;
+
+            const abs = { x: Math.abs(dx), y: Math.abs(dy), z: Math.abs(dz) };
+            let axis = 'x', value = dx;
+            if (abs.y > abs.x && abs.y >= abs.z) { axis = 'y'; value = dy; }
+            if (abs.z > abs.x && abs.z > abs.y) { axis = 'z'; value = dz; }
+            if (isNaN(value)) value = 0.0;
+
+            labelText = `Δ${axis.toUpperCase()}: ${value.toFixed(1)} mm`;
+        }
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 42px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 6;
+        ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
+    }
+
+    onKeyDown(e) {
+        if (!this.transformControls) return;
+        switch (e.key) {
+            case 'w':
+                this.transformControls.setMode('translate');
+                break;
+            case 'e':
+                this.transformControls.setMode('rotate');
+                break;
+            case 'q':
+                this.transformControls.setSpace(this.transformControls.space === 'local' ? 'world' : 'local');
+                break;
+            case 't':
+                if (this.transformControls.object) { //is null if not attached
+                    this.transformControls.detach();
+                    this.scene.remove(this.transformControls.getHelper());
+                } else {
+                    this.transformControls.attach(this.targetObject);
+                    this.scene.add(this.transformControls.getHelper());
+                }
+                break;
+        }
+        
+    }
 }
