@@ -22,6 +22,52 @@ import {
     Quaternion
 } from 'three';
 
+// Shared helper to set a sensible starting pose per robot name
+export const applyDefaultPose = (robot) => {
+    if (!robot || !robot.joints) return;
+
+    const degToRad = deg => deg * Math.PI / 180;
+    const jointNames = Object.keys(robot.joints);
+    if (jointNames.length === 0) return;
+
+    const set = (idx, value) => {
+        const name = jointNames[idx];
+        if (name !== undefined) {
+            robot.setJointValue(name, value);
+        }
+    };
+
+    const urdfName = (robot.robotName || robot.name || '').toLowerCase();
+
+    if (urdfName.includes('eva_description')) {
+        set(1, 0);
+        set(2, degToRad(-90));
+        set(3, 0);
+        set(4, degToRad(-90));
+        set(5, 0);
+    } else if (urdfName.includes('ur5')) {
+        set(1, -1.57);
+        set(2, 1.57);
+        set(3, 0);
+        set(4, 0);
+        set(5, 0);
+    } else if (urdfName.includes('fr3')) {
+        set(0, 0);
+        set(1, 0);
+        set(2, 0);
+        set(3, 0);
+        set(4, degToRad(-90));
+        set(5, 0);
+        set(6, degToRad(90));
+        set(7, degToRad(-45));
+        set(8, 0);
+    } else {
+        for (let i = 1; i < jointNames.length; ++i) {
+            robot.setJointValue(jointNames[i], 0.0);
+        }
+    }
+};
+
 export default
     class URDFIKManipulator extends URDFManipulator {
     constructor(...args) {
@@ -108,39 +154,7 @@ export default
         this.addEventListener('reset-angles', () => {
             const robot = this.robot;
             if (!robot) return;
-
-            const deg_to_rad = deg => deg * Math.PI / 180;
-            const jointNames = Object.keys(robot.joints);
-            const urdfName = (robot.robotName || robot.name || '').toLowerCase();
-
-            if (urdfName.includes('eva_description')) {
-                robot.setJointValue(jointNames[1], 0);
-                robot.setJointValue(jointNames[2], deg_to_rad(-90));
-                robot.setJointValue(jointNames[3], 0);
-                robot.setJointValue(jointNames[4], deg_to_rad(-90));
-                robot.setJointValue(jointNames[5], 0);
-            } else if (urdfName.includes('ur5')) {
-                robot.setJointValue(jointNames[1], -1.57);
-                robot.setJointValue(jointNames[2], 1.57);
-                robot.setJointValue(jointNames[3], 0);
-                robot.setJointValue(jointNames[4], 0);
-                robot.setJointValue(jointNames[5], 0);
-            } else if (urdfName.includes('fr3')) {
-                robot.setJointValue(jointNames[0], 0);
-                robot.setJointValue(jointNames[1], 0);
-                robot.setJointValue(jointNames[2], 0);
-                robot.setJointValue(jointNames[3], 0);
-                robot.setJointValue(jointNames[4], deg_to_rad(-90));
-                robot.setJointValue(jointNames[5], 0);
-                robot.setJointValue(jointNames[6], deg_to_rad(90));
-                robot.setJointValue(jointNames[7], deg_to_rad(-45));
-                robot.setJointValue(jointNames[8], 0);
-            } else {
-                // Default: all to 0
-                for (let i = 1; i < jointNames.length; ++i) {
-                    robot.setJointValue(jointNames[i], 0.0);
-                }
-            }
+            applyDefaultPose(robot);
 
             // Apply pose and synchronize IK/Goal
             robot.updateMatrixWorld(true);
@@ -260,10 +274,6 @@ export default
     }
 
     init() {
-        function deg_to_rad(deg) {
-            var pi = Math.PI;
-            return deg * (pi / 180);
-        }
         const robot = this.robot;
         robot.updateMatrixWorld(true);
 
@@ -275,36 +285,7 @@ export default
         this.ikRoot = ik;
 
         // Set the joint angles for typical start poses according to URDF
-        const jointNames = Object.keys(robot.joints);
-        const urdfName = robot.name ? robot.robotName.toLowerCase() : '';
-        if (urdfName.includes('eva_description')) {
-            robot.setJointValue(jointNames[1], 0);
-            robot.setJointValue(jointNames[2], deg_to_rad(-90));
-            robot.setJointValue(jointNames[3], 0);
-            robot.setJointValue(jointNames[4], deg_to_rad(-90));
-            robot.setJointValue(jointNames[5], 0);
-        } else if (urdfName.includes('ur5')) {
-            robot.setJointValue(jointNames[1], -1.57);
-            robot.setJointValue(jointNames[2], 1.57);
-            robot.setJointValue(jointNames[3], 0);
-            robot.setJointValue(jointNames[4], 0);
-            robot.setJointValue(jointNames[5], 0);
-        } else if (urdfName.includes('fr3')) {
-            robot.setJointValue(jointNames[0], 0);
-            robot.setJointValue(jointNames[1], 0);
-            robot.setJointValue(jointNames[2], 0);
-            robot.setJointValue(jointNames[3], 0);
-            robot.setJointValue(jointNames[4], deg_to_rad(-90));
-            robot.setJointValue(jointNames[5], 0);
-            robot.setJointValue(jointNames[6], deg_to_rad(90));
-            robot.setJointValue(jointNames[7], deg_to_rad(-45));
-            robot.setJointValue(jointNames[8], 0);
-        } else {
-            // Default: all to 0
-            for (let i = 1; i < jointNames.length; ++i) {
-                robot.setJointValue(jointNames[i], 0.0);
-            }
-        }
+        applyDefaultPose(robot);
 
         // Initialize IK with URDF pose
         setIKFromUrdf(ik, robot);

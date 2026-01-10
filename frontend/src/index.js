@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
-import URDFIKManipulator from './URDFIKManipulator.js'
+import URDFIKManipulator, { applyDefaultPose } from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 import URDFLoader from 'urdf-loader/src/URDFLoader.js';
@@ -43,6 +43,7 @@ const robotCountValue = document.getElementById('robot-count-value');
 const activeRobotSelect = document.getElementById('active-robot-select');
 let nextOffset = 1;
 let initialRegistered = false;
+let globalCameraOffset = null;
 
 function setupMiniStats(viewerEl) {
   const container = document.getElementById('stats-output');
@@ -142,8 +143,10 @@ const centerCameraOnRobot = (robotId) => {
 
     const controls = viewer.controls;
     if (controls && controls.target) {
-        const oldTarget = controls.target.clone();
-        const offset = viewer.camera.position.clone().sub(oldTarget);
+        if (!globalCameraOffset) {
+            globalCameraOffset = viewer.camera.position.clone().sub(controls.target.clone());
+        }
+        const offset = globalCameraOffset.clone();
         controls.target.copy(target);
         viewer.camera.position.copy(target.clone().add(offset));
         controls.update();
@@ -235,6 +238,7 @@ const spawnRobotInstance = async (urdfPath) => {
 
     robot.position.x = offset * 1.5;
     robot.name = robot.name || `robot_${offset}`;
+    applyDefaultPose(robot);
     robot.traverse(node => {
         if (node && node.isObject3D) {
             node.frustumCulled = false; // avoid missing parts until camera moves
