@@ -6,7 +6,7 @@ import { useSocket } from "./use-socket";
 
 export function useSendMessage() {
   const socket = useSocket();
-  const { setLogs } = useContext(LogContext);
+  const { logs, setLogs } = useContext(LogContext);
   const { url: contextUrl } = useUrlContext();
 
   function sendMessage(type: "connect" | "disconnect" | string) {
