@@ -5,6 +5,7 @@ import type { URDFRobot } from "urdf-loader/src/URDFClasses";
 import { urdfRobotToIKRoot, setUrdfFromIK, setIKFromUrdf, Goal, Solver } from "closed-chain-ik";
 import GoalMarker from "./GoalMarker";
 import * as THREE from "three";
+import { is } from "@react-three/fiber/dist/declarations/src/core/utils";
 
 const clonePosition = (pos: [number, number, number]) => [...pos] as [number, number, number];
 const cloneQuaternion = (quat: [number, number, number, number]) => [...quat] as [number, number, number, number];
@@ -45,7 +46,7 @@ export function Robot({
   const lastValidGoalQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
   const convergedRef = useRef<boolean>(false);
 
-  //GoalMarker state
+  //GoalMarker state todo exchange with useRef for performance
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0, 0, 0]);
   const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
   
@@ -59,9 +60,12 @@ export function Robot({
     if (!isAnimatingRef.current) {
       onDrag(isDragging);
     }
-  }, []);
+  }, [isAnimatingRef, onDrag]);
 
-  const updateEndEffector = (robot: URDFRobot) => {
+  const updateGoalToEndEffector = () => {
+    const robot = robotRef.current;
+    if (!robot) return;
+    
     const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
     let endEffector: any = null;
     for (const name of endEffectorNames) {
@@ -281,7 +285,7 @@ export function Robot({
     jointAnglesRef.current = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
     onJointAnglesUpdate(jointAnglesRef.current as number[]);
 
-    updateEndEffector(robot);
+    updateGoalToEndEffector();
 
     if (t >= 1.0) {
       isAnimatingRef.current = false;
@@ -317,7 +321,7 @@ export function Robot({
     });
     robot.updateMatrixWorld(true);
 
-    updateEndEffector(robot);
+    updateGoalToEndEffector();
   };
 
   useFrame(() => {

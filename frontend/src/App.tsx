@@ -36,7 +36,6 @@ function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-[#202025] text-white">
-        {/* Left sidebar */}
       <Group>
         <Panel defaultSize="15%">
           <div className="flex flex-col gap-4 p-5 h-full bg-[#1a1a1f]">
@@ -52,7 +51,6 @@ function App() {
             />
           </div>
         </Panel>
-        {/* Right viewport */}
         <Panel defaultSize="85%">
           <div className="relative h-full">
             <Viewport 

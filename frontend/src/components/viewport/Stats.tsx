@@ -8,18 +8,12 @@ export function Stats() {
   useEffect(() => {
     if (!statsRef.current) return;
 
-    // Create Stats instance
     const stats = new StatsJS();
-    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    stats.showPanel(0);
     statsInstanceRef.current = stats;
 
-    // Style the stats panel
     stats.dom.style.position = 'absolute';
-    //stats.dom.style.left = '0px';
-    //stats.dom.style.top = '0px';
-    //stats.dom.style.zIndex = '100';
 
-    // Append to container
     statsRef.current.appendChild(stats.dom);
 
     // Animation loop - just update stats

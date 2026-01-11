@@ -30,11 +30,11 @@ export function Viewport(props: ViewportProps) {
     if (isDragging) {
       setFkMode(false);
     }
-  }, []);
+  }, [setDrag, setFkMode]);
 
   const handleSolveStatusesChange = useCallback((statuses: number[]) => {
     setSolveStatusesState(statuses);
-  }, []);
+  }, [setSolveStatusesState]);
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
