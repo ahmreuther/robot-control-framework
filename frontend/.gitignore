@@ -24,7 +24,9 @@ dist-ssr
 *.sw?
 
 package-lock.json
+./frontend/package-lock.json
 .vscode/
 .parcel-cache/
 dist/
 node_modules/
+
