@@ -4,16 +4,14 @@ import { useUrlContext } from "../../UrlContext";
 import { LogContext } from "../../../App";
 import { useContext, useState } from "react";
 import { Switch, Label } from "@heroui/react";
-import { useSocket } from "../../../hooks/use-socket";
 import {useSendMessage} from "../../../hooks/send-message";
 
 
 export default function Synchronize_Button() {
 
     const { url: connectedUrl } = useUrlContext();      //aktuelle verbundene url(oder nicht)
-    const { logs, setLogs } = useContext(LogContext);
+    const {setLogs } = useContext(LogContext);
     const [isSyncActive, setIsSyncActive] = useState(false); // darf stream aktiv sein
-    const socket = useSocket();   
     const { sendMessage } = useSendMessage(); 
 
     function synchronize(toggleState: boolean): boolean {

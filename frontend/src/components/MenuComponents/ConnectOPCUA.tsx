@@ -1,17 +1,13 @@
 
-import { Button, Input, Label, Switch } from "@heroui/react";
-import { useSocket } from "../../hooks/use-socket";
+import { Button, Input} from "@heroui/react";
 import {useState, useContext} from "react";
-import { LogContext } from "../../App";
-import { UrlContext, useUrlContext } from "../UrlContext";
+import { UrlContext } from "../UrlContext";
 import Synchronize_Button from "./Tab2Components/Synchronise_button";
 import { useSendMessage } from "../../hooks/send-message";
 
 // Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
 function ConnectOPCUA() {
   const [url, setUrl] = useState("");
-  const socket = useSocket();
-  const { logs, setLogs } = useContext(LogContext);
   const { setUrl: setContextUrl } = useContext(UrlContext);
   const { sendMessage} = useSendMessage();
 
