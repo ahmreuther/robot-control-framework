@@ -21,7 +21,7 @@ import {
     Vector3,
     Quaternion
 } from 'three';
-
+import { getRobot } from './robotManager.js';
 // Shared helper to set a sensible starting pose per robot name
 export const applyDefaultPose = (robot) => {
     if (!robot || !robot.joints) return;
@@ -72,110 +72,38 @@ export default
     class URDFIKManipulator extends URDFManipulator {
     constructor(...args) {
         super(...args);
+        const controls = this.controls;
 
-        // IK members
-        this.ikRoot = null;
-        this.goal = null;
-        this.solver = null;
-        this.targetObject = null;
-        this.transformControls = null;
-        this.labelSprite = null;
-        this.startPos = new Vector3();
+        // Transform controls
+        const transformControls = new TransformControls(this.camera, this.renderer.domElement);
+        transformControls.setSpace('world');
+        transformControls.addEventListener('change', () => this.redraw());
+        transformControls.setSpace('local');
+        this.scene.add(transformControls.getHelper());
 
-        //events
-        this.addEventListener('urdf-processed', () => this.init());
-
-        this.addEventListener('reset-angles', () => {
-            if (!this.robot) return;
-
-            applyDefaultPose(this.robot);
-            this.robot.updateMatrixWorld(true);
-            this.dispatchEvent(new Event('angle-change')); // triggers setIKFromUrdf + resetGoal()
-        });
-
-        this.addEventListener('angle-change', () => {
-            if (this.ikRoot && this.robot) setIKFromUrdf(this.ikRoot, this.robot);
-            this.resetGoal();
-        });
-    }
-
-    init() {
-        if (!this.robot) return;
-        this.robot.updateMatrixWorld(true);
-
-        // Init IK root
-        // Clear the degrees of freedom to lock the root of the model
-        const ik = urdfRobotToIKRoot(this.robot);
-        setUrdfFromIK(this.robot, ik);
-        ik.clearDoF();
-        this.ikRoot = ik;
-
-        // Default pose
-        applyDefaultPose(this.robot);
-
-        // Initialize IK with URDF pose
-        setIKFromUrdf(ik, this.robot);
-
-        // Init the goal
-        const tool_point = ik.find(c => c.name === 'tool_point');
-        const goal = new Goal();
-        goal.makeClosure(tool_point);
-        tool_point.getWorldPosition(goal.position);
-        tool_point.getWorldQuaternion(goal.quaternion);
-        goal.setMatrixNeedsUpdate();
-        this.goal = goal;
-        // Init solver
-        this.solver = new Solver(ik);
-
-        // Create target gizmo
-        this.createTargetGizmo(tool_point);
-
-        // Reset goal
-        this.resetGoal();
-
-        // Catch debug output element
-        this.debugOutputEl = document.getElementById('output');
-    }
-    createTargetGizmo(tool_point) {
+        // Target marker object
         const targetObject = new Group();
-
-        // Sphere marker
         const geometry = new SphereGeometry(0.005, 32, 16);
         const material = new MeshBasicMaterial({ color: 0xffff00 });
         const sphere = new Mesh(geometry, material);
         targetObject.add(sphere);
 
-        // Label sprite
-        const canvas = document.createElement('canvas');
-        canvas.width = 356;
-        canvas.height = 94;
-        const ctx = canvas.getContext('2d');
-        const texture = new CanvasTexture(canvas);
-        const spriteMaterial = new SpriteMaterial({ map: texture, depthTest: false });
-        const sprite = new Sprite(spriteMaterial);
-        sprite.scale.set(0.12, 0.035, 1.0);
-        sprite.position.set(0.1, -0.15, 0);
-        sprite.visible = false;
-        sprite.raycast = () => { }; // Prevent raycast from blocking transform controls
-        this.targetObject.add(sprite);
-
-        this.labelSprite = sprite;
-        this.labelCanvas = canvas;
-        this.labelCtx = ctx;
-        this.labelTexture = texture;
-        
-        // Add gizmo to the scene
-        this.scene.add(targetObject);
-        this.targetObject = targetObject;
-        
-        // TransformControls setup
-        const controls = this.controls;
-        const transformControls = new TransformControls(this.camera, this.renderer.domElement);
-        transformControls.setSpace('world');
+        this.world.add(targetObject);
+        //let transformControlsEnabled = true;
         transformControls.attach(targetObject);
-        this.scene.add(transformControls);
-        this.scene.add(transformControls.getHelper());
+
+        // Members
         this.transformControls = transformControls;
+        this.targetObject = targetObject;
+        this.ikRoot = null;
+        this.goal = null;
+        //this.helper = null;
+        this.solver = null;
+
+        //this.solveAvgMs = 0;
+        //this.solveCount = 0;
+
+
 
         // TransformControls events
         
@@ -186,50 +114,127 @@ export default
 
         // keyboard shortcuts
         window.addEventListener('keydown', e => this.onKeyDown(e));
+        
+
+        this.addEventListener('urdf-processed', () => this.init());
+
+        this.addEventListener('reset-angles', () => {
+            const robot = this.robot;
+            if (!robot) return;
+
+            applyDefaultPose(robot);
+
+            // Apply pose and synchronize IK/Goal
+            robot.updateMatrixWorld(true);
+            this.dispatchEvent(new Event('angle-change')); // triggers setIKFromUrdf + resetGoal()
+        });
+
+        this.addEventListener('angle-change', () => {
+            setIKFromUrdf(this.ikRoot, this.robot);
+            this.resetGoal();
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 356;
+        canvas.height = 94;
+        const ctx = canvas.getContext('2d');
+
+        const texture = new CanvasTexture(canvas);
+        const spriteMaterial = new SpriteMaterial({ map: texture, depthTest: false });
+        const sprite = new Sprite(spriteMaterial);
+        sprite.scale.set(0.12, 0.035, 1.0);
+        sprite.position.set(0.1, -0.15, 0);
+        sprite.visible = false;
+        sprite.raycast = () => { };
+        this.targetObject.add(sprite);
+
+        this.labelSprite = sprite;
+        this.labelCanvas = canvas;
+        this.labelCtx = ctx;
+        this.labelTexture = texture;
+        this.startPos = new Vector3();
     }
 
+    init() {
+        
+        const robot = this.robot;
+        robot.updateMatrixWorld(true);
+
+        // Init IK root
+        // Clear the degrees of freedom to lock the root of the model
+        const ik = urdfRobotToIKRoot(robot);
+        setUrdfFromIK(robot, ik);
+        ik.clearDoF();
+        this.ikRoot = ik;
+    
+        applyDefaultPose(robot);
+        // Initialize IK with URDF pose
+        setIKFromUrdf(ik, robot);
+
+        // Init the goal
+        const tool_point = ik.find(c => c.name === 'tool_point');
+        const goal = new Goal();
+        goal.makeClosure(tool_point);
+        tool_point.getWorldPosition(goal.position);
+        tool_point.getWorldQuaternion(goal.quaternion);
+        goal.setMatrixNeedsUpdate();
+        this.goal = goal;
+        this.solver = new Solver(ik);
+        this.resetGoal();
+    }
+    /*
+    restoreGizmoPosition() {
+        if (!this.robotId || !this.targetObject) return;
+
+        const record = getRobot(this.robotId);
+        if (record && record.gizmoPosition && record.gizmoQuaternion) {
+            this.targetObject.position.copy(record.gizmoPosition);
+            this.targetObject.quaternion.copy(record.gizmoQuaternion);
+            this.solve(); // update robot pose
+        }
+    }
+    */
     resetGoal() {
         // Reset the goal
-        //const ik = this.ikRoot;
-        //const goal = this.goal;
-        //const targetObject = this.targetObject;
-        if (!this.ikRoot || !this.goal || !this.targetObject) return;
-
-
-        const tool_point = this.ikRoot.find(c => c.name === 'tool_point');
-        tool_point.getWorldPosition(this.goal.position);
-        tool_point.getWorldQuaternion(this.goal.quaternion);
-        this.goal.setMatrixNeedsUpdate();
-        
-        //this.targetObject.position.set(...this.goal.position);
-        //this.targetObject.quaternion.set(...this.goal.quaternion);
-        // Faster copy because we are reusing existing Vector3 and Quaternion objects instead of arrays
-        this.targetObject.position.copy(this.goal.position);
-        this.targetObject.quaternion.copy(this.goal.quaternion);
-
+        const ik = this.ikRoot;
+        const goal = this.goal;
+        const tool_point = ik.find(c => c.name === 'tool_point');
+        tool_point.getWorldPosition(goal.position);
+        tool_point.getWorldQuaternion(goal.quaternion);
+        goal.setMatrixNeedsUpdate();
+        const targetObject = this.targetObject;
+        targetObject.position.set(...goal.position);
+        targetObject.quaternion.set(...goal.quaternion);
         this.redraw();
     }
-    solve() {
-        if(!this.goal || !this.ikRoot || !this.robot || !this.solver) return;
 
-        this.goal.position.copy(this.targetObject.position);
-        this.goal.quaternion.copy(this.targetObject.quaternion);        
-        setIKFromUrdf(this.ikRoot, this.robot);
+    solve() {
+        const goal = this.goal;
+        const ik = this.ikRoot;
+        const robot = this.robot;
+
+        goal.setPosition(...this.targetObject.position);
+        goal.setQuaternion(...this.targetObject.quaternion);
+        setIKFromUrdf(ik, robot);
+
+        const t0 = performance.now();
 
         const statuses = this.solver.solve();
 
-        // Update if successful
+        const dt = performance.now() - t0;
+
         if (!statuses.includes(SOLVE_STATUS.DIVERGED)) {
-            setUrdfFromIK(this.robot, this.ikRoot);
+            setUrdfFromIK(robot, ik);
             this.dispatchEvent(new Event('angle-change'));
         }
-        // Debug output with caching
-        if (this.debugOutputEl && Array.isArray(statuses) && SOLVE_STATUS_NAMES) {
-            const text = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
-            if (this.debugOutputEl.innerText !== text) {
-                this.debugOutputEl.innerText = text;
+
+        const el = document.getElementById('output');
+            if (el) {
+                if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
+                    const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
+                    el.innerText = `${names}\n`;
+                }
             }
-        }
 
         this.redraw();
     }
@@ -262,6 +267,13 @@ export default
     onDragEnd() {
         this.resetGoal();
 
+        /*if (this.robotId) {
+            const record = getRobot(this.robotId);
+            if (record) {
+                record.gizmoPosition = this.targetObject.position.clone();
+                record.gizmoQuaternion = this.targetObject.quaternion.clone();
+            }
+        }*/
         this.controls.enabled = true;
         this.labelSprite.visible = false;
         this.dispatchEvent(new Event("manipulate-end"));

@@ -6,13 +6,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
-import URDFIKManipulator, { applyDefaultPose } from './URDFIKManipulator.js'
+import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 import URDFLoader from 'urdf-loader/src/URDFLoader.js';
-import { addRobot as registerRobot, listRobots, setStatusListener, getRobot } from './robotManager.js';
-
-
+import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex } from './robotManager.js';
+import { applyDefaultPose } from './URDFIKManipulator.js';
 customElements.define('urdf-viewer', URDFIKManipulator);
 
 // declare these globally for the sake of the example.
@@ -36,14 +35,31 @@ const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 1 / DEG2RAD;
 let sliders = {};
 
-// Multi-robot UI controls
-const multiRobotSelect = document.getElementById('multi-robot-model');
+// Multi-Robot
+const multiRobotModelSelect = document.getElementById('multi-robot-model');
 const addRobotBtn = document.getElementById('add-robot-btn');
-const robotCountValue = document.getElementById('robot-count-value');
 const activeRobotSelect = document.getElementById('active-robot-select');
-let nextOffset = 1;
-let initialRegistered = false;
-let globalCameraOffset = null;
+const deleteRobotBtn = document.getElementById('delete-robot-btn');
+const robotCountValue = document.getElementById('robot-count-value');
+const robotSlidersList = document.getElementById('robot-sliders');
+
+let activeRobotId = null;
+let robotOffset = 0;
+let initialRobotRegistered = false;
+const renderForAFewFrames = (frames = 6) => new Promise(resolve => {
+    let count = 0;
+    const tick = () => {
+        if (viewer.controls && typeof viewer.controls.update === 'function') viewer.controls.update();
+        if (viewer.redraw) {
+            viewer.redraw();
+        } else if (viewer.renderer && viewer.scene && viewer.camera) {
+            viewer.renderer.render(viewer.scene, viewer.camera);
+        }
+        if (++count >= frames) return resolve();
+        requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+});
 
 function setupMiniStats(viewerEl) {
   const container = document.getElementById('stats-output');
@@ -61,8 +77,6 @@ function setupMiniStats(viewerEl) {
     requestAnimationFrame(loop);
   })();
 }
-
-
 
 const params = {
     solve: true,
@@ -85,6 +99,155 @@ const solverOptions = {
     rotationConvergeThreshold: 1e-5,
     restPoseFactor: 0.025,
 };
+// Multi- Robot
+const robotModels = [
+    { name: "EVA", urdf: "/urdf/eva_description/urdf/eva_description.urdf", color: "#546575" },
+    { name: "FR3", urdf: "/urdf/fr3_description/urdf/fr3.urdf", color: "#567554" },
+    { name: "FR3 + Wagon", urdf: "/urdf/fr3_description_with_wagon/urdf/fr3.urdf", color: "#567554" },
+    { name: "UR5e", urdf: "/urdf/ur5_description/urdf/ur5_robot.urdf", color: "#aaaab3" },
+];
+
+
+const addRobotSelect = document.getElementById('multi-robot-model');
+robotModels.forEach(r => {
+    const option = document.createElement('option');
+    option.value = r.name;
+    option.textContent = r.name;
+    multiRobotModelSelect.appendChild(option);
+});
+
+function addRobotOption(id, name) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = `${name} (${id})`;
+    activeRobotSelect.appendChild(opt);
+}
+
+function setActiveRobot(id) {
+    activeRobotSelect.value = id;
+    activeRobotId = id;
+}
+
+
+async function spawnRobot({ urdfPath, offsetX = 1.5, slotIndex = null }) {
+  if (!urdfPath || !viewer) return null;
+
+  // load URDF using the viewer’s loader hooks so custom mesh loading works
+  const loader = new URDFLoader();
+  if (viewer.loadMeshFunc) loader.loadMeshCb = viewer.loadMeshFunc;
+  if (viewer.fetchOptions) loader.fetchOptions = viewer.fetchOptions;
+
+  const robot = await new Promise((resolve, reject) => {
+    loader.load(urdfPath, r => resolve(r), undefined, err => reject(err));
+  });
+
+    // stagger robots in X using the requested slot index or the next available slot
+    const slot = Number.isFinite(slotIndex) ? slotIndex : getNextSlotIndex();
+    robot.position.x = offsetX * slot;
+  robot.name = robot.name || `robot_${Date.now()}`;
+
+  applyDefaultPose(robot);           // zero joints to a safe pose
+    robot.traverse(node => {
+        if (node && node.isObject3D) node.frustumCulled = false;
+    });
+  robot.updateMatrixWorld(true);
+
+  viewer.world.add(robot);
+  viewer.world.updateMatrixWorld(true);
+    await renderForAFewFrames();
+    if (typeof viewer.redraw === 'function') viewer.redraw();
+
+  return robot;
+};
+
+function disposeRobotNode(node) {
+        if (!node) return;
+        node.traverse(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                        if (Array.isArray(child.material)) child.material.forEach(m => m && m.dispose && m.dispose());
+                        else if (child.material.dispose) child.material.dispose();
+                }
+        });
+}
+
+
+addRobotBtn.addEventListener('click', async () => {
+    const selectedName = addRobotSelect.value;
+    if (!selectedName) return;
+    
+    const model = robotModels.find(m => m.name === selectedName);
+    if (!model) return;
+
+    const slotIndex = getNextSlotIndex();
+    const record = await addRobot({
+        model: model.name,
+        urdfPath: model.urdf,
+        sceneNode: null,
+        slotIndex
+    });
+    const robotNode = await spawnRobot({ urdfPath: model.urdf, slotIndex });
+    if (robotNode) record.sceneNode = robotNode;
+
+    addRobotOption(record.id, model.name);
+    setActiveRobot(record.id);
+
+    robotCountValue.textContent = listRobots().length; // update count
+});
+
+deleteRobotBtn.addEventListener('click', async () => {
+    if (!activeRobotId) return;
+
+    const record = getRobot(activeRobotId);
+    if (record && record.sceneNode) {
+        if (record.sceneNode.parent) record.sceneNode.parent.remove(record.sceneNode);
+        disposeRobotNode(record.sceneNode);
+    }
+    renderForAFewFrames();
+
+    await removeRobot(activeRobotId);
+
+    // remove from dropdown
+    const option = activeRobotSelect.querySelector(`option[value="${activeRobotId}"]`);
+    if (option) option.remove();
+
+    // select new robot if available
+    if (activeRobotSelect.options.length > 0) {
+        activeRobotId = activeRobotSelect.options[0].value;
+        activeRobotSelect.value = activeRobotId;
+    } else {
+        activeRobotId = null;
+    }
+    robotCountValue.textContent = listRobots().length;
+});
+
+activeRobotSelect.addEventListener('change', () => {
+    activeRobotId = activeRobotSelect.value;
+});
+
+// Register the initially loaded robot (first URDF) so it counts and appears in the dropdown
+viewer.addEventListener('urdf-processed', async () => {
+    if (initialRobotRegistered || !viewer.robot) return;
+    try {
+        const slotIndex = getNextSlotIndex();
+        if (viewer.robot.position) {
+            viewer.robot.position.x = 1.5 * slotIndex;
+            viewer.robot.updateMatrixWorld(true);
+        }
+        const record = await addRobot({
+            model: viewer.urdf || 'initial',
+            urdfPath: viewer.urdf,
+            sceneNode: viewer.robot,
+            slotIndex,
+        });
+        addRobotOption(record.id, record.model || record.id);
+        setActiveRobot(record.id);
+        robotCountValue.textContent = listRobots().length;
+        initialRobotRegistered = true;
+    } catch (err) {
+        console.warn('Failed to register initial robot', err);
+    }
+});
 
 // Global Functions
 const setColor = color => {
@@ -93,190 +256,6 @@ const setColor = color => {
     viewer.highlightColor = '#' + (new THREE.Color(0xffffff)).lerp(new THREE.Color(color), 0.35).getHexString();
 
 };
-
-// Multi-robot helpers
-const availableModels = [];
-
-const updateRobotCount = () => {
-    if (!robotCountValue) return;
-
-    const count = listRobots().length;
-    robotCountValue.textContent = count;
-};
-
-const refreshActiveRobotSelect = () => {
-    if (!activeRobotSelect) return;
-
-    const robots = listRobots();
-    const previous = activeRobotSelect.value;
-
-    activeRobotSelect.innerHTML = '';
-
-    robots.forEach(r => {
-        const opt = document.createElement('option');
-        opt.value = r.id;
-        opt.textContent = r.model || r.id;
-        activeRobotSelect.appendChild(opt);
-    });
-
-    if (robots.length === 0) return;
-
-    const fallback = robots[robots.length - 1].id;
-    const chosen = robots.find(r => r.id === previous)?.id || fallback;
-    activeRobotSelect.value = chosen;
-};
-
-const centerCameraOnRobot = (robotId) => {
-    const record = getRobot(robotId);
-    const sceneNode = record?.sceneNode;
-    if (!sceneNode || !viewer || !viewer.camera) return;
-
-    sceneNode.updateMatrixWorld(true);
-
-    const box = new THREE.Box3().setFromObject(sceneNode);
-    const target = new THREE.Vector3();
-    if (box.isEmpty()) {
-        sceneNode.getWorldPosition(target);
-    } else {
-        box.getCenter(target);
-    }
-
-    const controls = viewer.controls;
-    if (controls && controls.target) {
-        if (!globalCameraOffset) {
-            globalCameraOffset = viewer.camera.position.clone().sub(controls.target.clone());
-        }
-        const offset = globalCameraOffset.clone();
-        controls.target.copy(target);
-        viewer.camera.position.copy(target.clone().add(offset));
-        controls.update();
-    } else {
-        viewer.camera.lookAt(target);
-    }
-
-    if (typeof viewer.redraw === 'function') {
-        viewer.redraw();
-    }
-};
-
-const initMultiRobotOptions = () => {
-    if (!multiRobotSelect) return;
-
-    availableModels.length = 0;
-
-    const elements = document.querySelectorAll('#urdf-options li[urdf]');
-
-
-    const options = Array.from(elements)
-        .map(element => ({
-            urdf: element.getAttribute('urdf'),
-            label: element.textContent.trim(),
-            color: element.getAttribute('color') || '#cccccc',
-        }));
-        
-    availableModels.push(...options);
-    multiRobotSelect.innerHTML = '';
-
-    options.forEach(opt => {
-        const optionEl = document.createElement('option');
-        optionEl.value = opt.urdf;
-        optionEl.textContent = opt.label;
-        multiRobotSelect.appendChild(optionEl);
-    });
-};
-
-setStatusListener(() => {
-    updateRobotCount();
-    refreshActiveRobotSelect();
-});
-
-// Register the initially loaded robot so it counts as active.
-viewer.addEventListener('urdf-processed', async () => {
-    if (initialRegistered || !viewer.robot) return;
-    try {
-        await registerRobot({ model: viewer.urdf, urdfPath: viewer.urdf, sceneNode: viewer.robot });
-        nextOffset = Math.max(nextOffset, 1);
-        updateRobotCount();
-        refreshActiveRobotSelect();
-        initialRegistered = true;
-    } catch (err) {
-        console.warn('Failed to register initial robot', err);
-    }
-});
-
-const loadUrdfModel = (urdfPath) => new Promise((resolve, reject) => { // promise for URDFLoader -> async/await is simpler
-
-    const loader = new URDFLoader();
-    if (viewer.loadMeshFunc) loader.loadMeshCb = viewer.loadMeshFunc;
-    if (viewer.fetchOptions) loader.fetchOptions = viewer.fetchOptions;
-
-    loader.load(urdfPath, robot => resolve(robot), undefined, err => reject(err));
-});
-
-const renderForAFewFrames = (frames = 8) => new Promise(resolve => {
-    let count = 0;
-    const tick = () => {
-        if (viewer.controls && typeof viewer.controls.update === 'function') {
-            viewer.controls.update();
-        }
-        if (viewer.redraw) {
-            viewer.redraw();
-        } else if (viewer.renderer && viewer.scene && viewer.camera) {
-            viewer.renderer.render(viewer.scene, viewer.camera);
-        }
-        if (++count >= frames) return resolve();
-        requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-});
-
-const spawnRobotInstance = async (urdfPath) => {
-    if (!urdfPath || !viewer) return null;
-
-    const offset = nextOffset++;
-    const robot = await loadUrdfModel(urdfPath);
-
-    robot.position.x = offset * 1.5;
-    robot.name = robot.name || `robot_${offset}`;
-    applyDefaultPose(robot);
-    robot.traverse(node => {
-        if (node && node.isObject3D) {
-            node.frustumCulled = false; // avoid missing parts until camera moves
-        }
-    });
-    robot.updateMatrixWorld(true);
-
-    viewer.world.add(robot);
-    viewer.world.updateMatrixWorld(true);
-
-    await renderForAFewFrames();
-
-    await registerRobot({ model: urdfPath, urdfPath, sceneNode: robot });
-    updateRobotCount();
-    refreshActiveRobotSelect();
-
-    return robot;
-};
-
-if (addRobotBtn && multiRobotSelect) {
-    addRobotBtn.addEventListener('click', async () => {
-        const urdfPath = multiRobotSelect.value;
-        if (!urdfPath) return;
-        try {
-            await spawnRobotInstance(urdfPath);
-        } catch (err) {
-            console.warn('Failed to add robot', err);
-        }
-    });
-}
-
-if (activeRobotSelect) {
-    activeRobotSelect.addEventListener('change', e => centerCameraOnRobot(e.target.value));
-}
-
-initMultiRobotOptions();
-updateRobotCount();
-refreshActiveRobotSelect();
 
 
 limitsToggle.addEventListener('click', () => {
