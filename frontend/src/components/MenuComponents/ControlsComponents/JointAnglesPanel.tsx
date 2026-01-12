@@ -93,27 +93,42 @@ export function JointAnglesPanel({
             {(() => {
               const minDeg = limit ? radToDeg(limit.min) : minAngle;
               const maxDeg = limit ? radToDeg(limit.max) : maxAngle;
+              const displayValue = showRadians ? angle : radToDeg(angle);
+              
               return (
-                <input
-                  type="range"
-                  min={minDeg}
-                  max={maxDeg}
-                  step={step}
-                  value={radToDeg(angle)}
-                  onMouseDown={handleSliderClick}
-                  onMouseUp={handleSliderRelease}
-                  onTouchStart={handleSliderClick}
-                  onTouchEnd={handleSliderRelease}
-                  onChange={(e) => handleAngleChange(i, degToRad(parseFloat(e.target.value)))}
-                  className="flex-1"
-                />
+                <>
+                  <input
+                    type="range"
+                    min={minDeg}
+                    max={maxDeg}
+                    step={step}
+                    value={radToDeg(angle)}
+                    onMouseDown={handleSliderClick}
+                    onMouseUp={handleSliderRelease}
+                    onTouchStart={handleSliderClick}
+                    onTouchEnd={handleSliderRelease}
+                    onChange={(e) => handleAngleChange(i, degToRad(parseFloat(e.target.value)))}
+                    className="w-24"
+                  />
+                  <input
+                    type="number"
+                    value={displayValue.toFixed(showRadians ? 3 : 1)}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val)) {
+                        handleAngleChange(i, showRadians ? val : degToRad(val));
+                      }
+                    }}
+                    onFocus={handleSliderClick}
+                    onBlur={handleSliderRelease}
+                    step={step}
+                    className="w-16 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs text-right"
+                  />
+                </>
               );
             })()}
-            <span className="w-16 text-right">
-              {showRadians 
-                ? angle.toFixed(3) 
-                : `${radToDeg(angle).toFixed(1)}°`
-              }
+            <span className="w-8 text-right text-white/60">
+              {showRadians ? 'rad' : '°'}
             </span>
           </div>
           );
