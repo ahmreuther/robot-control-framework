@@ -1,17 +1,21 @@
 import { useState } from "react";
 import Controls from './MenuComponents/Controls'; 
-import ConnectOPCUA from "./MenuComponents/ConnectOPCUA";
-import Twin_Dashboard from "./MenuComponents/Twin_Dashboard";
+import ConnectOPCUA from "./MenuComponents/Tab2Components/ConnectOPCUA";
+import Twin_Dashboard from "./MenuComponents/TwinDashboardComponents/Twin_Dashboard";
 import MessageLog from "./MenuComponents/Tab2Components/MessageLog";
-import { URDFSelector, type URDFOptions } from './MenuComponents/ControlsComponents/URDFSelector';
+import {URDFSelector, type ModelConfig } from './MenuComponents/ControlsComponents/URDFSelector';
+import { JointAnglesPanel } from "./MenuComponents/ControlsComponents/JointAnglesPanel";
+import Live_Status from "./MenuComponents/TwinDashboardComponents/Live_Status";
+
+interface MenuProps {
+  options: ModelConfig[];
+  onSelect: (robot: ModelConfig) => void;
+  jointAngles: number[];
+  setFkMode: (enabled: boolean) => void;
+  setJointAngles: (angles: number[]) => void;
+}
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
-
-// props for Menu component, atm only used to pass URDF options
-interface MenuProps {
-  options: URDFOptions[];
-  onSelect: (option: URDFOptions) => void;
-}
 
 export function SidebarMenu(MenuProps: MenuProps) {
   const [active, setActive] = useState<TabKey>("Controls");
@@ -44,12 +48,20 @@ export function SidebarMenu(MenuProps: MenuProps) {
       </aside>
 
       {/* CONTENT */}
-      <main className="flex-1 overflow-y-auto p-4 max-w-md">
+      <main className="flex overflow-y-auto p-4 max-w-md">
         {active === "Controls" && 
-        <div className="flex flex-col items-start justify-start gap-4 ">
-            <URDFSelector options={MenuProps.options} onSelect={MenuProps.onSelect} />
-            <Controls />
-          </div>}
+        <div>
+          <URDFSelector 
+            options={MenuProps.options} 
+            onSelect={MenuProps.onSelect} 
+          />
+          <JointAnglesPanel
+            jointAngles={MenuProps.jointAngles}
+            setFkMode={MenuProps.setFkMode}
+            setJointAngles={MenuProps.setJointAngles}
+          />
+        </div>
+        }
         {active === "OPC-UA" && 
         <div>
           <ConnectOPCUA /> 
@@ -58,6 +70,7 @@ export function SidebarMenu(MenuProps: MenuProps) {
         {active === "Twin-Dashboard" &&
         <div> 
           <Twin_Dashboard />
+          <Live_Status />
         </div>}
       </main>
     </div>

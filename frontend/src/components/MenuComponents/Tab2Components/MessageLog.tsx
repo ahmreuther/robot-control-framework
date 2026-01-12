@@ -5,7 +5,6 @@ import { LogContext } from "../../../App";
 
 function MessageLog() {
     const { logs, setLogs } = useContext(LogContext);
-    const [showLogs, setShowLogs] = useState(false);
 
     function addManual() {
         setLogs(prev=> prev + "new log line\n");
@@ -16,34 +15,20 @@ function MessageLog() {
     }
 
     return (
-        <div className="fixed z-10" 
-        style={{position:"relative",
-            left:0,
-            top:600
-        }}>
-
-            <button onClick={() => setShowLogs((prev) => !prev)}>
-                {showLogs ? "Hide Logs" : "Show Logs"}
+        <div className="flex flex-col gap-2 p-2">
+            <button onClick={addManual}>
+                Test Log append
             </button>
-
-            {showLogs && (
-        <div>
-          <button onClick={addManual}>
-                    Test Log append
-                </button>
-                <button onClick={clearLog}>
-                    Clear Log
-                </button>
-                <LazyLog
-                    extraLines={1}
-                    height="200"
-                    selectableLines
-                    text={logs}
-                    />
+            <button onClick={clearLog}>
+                Clear Log
+            </button>
+            <LazyLog
+                extraLines={1}
+                height="200"
+                selectableLines
+                text={logs}
+            />
         </div>
-      )}
-            
-        </div> 
     )  
 }
 

@@ -1,5 +1,11 @@
 import React from 'react';
 
+export type ModelConfig = {
+  id: string;
+  label: string;
+  url: string;
+};
+
 export interface URDFOptions {
   urdf: string;
   color: string;
@@ -7,28 +13,21 @@ export interface URDFOptions {
 }
 
 interface URDFSelectorProps {
-  options: URDFOptions[];
-  onSelect: (option: URDFOptions) => void;
+  options: ModelConfig[];
+  onSelect: (option: ModelConfig) => void;
 }
 
 export const URDFSelector: React.FC<URDFSelectorProps> = ({ options, onSelect }) => (
-  <div>
-    <ul 
-      id="urdf-selector"
-      className="bg-gray bg-opacity-60 p-3 rounded text-white"
-      
-    >
+  <div 
+    id="urdf-selector"
+    className="text-white text-xs bg-black bg-opacity-50 p-4 rounded z-10 pointer-events-auto"
+  >
+    <div className="font-bold mb-2">Robot Model:</div>
+    <ul className="list-none pl-0 space-y-1">
       {options.map(opt => (
         <li
-          key={opt.urdf}
-          className="
-            cursor-pointer 
-            opacity-50 
-            hover:opacity-75 
-            text-[20px] 
-            font-thin
-          "
-          style={{ cursor: 'pointer', color: opt.color }}
+          key={opt.url}
+          className="cursor-pointer hover:text-blue-400 transition-colors"
           onClick={() => onSelect(opt)}
         >
           {opt.label}

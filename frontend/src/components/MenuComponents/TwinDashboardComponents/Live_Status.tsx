@@ -63,7 +63,7 @@ export default function Live_Status() {
     */
 
     return (
-        <div className="fixed bottom-4 right-4 z-[9999] max-w-[320px] w-[90vw] max-h-[70vh] overflow-auto rounded-lg p-3 space-y-2 text-white border border-white/30">
+        <div className="overflow-auto rounded-lg p-3 space-y-2 text-white border border-white/30">
 
             {/* Identifier Header */}
             <div className="text-sm font-bold uppercase tracking-wider text-white/80 border-b border-white/20 pb-1 mb-2">
