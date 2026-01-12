@@ -11,6 +11,7 @@ export interface ViewportProps {
   setFkMode: (fkMode: boolean) => void;
   jointAngles: number[];
   fkMode: boolean;
+  onJointLimitsLoaded?: (limits: Array<import("../../hooks/useSceneState").JointLimit | null>) => void;
 }
 
 export function Viewport(props: ViewportProps) {
@@ -19,7 +20,8 @@ export function Viewport(props: ViewportProps) {
     setJointAngles,
     setFkMode,
     jointAngles, 
-    fkMode
+    fkMode,
+    onJointLimitsLoaded
   } = props;
   
   const [drag, setDrag] = useState<boolean>(false);
@@ -67,6 +69,7 @@ export function Viewport(props: ViewportProps) {
             onDrag={setDragandDisableFkMode}
             jointAngles={jointAngles}
             fkMode={fkMode}
+            onJointLimitsLoaded={onJointLimitsLoaded}
           />
         </Suspense>
       </Canvas>

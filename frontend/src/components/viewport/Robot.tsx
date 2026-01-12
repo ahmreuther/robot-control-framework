@@ -18,6 +18,8 @@ export const SOLVE_STATUS = {
 
 const END_EFFECTOR_NAMES = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
 
+import type { JointLimit } from "../../hooks/useSceneState";
+
 interface RobotProps {
   urdfPath: string;
   drag: boolean;
@@ -26,6 +28,7 @@ interface RobotProps {
   onDrag?: (dragging: boolean) => void;
   jointAngles?: number[];
   fkMode?: boolean;
+  onJointLimitsLoaded?: (limits: Array<JointLimit | null>) => void;
 }
 
 export function Robot({
@@ -36,6 +39,7 @@ export function Robot({
   onDrag,
   jointAngles = [],
   fkMode = false,
+  onJointLimitsLoaded,
 }: RobotProps) {
   const robotRef = useRef<URDFRobot | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
@@ -282,9 +286,14 @@ export function Robot({
 
   // Handler: robot loaded
   const handleRobotReady = useCallback(
-    async (robot: URDFRobot, robotGroup: THREE.Group) => {
+    async (robot: URDFRobot, robotGroup: THREE.Group, jointLimits: Array<JointLimit | null>) => {
       robotRef.current = robot;
       robotGroupRef.current = robotGroup;
+
+      // Pass joint limits to parent
+      if (onJointLimitsLoaded) {
+        onJointLimitsLoaded(jointLimits);
+      }
       
       // Load home pose from configuration
       try {

@@ -3,18 +3,12 @@ import './App.css';
 
 import { Panel, Group } from 'react-resizable-panels'
 import { Viewport } from "./components/viewport/Viewport";
-import {type ModelConfig } from './components/MenuComponents/ControlsComponents/URDFSelector';
 import { SidebarMenu } from './components/Menu';
+
+import { useSceneState } from './hooks/useSceneState';
 import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './components/UrlContext';
 import { useJointState } from "./hooks/useJointState";
-
-const ROBOT_MODELS: ModelConfig[] = [
-  { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
-  { id: 'fr3', label: 'Franka Research 3', url: '/urdf/fr3_description/urdf/fr3.urdf' },
-  { id: 'fr3_wagon', label: 'Franka Research 3 with Wagon', url: '/urdf/fr3_description_with_wagon/urdf/fr3.urdf' },
-  { id: 'ur5e', label: 'UR5e', url: '/urdf/ur5_description/urdf/ur5_robot.urdf' },
-];
 
 // Create context for logs
 export const LogContext = createContext<{
@@ -27,8 +21,6 @@ export const LogContext = createContext<{
 
 function App() {
 
-  //initSocket("ws://127.0.0.1:8000/ws"); //initialize WebSocket connection
-
   const {
     jointAngles,
     setJointsAngles,
@@ -36,14 +28,14 @@ function App() {
     setFkMode
   } = useJointState();
 
-  const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]);
-  const [reloadKey, setReloadKey] = useState(0);
-
-  const handleRobotSelect = (robot: ModelConfig) => {
-    setFkMode(false);
-    setSelectedRobot(robot);
-    setReloadKey(prev => prev + 1);
-  };
+  const {
+    selectedRobot,
+    reloadKey,
+    handleRobotSelect,
+    setJointLimits,
+    jointLimits,
+    options
+  } = useSceneState();
 
   const [logs, setLogs] = useState("Start of logs...\n");
   const [opcuaUrl, setOpcuaUrl] = useState<string | null>(null);
@@ -59,11 +51,12 @@ function App() {
               <LogContext.Provider value={logWrapper}>
                 <div className="flex flex-col h-full bg-black">
                   <SidebarMenu
-                    options={ROBOT_MODELS} 
-                    onSelect={handleRobotSelect} 
+                    options={options} 
+                    onSelect={(robot) => handleRobotSelect(robot, setFkMode)} 
                     jointAngles={jointAngles}
                     setFkMode={setFkMode}
                     setJointAngles={setJointsAngles}
+                    jointLimits={jointLimits}
                   />
                 </div>
               </LogContext.Provider>
@@ -79,6 +72,7 @@ function App() {
               setFkMode={setFkMode}
               jointAngles={jointAngles}
               fkMode={fkMode}
+              onJointLimitsLoaded={setJointLimits}  // Add this line
             />
           </div>
         </Panel>

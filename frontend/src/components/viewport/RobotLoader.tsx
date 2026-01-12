@@ -3,10 +3,11 @@ import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
 import URDFLoader from "urdf-loader";
 import type { URDFRobot } from "urdf-loader/src/URDFClasses";
+import type { JointLimit } from "../../hooks/useSceneState";
 
 export interface RobotLoaderProps {
     urdfPath: string;
-    onRobotReady?: (robot: URDFRobot, robotGroup: THREE.Group) => void;
+    onRobotReady?: (robot: URDFRobot, robotGroup: THREE.Group, jointLimits: Array<JointLimit | null>) => void;
 }
 
 const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
@@ -31,8 +32,26 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
             scene.add(robotGroup);
             robotRef.current = robot;
             groupRef.current = robotGroup;
+
+            // Extract joint limits from the loaded robot
+            const jointLimits: Array<JointLimit | null> = [];
+            if (robot.joints) {
+                Object.values(robot.joints).forEach((joint) => {
+                    const limit = (joint as any).limit;
+                    if (limit) {
+                        jointLimits.push({
+                            min: limit.lower ?? -Math.PI,
+                            max: limit.upper ?? Math.PI,
+                        });
+                    } else {
+                        // Fixed or unbounded joint; mark as non-actuated for UI filtering
+                        jointLimits.push(null);
+                    }
+                });
+            }
+
             if (onRobotReady) {
-                onRobotReady(robot, robotGroup);
+                onRobotReady(robot, robotGroup, jointLimits);
             }
         });
 

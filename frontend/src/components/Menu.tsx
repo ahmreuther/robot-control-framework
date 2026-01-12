@@ -5,6 +5,7 @@ import MessageLog from "./MenuComponents/Tab2Components/MessageLog";
 import {URDFSelector, type ModelConfig } from './MenuComponents/ControlsComponents/URDFSelector';
 import { JointAnglesPanel } from "./MenuComponents/ControlsComponents/JointAnglesPanel";
 import Live_Status from "./MenuComponents/TwinDashboardComponents/Live_Status";
+import type { JointLimit } from "../hooks/useSceneState";
 
 interface MenuProps {
   options: ModelConfig[];
@@ -12,6 +13,7 @@ interface MenuProps {
   jointAngles: number[];
   setFkMode: (enabled: boolean) => void;
   setJointAngles: (angles: number[]) => void;
+  jointLimits?: Array<JointLimit | null>;
 }
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
@@ -58,6 +60,7 @@ export function SidebarMenu(MenuProps: MenuProps) {
             jointAngles={MenuProps.jointAngles}
             setFkMode={MenuProps.setFkMode}
             setJointAngles={MenuProps.setJointAngles}
+            jointLimits={MenuProps.jointLimits}
           />
         </div>
         }
