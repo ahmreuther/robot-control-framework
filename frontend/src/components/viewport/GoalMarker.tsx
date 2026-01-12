@@ -18,7 +18,7 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition
   const lastPosRef = useRef<[number, number, number] | null>(null);
   const lastQuatRef = useRef<[number, number, number, number] | null>(null);
   const [mode, setMode] = useState<"translate" | "rotate">("translate");
-  const [local , setLocal] = useState<boolean>(true);
+  const [local , setLocal] = useState<boolean>(false);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
