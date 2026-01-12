@@ -44,7 +44,7 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
                 robotRef.current = null;
             }
         };
-    }, [url, scene]);
+    }, [url, scene, onRobotReady]);
 
     return null;
 };

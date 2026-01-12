@@ -28,10 +28,12 @@ function App() {
   } = useJointState();
 
   const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const handleRobotSelect = (robot: ModelConfig) => {
     setFkMode(false);
     setSelectedRobot(robot);
+    setReloadKey(prev => prev + 1);
   };
 
   return (
@@ -54,6 +56,7 @@ function App() {
         <Panel defaultSize="85%">
           <div className="relative h-full">
             <Viewport 
+              key={reloadKey}
               urdfPath={selectedRobot.url}
               onJointAnglesUpdate={setIkJoint}
               setFkMode={setFkMode}

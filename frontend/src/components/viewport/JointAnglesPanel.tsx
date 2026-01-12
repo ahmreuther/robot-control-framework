@@ -21,9 +21,11 @@ export function JointAnglesPanel({
   step = 1,
 }: JointAnglesPanelProps) {
   const handleSliderClick = () => {
-    if (!fkMode) {
-      setFkMode(true);
-    }
+    setFkMode(true);
+  };
+
+  const handleSliderRelease = () => {
+    setFkMode(false);
   };
   return (
     <div className="text-white text-xs space-y-1 max-h-[70vh] overflow-y-auto bg-black bg-opacity-50 p-4 rounded pointer-events-auto">
@@ -39,7 +41,9 @@ export function JointAnglesPanel({
               step={step}
               value={radToDeg(angle)}
               onMouseDown={handleSliderClick}
+              onMouseUp={handleSliderRelease}
               onTouchStart={handleSliderClick}
+              onTouchEnd={handleSliderRelease}
               onChange={(e) => onAngleChange(i, degToRad(parseFloat(e.target.value)))}
               className="w-24"
             />

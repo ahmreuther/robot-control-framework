@@ -7,8 +7,8 @@ import { SolverStatus } from "./SolverStatus";
 
 export interface ViewportProps {
   urdfPath: string;
-  onJointAnglesUpdate?: (angles: number[]) => void;
-  setFkMode?: (fkMode: boolean) => void;
+  onJointAnglesUpdate: (angles: number[]) => void;
+  setFkMode: (fkMode: boolean) => void;
   fkJointAngles: number[];
   fkMode: boolean;
 }
@@ -43,9 +43,15 @@ export function Viewport(props: ViewportProps) {
       <div className="absolute top-0 left-0 z-50 flex flex-col gap-11">
         <Stats/>
         <SolverStatus solveStatuses={solveStatuses} />
+        <div className="bg-black/60 text-white text-sm px-3 py-2 rounded">
+          <div className="font-semibold">Mode</div>
+          <div>{fkMode ? 'FK (Manual)' : 'IK (Auto)'}</div>
+        </div>
       </div>
 
-      <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>
+      <Canvas 
+        camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}
+      >
 
         {/* Grid Helper */}
         <gridHelper args={[10, 10]} rotation={[Math.PI / 2, 0, 0]} />
