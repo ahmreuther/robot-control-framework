@@ -26,6 +26,7 @@ export function JointAnglesPanel({
   jointLimits,
 }: JointAnglesPanelProps) {
   const [showCollisionMesh, setShowCollisionMesh] = useState(false);
+  const [showRadians, setShowRadians] = useState(false);
 
   const handleAngleChange = (index: number, value: number) => {
     const updated = [...jointAngles];
@@ -65,6 +66,20 @@ export function JointAnglesPanel({
         </label>
       </div>
 
+      {/* Radians/Degrees Toggle */}
+      <div className="flex items-center gap-2 px-2 py-2 rounded bg-white/5 mb-3">
+        <input
+          type="checkbox"
+          id="show-radians"
+          checked={showRadians}
+          onChange={(e) => setShowRadians(e.target.checked)}
+          className="w-4 h-4 cursor-pointer"
+        />
+        <label htmlFor="show-radians" className="cursor-pointer text-white/80 flex-1">
+          {'Radians'}
+        </label>
+      </div>
+
       <div className="space-y-3">
         {jointAngles.map((angle, i) => {
           // Hide fixed/unactuated joints: null entry or zero-range limit
@@ -94,7 +109,12 @@ export function JointAnglesPanel({
                 />
               );
             })()}
-            <span className="w-16 text-right">{radToDeg(angle).toFixed(1)}°</span>
+            <span className="w-16 text-right">
+              {showRadians 
+                ? angle.toFixed(3) 
+                : `${radToDeg(angle).toFixed(1)}°`
+              }
+            </span>
           </div>
           );
         })}
