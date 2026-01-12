@@ -60,17 +60,10 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition
     const currentPos: [number, number, number] = [mesh.position.x, mesh.position.y, mesh.position.z];
     const currentQuat: [number, number, number, number] = [mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w];
 
-    const posChanged = !lastPosRef.current || lastPosRef.current.some((v, i) => Math.abs(v - currentPos[i]) > 1e-5);
-    const quatChanged = !lastQuatRef.current || lastQuatRef.current.some((v, i) => Math.abs(v - currentQuat[i]) > 1e-5);
-
-    if (posChanged) {
-      onPositionChange(currentPos);
-      lastPosRef.current = currentPos;
-    }
-    if (quatChanged) {
-      onQuaternionChange(currentQuat);
-      lastQuatRef.current = currentQuat;
-    }
+    onPositionChange(currentPos);
+    lastPosRef.current = currentPos;
+    onQuaternionChange(currentQuat);
+    lastQuatRef.current = currentQuat;
   });
 
   const handleMouseDown = () => {

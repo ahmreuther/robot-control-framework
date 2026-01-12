@@ -29,7 +29,6 @@ interface RobotProps {
   onJointAnglesUpdate?: (angles: number[]) => void;
   onSolveStatusesChange?: (statuses: number[]) => void;
   onDrag?: (dragging: boolean) => void;
-  onFailureCountChange?: (count: number) => void;
   fkJointAngles?: number[];
   fkMode?: boolean;
 }
@@ -40,7 +39,6 @@ export function Robot({
   onJointAnglesUpdate,
   onSolveStatusesChange,
   onDrag,
-  onFailureCountChange,
   fkJointAngles = [],
   fkMode = false,
 }: RobotProps) {
@@ -54,18 +52,17 @@ export function Robot({
   const lastValidGoalPositionRef = useRef<[number, number, number]>([0, 0, 0]);
   const lastValidGoalQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
   const convergedRef = useRef<boolean>(false);
-  const failureCountRef = useRef<number>(0);
 
   //GoalMarker state todo exchange with useRef for performance
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0, 0, 0]);
   const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
 
   const setGoalPositionSafe = useCallback((pos: [number, number, number]) => {
-    setGoalPosition((prev) => (isSameVec3(prev, pos) ? prev : pos));
+    setGoalPosition((prev) => (pos));
   }, []);
 
   const setGoalQuaternionSafe = useCallback((quat: [number, number, number, number]) => {
-    setGoalQuaternion((prev) => (isSameQuat(prev, quat) ? prev : quat));
+    setGoalQuaternion((prev) => (quat));
   }, []);
   
   // Animation state for gradual home pose transition
@@ -141,13 +138,11 @@ export function Robot({
     convergedRef.current = statuses.every((status: number) => status === SOLVE_STATUS.CONVERGED);
 
     if (convergedRef.current) {
-      failureCountRef.current = 0;
-      onFailureCountChange?.(0);
       setUrdfFromIK(robot, ikRoot);
       robot.updateMatrixWorld(true);
       const jointNames = Object.keys(robot.joints ?? {});
       const nextAngles: number[] = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
-      const changedAngles = !isSameAngles(jointAnglesRef.current, nextAngles);
+      const changedAngles = nextAngles;
       jointAnglesRef.current = nextAngles;
       
       // Update last valid goal
@@ -159,15 +154,8 @@ export function Robot({
       }
 
     } else if (!drag) {
-      // Require a few consecutive failures before resetting to avoid flicker
-      failureCountRef.current += 1;
-      onFailureCountChange?.(failureCountRef.current);
-      if (failureCountRef.current >= 3) {
-        setGoalPositionSafe(clonePosition(lastValidGoalPositionRef.current));
-        setGoalQuaternionSafe(cloneQuaternion(lastValidGoalQuaternionRef.current));
-        failureCountRef.current = 0;
-        onFailureCountChange?.(0);
-      }
+      setGoalPositionSafe(clonePosition(lastValidGoalPositionRef.current));
+      setGoalQuaternionSafe(cloneQuaternion(lastValidGoalQuaternionRef.current));
     }
   }, [
     drag,
@@ -177,7 +165,6 @@ export function Robot({
     setGoalQuaternion,
     onJointAnglesUpdate,
     onSolveStatusesChange,
-    onFailureCountChange,
     setGoalPositionSafe,
     setGoalQuaternionSafe
   ]);
