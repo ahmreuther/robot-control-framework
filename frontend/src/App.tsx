@@ -8,6 +8,7 @@ import { SidebarMenu } from './components/Menu';
 import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './components/UrlContext';
 import { useJointState } from "./hooks/useJointState";
+import { OPCUAAddressSpace } from './components/OPCUAAdressspace';
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -65,6 +66,7 @@ function App() {
                     setFkMode={setFkMode}
                     setJointAngles={setJointsAngles}
                   />
+                  <OPCUAAddressSpace />
                 </div>
               </LogContext.Provider>
             </SocketProvider>

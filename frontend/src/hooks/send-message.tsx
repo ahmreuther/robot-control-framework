@@ -18,7 +18,7 @@ export function useSendMessage() {
     const msg = `${type}|${contextUrl}`;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(msg);
+      (socket as WebSocket).send(msg);
       setLogs(prev => prev + `Sent: ${msg}\n`);
     } else {
       setLogs(prev => prev + `❌ WebSocket not ready (state ${socket?.readyState})\n`);

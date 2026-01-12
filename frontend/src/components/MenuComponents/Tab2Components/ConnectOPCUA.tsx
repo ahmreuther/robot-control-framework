@@ -23,11 +23,10 @@ function ConnectOPCUA() {
 
 
   function handleConnect() {
-    sendMessage("connect")
-    // Setze URL im UrlContext wenn erfolgreich (wird durch Backend-Response aktualisiert)
     const trimmedUrl = url.trim();
     if (trimmedUrl) {
       setContextUrl(trimmedUrl);
+      sendMessage("connect")
     }
   }
 
