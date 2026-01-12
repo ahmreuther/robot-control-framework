@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useUrlContext } from "./UrlContext";
+import { useSocket } from "../hooks/use-socket";
 
 type SelectedNodeInfo = {
   nodeId: string;
@@ -13,6 +14,7 @@ const INDENT_PER_LEVEL_PX = 10; // px per tree level for indentation
 
 export const OPCUAAddressSpace: React.FC = () => {
   const { url: OPC_UA_URL } = useUrlContext(); // Get URL from context
+  const socket = useSocket(); // Get WebSocket connection
   const [isOpen, setIsOpen] = useState(true); // variable to track if the address space panel is open + function to toggle it
   const [html, setHtml] = useState<string | null>(null); // actual HTML content of the address space
   const [loading, setLoading] = useState(false); // loading state
@@ -24,6 +26,17 @@ export const OPCUAAddressSpace: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<
     { nodeId: string; attributes: Record<string, string>; value?: string | null }[]
   >([]);
+
+  // EVENT SUBSCRIPTIONS: list of nodes subscribed to events
+  const [eventSubscriptions, setEventSubscriptions] = useState<
+    { nodeId: string; attributes: Record<string, string> }[]
+  >([]);
+
+  // METHOD CALL DIALOG: state for method calling
+  const [methodDialogOpen, setMethodDialogOpen] = useState(false);
+  const [methodNode, setMethodNode] = useState<SelectedNodeInfo | null>(null);
+  const [methodInputsJSON, setMethodInputsJSON] = useState("{}");
+  const [methodResult, setMethodResult] = useState<string | null>(null);
 
   // Polling interval (ms)
   const POLL_MS = 2000;
@@ -277,18 +290,183 @@ export const OPCUAAddressSpace: React.FC = () => {
     }
   `;
 
-  // Add subscription for currently selected node (no duplicates)
-  const addSubscription = (node: SelectedNodeInfo) => {
+const addSubscription = (node: SelectedNodeInfo) => {
     setSubscriptions((prev) => {
       if (prev.find((s) => s.nodeId === node.nodeId)) return prev;
+
+      // Send subscribe message to backend via WebSocket
+      if (socket && socket.readyState === WebSocket.OPEN && OPC_UA_URL) {
+        const payload = JSON.stringify({
+          url: OPC_UA_URL,
+          nodeId: node.nodeId
+        });
+        const msg = `subscribe|${payload}`;
+        (socket as WebSocket).send(msg);
+        console.log("[OPCUAAddressSpace] Sent subscribe message:", msg);
+      }
+
       return [...prev, { nodeId: node.nodeId, attributes: node.attributes, value: null }];
     });
 
   };
 
   const removeSubscription = (nodeId: string) => {
+    // Send unsubscribe message to backend
+    if (socket && socket.readyState === WebSocket.OPEN && OPC_UA_URL) {
+      const payload = JSON.stringify({
+        url: OPC_UA_URL,
+        nodeId: nodeId
+      });
+      const msg = `unsubscribe|${payload}`;
+      (socket as WebSocket).send(msg);
+      console.log("[OPCUAAddressSpace] Sent unsubscribe message:", msg);
+    }
+
     setSubscriptions((prev) => prev.filter((s) => s.nodeId !== nodeId));
   };
+
+  const addEventSubscription = (node: SelectedNodeInfo) => {
+    setEventSubscriptions((prev) => {
+      if (prev.find((s) => s.nodeId === node.nodeId)) return prev;
+
+      // Send subscribe event message to backend via WebSocket
+      if (socket && socket.readyState === WebSocket.OPEN && OPC_UA_URL) {
+        const payload = JSON.stringify({
+          url: OPC_UA_URL,
+          nodeId: node.nodeId
+        });
+        const msg = `subscribeEvent|${payload}`;
+        (socket as WebSocket).send(msg);
+        console.log("[OPCUAAddressSpace] Sent event subscribe message:", msg);
+      }
+
+      return [...prev, { nodeId: node.nodeId, attributes: node.attributes }];
+    });
+  };
+
+  const removeEventSubscription = (nodeId: string) => {
+    // Send unsubscribe event message to backend
+    if (socket && socket.readyState === WebSocket.OPEN && OPC_UA_URL) {
+      const payload = JSON.stringify({
+        url: OPC_UA_URL
+      });
+      const msg = `unsubscribeEvent|${payload}`;
+      (socket as WebSocket).send(msg);
+      console.log("[OPCUAAddressSpace] Sent event unsubscribe message:", msg);
+    }
+
+    setEventSubscriptions((prev) => prev.filter((s) => s.nodeId !== nodeId));
+  };
+
+  const openMethodDialog = (node: SelectedNodeInfo) => {
+    setMethodNode(node);
+    setMethodDialogOpen(true);
+    setMethodInputsJSON("{}");
+    setMethodResult(null);
+  };
+
+  const callMethod = () => {
+    if (!methodNode || !socket || socket.readyState !== WebSocket.OPEN || !OPC_UA_URL) return;
+
+    try {
+      const inputs = JSON.parse(methodInputsJSON);
+      const payload = JSON.stringify({
+        url: OPC_UA_URL,
+        nodeId: methodNode.nodeId,
+        inputs: inputs
+      });
+
+      const msg = `call|${payload}`;
+      (socket as WebSocket).send(msg);
+      console.log("[OPCUAAddressSpace] Sent method call:", msg);
+      setMethodResult("Calling method...");
+    } catch (err: any) {
+      setMethodResult(`❌ Invalid JSON: ${err.message}`);
+    }
+  };
+
+  const closeMethodDialog = () => {
+    setMethodDialogOpen(false);
+    setMethodNode(null);
+    setMethodInputsJSON("{}");
+    setMethodResult(null);
+  };
+
+  // WebSocket listener for method call results
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      
+      if (message.startsWith("Method call result:")) {
+        setMethodResult(message.replace("Method call result:", "").trim());
+      } else if (message.startsWith("❌") && message.toLowerCase().includes("method")) {
+        setMethodResult(message);
+      }
+    };
+
+    (socket as any).addEventListener?.("message", handleMessage);
+    
+    return () => {
+      (socket as any).removeEventListener?.("message", handleMessage);
+    };
+  }, [socket]);
+
+  const openMethodDialog = (node: SelectedNodeInfo) => {
+    setMethodNode(node);
+    setMethodDialogOpen(true);
+    setMethodInputsJSON("{}");
+    setMethodResult(null);
+  };
+
+  const callMethod = () => {
+    if (!methodNode || !socket || socket.readyState !== WebSocket.OPEN || !OPC_UA_URL) return;
+
+    try {
+      const inputs = JSON.parse(methodInputsJSON);
+      const payload = JSON.stringify({
+        url: OPC_UA_URL,
+        nodeId: methodNode.nodeId,
+        inputs: inputs
+      });
+
+      const msg = `call|${payload}`;
+      (socket as WebSocket).send(msg);
+      console.log("[OPCUAAddressSpace] Sent method call:", msg);
+      setMethodResult("Calling method...");
+    } catch (err: any) {
+      setMethodResult(`❌ Invalid JSON: ${err.message}`);
+    }
+  };
+
+  const closeMethodDialog = () => {
+    setMethodDialogOpen(false);
+    setMethodNode(null);
+    setMethodInputsJSON("{}");
+    setMethodResult(null);
+  };
+
+  // WebSocket listener for method call results
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      
+      if (message.startsWith("Method call result:")) {
+        setMethodResult(message.replace("Method call result:", "").trim());
+      } else if (message.startsWith("❌") && message.toLowerCase().includes("method")) {
+        setMethodResult(message);
+      }
+    };
+
+    (socket as any).addEventListener?.("message", handleMessage);
+    
+    return () => {
+      (socket as any).removeEventListener?.("message", handleMessage);
+    };
+  }, [socket]);
 
   // Polling effect: request latest value for all subscribed nodes periodically
   useEffect(() => {
@@ -483,14 +661,27 @@ export const OPCUAAddressSpace: React.FC = () => {
                         Buttons or widgets to call methods, subscribe, show properties, etc.
                       </div>
                       <div style={{ marginTop: 10 }}>
-                        <button style={{ padding: "6px 8px", marginRight: 8 }}>Call Method</button>
+                        <button 
+                          style={{ padding: "6px 8px", marginRight: 8 }}
+                          onClick={() => openMethodDialog(selectedNode)}
+                        >
+                          Call Method
+                        </button>
                         <button
-                          style={{ padding: "6px 8px" }}
+                          style={{ padding: "6px 8px", marginRight: 8 }}
                           onClick={() => {
                             addSubscription(selectedNode);
                           }}
                         >
                           Subscribe
+                        </button>
+                        <button
+                          style={{ padding: "6px 8px" }}
+                          onClick={() => {
+                            addEventSubscription(selectedNode);
+                          }}
+                        >
+                          Subscribe Events
                         </button>
                       </div>
                     </div>
@@ -531,6 +722,35 @@ export const OPCUAAddressSpace: React.FC = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Event Subscriptions panel */}
+                <div style={{ marginTop: 16, borderTop: "1px solid #2b2b2b", paddingTop: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <strong>Event Subscriptions</strong>
+                    <div style={{ color: "#888", fontSize: 12 }}>{eventSubscriptions.length} active</div>
+                  </div>
+
+                  {eventSubscriptions.length === 0 && (
+                    <div style={{ color: "#777", fontSize: 12 }}>Keine Event-Abonnements. Wähle einen Knoten und klicke "Subscribe Events".</div>
+                  )}
+
+                  {eventSubscriptions.map((s) => (
+                    <div key={s.nodeId} style={{ marginBottom: 8, padding: "6px 8px", background: "#121012", borderRadius: 6 }}>
+                      <div style={{ minWidth: 0, marginBottom: 6 }}>
+                        <div style={{ color: "#999", fontSize: 11 }}>NodeId</div>
+                        <div style={{ color: "#fff", fontSize: 13, wordBreak: "break-all" }}>{s.nodeId}</div>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeEventSubscription(s.nodeId); }}
+                          style={{ padding: "4px 8px" }}
+                        >
+                          Unsubscribe Events
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -539,7 +759,127 @@ export const OPCUAAddressSpace: React.FC = () => {
             <div style={{ color: "#888" }}>
               Noch keine Daten geladen (oder leerer Address Space).
             </div>
-          )}
+          )}        </div>
+      )}
+
+      {/* Method Call Dialog */}
+      {methodDialogOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.7)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={closeMethodDialog}
+        >
+          <div
+            style={{
+              background: "#1b1b1b",
+              border: "1px solid #444",
+              borderRadius: 8,
+              padding: "16px",
+              minWidth: "400px",
+              maxWidth: "600px",
+              maxHeight: "80vh",
+              overflow: "auto",
+              color: "#f5f5f5",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Call Method</h3>
+              <button
+                onClick={closeMethodDialog}
+                style={{ background: "transparent", border: "1px solid #333", color: "#ccc", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
+              >
+                ×
+              </button>
+            </div>
+
+            {methodNode && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ color: "#aaa", fontSize: 12 }}>NodeId</div>
+                <div style={{ color: "#fff", fontSize: 13, wordBreak: "break-all" }}>{methodNode.nodeId}</div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", color: "#ccc", fontSize: 13, marginBottom: 6 }}>
+                Input Parameters (JSON)
+              </label>
+              <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>
+                Example: {{"paramName": "value", "count": 42}}
+              </div>
+              <textarea
+                value={methodInputsJSON}
+                onChange={(e) => setMethodInputsJSON(e.target.value)}
+                style={{
+                  width: "100%",
+                  minHeight: "100px",
+                  padding: "8px",
+                  background: "#121212",
+                  border: "1px solid #333",
+                  borderRadius: 4,
+                  color: "#fff",
+                  fontSize: 13,
+                  fontFamily: "monospace",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <button
+                onClick={callMethod}
+                style={{
+                  padding: "8px 16px",
+                  background: "#2a7fff",
+                  border: "none",
+                  borderRadius: 4,
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Call Method
+              </button>
+              <button
+                onClick={closeMethodDialog}
+                style={{
+                  padding: "8px 16px",
+                  background: "transparent",
+                  border: "1px solid #444",
+                  borderRadius: 4,
+                  color: "#ccc",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+
+            {methodResult && (
+              <div
+                style={{
+                  padding: "12px",
+                  background: "#121212",
+                  border: "1px solid #333",
+                  borderRadius: 6,
+                  color: "#fff",
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ color: "#aaa", fontSize: 12, marginBottom: 6 }}>Result</div>
+                <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{methodResult}</pre>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
