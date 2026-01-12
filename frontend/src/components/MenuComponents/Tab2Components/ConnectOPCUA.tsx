@@ -38,12 +38,13 @@ function ConnectOPCUA() {
 
 
   return (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-3 p-4 bg-black bg-opacity-70 rounded border border-white/20">
+          <div className="font-bold text-sm uppercase tracking-wide text-white/90 pb-2 border-b border-white/20">OPC-UA Connection</div>
           <Input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             aria-label="Server-Adress"
-            className="w-64"
+            className="w-full text-xs"
             placeholder="OPC UA Server URL"
             list={savedUrl ? "savedUrls" : undefined}
           />
@@ -52,12 +53,20 @@ function ConnectOPCUA() {
             <option value={savedUrl}>{savedUrl}</option>
           </datalist>
         )}
-      <div />
-      <div className="">
-        <Button onPress={handleConnect}>Connect</Button>
-        <Button onPress={handleDisconnect}>Disconnect</Button>
+      <div className="flex gap-2">
+        <Button 
+          onPress={handleConnect}
+          className="px-3 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20"
+        >
+          Connect
+        </Button>
+        <Button 
+          onPress={handleDisconnect}
+          className="px-3 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20"
+        >
+          Disconnect
+        </Button>
       </div>
-      <div />
         <Synchronize_Button />
       </div>
     );

@@ -34,12 +34,12 @@ export function JointAnglesPanel({
   };
   
   return (
-    <div className="text-white text-xs space-y-1 max-h-[70vh] overflow-y-auto bg-black bg-opacity-50 p-4 rounded pointer-events-auto">
-      <div className="font-bold mt-2">Joint Angles:</div>
-      <div className="space-y-2">
+    <div className="text-white text-xs space-y-2 max-h-[70vh] overflow-y-auto bg-black bg-opacity-70 p-4 rounded border border-white/20 pointer-events-auto">
+      <div className="font-bold mb-3 text-sm uppercase tracking-wide text-white/90">Joint Angles</div>
+      <div className="space-y-3">
         {jointAngles.map((angle, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <label className="w-12">J{i}:</label>
+          <div key={i} className="flex items-center gap-2 px-2 py-1 rounded bg-white/5">
+            <label className="w-12 text-white/80">J{i}:</label>
             <input
               type="range"
               min={minAngle}
