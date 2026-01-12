@@ -19,9 +19,9 @@ type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
 export function SidebarMenu(MenuProps: MenuProps) {
   const [active, setActive] = useState<TabKey>("Controls");
   return (
-    <div className="flex h-screen z-10">
+    <div className="flex h-full z-10">
       {/* SIDEBAR */}
-      <aside className="flex flex-col border-r bg-black bg-opacity-80 text-white">
+      <aside className="flex flex-col border-r bg-black text-white">
         <nav className="flex flex-col">
           <TabButton
             active={active === "Controls"}
@@ -47,7 +47,7 @@ export function SidebarMenu(MenuProps: MenuProps) {
       </aside>
 
       {/* CONTENT */}
-      <main className="flex flex-col overflow-y-auto p-4 max-w-md bg-black bg-opacity-50 space-y-4">
+      <main className="flex-1 flex flex-col overflow-y-auto p-4 bg-black space-y-4">
         {active === "Controls" && 
         <div className="space-y-4">
           <URDFSelector 

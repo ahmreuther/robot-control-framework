@@ -34,7 +34,7 @@ export function JointAnglesPanel({
   };
   
   return (
-    <div className="text-white text-xs space-y-2 max-h-[70vh] overflow-y-auto bg-black bg-opacity-70 p-4 rounded border border-white/20 pointer-events-auto">
+    <div className="text-white text-xs space-y-2 max-h-[70vh] overflow-y-auto bg-black p-4 rounded border border-white/20 pointer-events-auto">
       <div className="font-bold mb-3 text-sm uppercase tracking-wide text-white/90">Joint Angles</div>
       <div className="space-y-3">
         {jointAngles.map((angle, i) => (
