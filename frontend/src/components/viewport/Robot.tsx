@@ -7,8 +7,7 @@ import GoalMarker from "./GoalMarker";
 import * as THREE from "three";
 import { PointerURDFDragControls } from "urdf-loader/src/URDFDragControls.js";
 
-const clonePosition = (pos: [number, number, number]) => [...pos] as [number, number, number];
-const cloneQuaternion = (quat: [number, number, number, number]) => [...quat] as [number, number, number, number];
+
 
 export const SOLVE_STATUS = {
   CONVERGED: 0,
@@ -17,23 +16,25 @@ export const SOLVE_STATUS = {
   TIMEOUT: 3,
 } as const;
 
+const END_EFFECTOR_NAMES = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
+
 interface RobotProps {
   urdfPath: string;
   drag: boolean;
-  onJointAnglesUpdate?: (angles: number[]) => void;
+  setJointAngles?: (angles: number[]) => void;
   onSolveStatusesChange?: (statuses: number[]) => void;
   onDrag?: (dragging: boolean) => void;
-  fkJointAngles?: number[];
+  jointAngles?: number[];
   fkMode?: boolean;
 }
 
 export function Robot({
   urdfPath,
   drag,
-  onJointAnglesUpdate,
+  setJointAngles,
   onSolveStatusesChange,
   onDrag,
-  fkJointAngles = [],
+  jointAngles = [],
   fkMode = false,
 }: RobotProps) {
   const robotRef = useRef<URDFRobot | null>(null);
@@ -64,17 +65,52 @@ export function Robot({
   const homePositionRef = useRef<number[]>([]);
   const isAnimatingRef = useRef(false);
 
+  // Interaction / highlighting state
   const [hoveredJoint, setHoveredJoint] = useState<string | null>(null);
+
   const hoveredJointRef = useRef<any>(null);
   const materialMapRef = useRef<Map<THREE.Object3D, THREE.Material>>(new Map());
   const controlsRef = useRef<any>(null);
 
+  // Keyboard toggle (S key)
   const [sKeyPressed, setSKeyPressed] = useState<boolean>(true);
+  
   const sKeyPressedRef = useRef<boolean>(true);
 
-  //GoalMarker state todo exchange with useRef for performance
+  // Goal marker state
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0, 0, 0]);
   const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
+
+  // Local helpers
+  const findEndEffectorInRobot = (robot: URDFRobot | null) => {
+    if (!robot) return null;
+    for (const name of END_EFFECTOR_NAMES) {
+      const candidate = robot.getObjectByName(name);
+      if (candidate) return candidate;
+    }
+    let fallback: any = null;
+    robot.traverse((obj: any) => {
+      if (obj.isURDFLink) fallback = obj;
+    });
+    return fallback;
+  };
+  
+  const findEndEffectorInIK = (ikRoot: any) => {
+    if (!ikRoot) return null;
+    for (const name of END_EFFECTOR_NAMES) {
+      const candidate = ikRoot.find((node: any) => node.name === name);
+      if (candidate) return candidate;
+    }
+    const allNodes: any[] = [];
+    const traverse = (node: any) => {
+      if (!node) return;
+      allNodes.push(node);
+      if (node.child) traverse(node.child);
+      if (node.children) node.children.forEach((c: any) => traverse(c));
+    };
+    traverse(ikRoot);
+    return allNodes[allNodes.length - 1] ?? null;
+  };
 
   const highlightJointGeometry = (joint: any, highlight: boolean) => {
     if (!joint) return;
@@ -99,53 +135,10 @@ export function Robot({
     traverse(joint);
   };
 
-  const setGoalPositionSafe = useCallback((pos: [number, number, number]) => {
-    setGoalPosition((prev) => (pos));
-  }, []);
-
-  const setGoalQuaternionSafe = useCallback((quat: [number, number, number, number]) => {
-    setGoalQuaternion((prev) => (quat));
-  }, []);
-
-  const onDragwithAnimationLock = useCallback((isDragging: boolean) => {
-    if (!isAnimatingRef.current) {
-      onDrag(isDragging);
-    }
-  }, [isAnimatingRef, onDrag]);
-
-  // Ensure canvas can receive keyboard focus so the S-key toggle works reliably
-  useEffect(() => {
-    if (!gl) return;
-    const el = gl.domElement as HTMLElement;
-    if (el.tabIndex !== 0) el.tabIndex = 0;
-    const focusHandle = requestAnimationFrame(() => el.focus());
-    return () => cancelAnimationFrame(focusHandle);
-  }, [gl]);
-
-  // UI feedback: change cursor when hovering joints
-  useEffect(() => {
-    if (!gl) return;
-    gl.domElement.style.cursor = hoveredJoint && sKeyPressed ? 'pointer' : 'default';
-    return () => {
-      if (gl && gl.domElement) gl.domElement.style.cursor = 'default';
-    };
-  }, [gl, hoveredJoint, sKeyPressed]);
-
   const updateGoalToEndEffector = () => {
     const robot = robotRef.current;
     if (!robot) return;
-    
-    const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
-    let endEffector: any = null;
-    for (const name of endEffectorNames) {
-      endEffector = robot.getObjectByName(name);
-      if (endEffector) break;
-    }
-    if (!endEffector) {
-      robot.traverse((obj: any) => {
-        if (obj.isURDFLink) endEffector = obj;
-      });
-    }
+      const endEffector = findEndEffectorInRobot(robot);
     if (endEffector) {
       endEffector.updateMatrixWorld(true);
       const pos = new THREE.Vector3();
@@ -159,13 +152,35 @@ export function Robot({
       setGoalQuaternion(newQuat);
       
       // Also update last valid goal to prevent IK from resetting
-      lastValidGoalPositionRef.current = clonePosition(newPos);
-      lastValidGoalQuaternionRef.current = cloneQuaternion(newQuat);
- 
+      lastValidGoalPositionRef.current = [...newPos];
+      lastValidGoalQuaternionRef.current = [...newQuat];
     }
   }
 
-  // Track S key press for toggling joint interaction
+  const onDragwithAnimationLock = useCallback((isDragging: boolean) => {
+    if (!isAnimatingRef.current) {
+      onDrag(isDragging);
+    }
+  }, [isAnimatingRef, onDrag]);
+
+  // Effects: focus and cursor
+  useEffect(() => {
+    if (!gl) return;
+    const el = gl.domElement as HTMLElement;
+    if (el.tabIndex !== 0) el.tabIndex = 0;
+    const focusHandle = requestAnimationFrame(() => el.focus());
+    return () => cancelAnimationFrame(focusHandle);
+  }, [gl]);
+
+  useEffect(() => {
+    if (!gl) return;
+    gl.domElement.style.cursor = hoveredJoint && sKeyPressed ? 'pointer' : 'default';
+    return () => {
+      if (gl && gl.domElement) gl.domElement.style.cursor = 'default';
+    };
+  }, [gl, hoveredJoint, sKeyPressed]);
+
+  // Effects: keyboard toggle and controls enablement
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 's' || e.key === 'S') {
@@ -174,15 +189,11 @@ export function Robot({
           const newState = !prev;
           sKeyPressedRef.current = newState;
           
-          // When exiting S mode (FK), sync IK and goal to current end effector position
           if (!newState) {
             const robot = robotRef.current;
             const ikRoot = ikRootRef.current;
             if (robot && ikRoot) {
-              // Sync IK state with current URDF pose
               setIKFromUrdf(ikRoot, robot);
-              
-              // Update joint angles ref to match current state
               const jointNames = Object.keys(robot.joints ?? {});
               jointAnglesRef.current = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
             }
@@ -248,16 +259,16 @@ export function Robot({
       jointAnglesRef.current = nextAngles;
       
       // Update last valid goal
-      lastValidGoalPositionRef.current = clonePosition(goalPosition);
-      lastValidGoalQuaternionRef.current = cloneQuaternion(goalQuaternion);
+      lastValidGoalPositionRef.current = [...goalPosition];
+      lastValidGoalQuaternionRef.current = [...goalQuaternion];
 
-      if (changedAngles && onJointAnglesUpdate) {
-        onJointAnglesUpdate(nextAngles);
+      if (changedAngles && setJointAngles) {
+        setJointAngles(nextAngles);
       }
 
     } else if (!drag) {
-      setGoalPosition(clonePosition(lastValidGoalPositionRef.current));
-      setGoalQuaternion(cloneQuaternion(lastValidGoalQuaternionRef.current));
+      setGoalPosition([...lastValidGoalPositionRef.current]);
+      setGoalQuaternion([...lastValidGoalQuaternionRef.current]);
     }
   }, [
     drag,
@@ -265,10 +276,11 @@ export function Robot({
     goalQuaternion,
     setGoalPosition,
     setGoalQuaternion,
-    onJointAnglesUpdate,
+    setJointAngles,
     onSolveStatusesChange,
   ]);
 
+  // Handler: robot loaded
   const handleRobotReady = useCallback(
     async (robot: URDFRobot, robotGroup: THREE.Group) => {
       robotRef.current = robot;
@@ -324,93 +336,54 @@ export function Robot({
       setIKFromUrdf(ikRoot, robot);
       ikRootRef.current = ikRoot;
 
-      const endEffectorNames = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
-      let endEffector: any = null;
-      
-      // Find end effector for Goal
-      for (const name of endEffectorNames) {
-        endEffector = ikRoot.find((node: any) => node.name === name);
-        if (endEffector) break;
-      }
-      
-      if (!endEffector) {
-        // Fallback to last link
-        const allNodes: any[] = [];
-        const traverse = (node: any) => {
-          if (node) {
-            allNodes.push(node);
-            if (node.child) traverse(node.child);
-            if (node.children) node.children.forEach((c: any) => traverse(c));
-          }
-        };
-        traverse(ikRoot);
-        endEffector = allNodes[allNodes.length - 1];
-      }
-      
       // Create Goal and Solver once
+      const ikEndEffector = findEndEffectorInIK(ikRoot);
       const goal = new Goal();
-      goal.makeClosure(endEffector);
+      goal.makeClosure(ikEndEffector);
       goalRef.current = goal;
-      
       const solver = new Solver(ikRoot);
       solverRef.current = solver;
-      
-      jointAnglesRef.current = jointNames.map(
+
+      jointAnglesRef.current = Object.keys(robot.joints ?? {}).map(
         (name) => robot.joints[name]?.angle ?? 0
       );
-      
-      onJointAnglesUpdate(jointAnglesRef.current as number[]);
-       
-      for (const name of endEffectorNames) {
-        endEffector = robot.getObjectByName(name);
-        if (endEffector) break;
-      }
-       
-      if (!endEffector) {
-        // Fallback to last link
-        robot.traverse((obj: any) => {
-          if (obj.isURDFLink) endEffector = obj;
-        });
-      }
-       
-      if (endEffector) {
-        endEffector.updateMatrixWorld(true);
+      setJointAngles(jointAnglesRef.current as number[]);
+
+      const robotEndEffector = findEndEffectorInRobot(robot);
+      if (robotEndEffector) {
+        robotEndEffector.updateMatrixWorld(true);
         const pos = new THREE.Vector3();
         const quat = new THREE.Quaternion();
-        endEffector.getWorldPosition(pos);
-        endEffector.getWorldQuaternion(quat);
+        robotEndEffector.getWorldPosition(pos);
+        robotEndEffector.getWorldQuaternion(quat);
         const newPos: [number, number, number] = [pos.x, pos.y, pos.z];
         const newQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
-        
-        lastValidGoalPositionRef.current = clonePosition(newPos);
-        lastValidGoalQuaternionRef.current = cloneQuaternion(newQuat);
+        lastValidGoalPositionRef.current = [...newPos];
+        lastValidGoalQuaternionRef.current = [...newQuat];
         setGoalPosition(newPos);
         setGoalQuaternion(newQuat);
       }
 
-      // Initialize urdf-loader pointer drag controls for hover highlighting
+      // Initialize urdf-loader pointer drag controls
       const robotObj: any = robotRef.current;
       const controls = new PointerURDFDragControls(robotObj, camera, gl.domElement);
       controlsRef.current = controls;
 
       controls.enabled = sKeyPressed;
 
-      // Enable joint manipulation on drag
       controls.updateJoint = (joint: any, angle: number) => {
         if (!sKeyPressedRef.current) return;
         
         const robot = robotRef.current;
         if (!robot) return;
 
-        console.log("updateJoint");
-        
         robot.setJointValue(joint.name, angle);
         robot.updateMatrixWorld(true);
         
         // Emit updated angles to parent
         const jointNames = Object.keys(robot.joints ?? {});
         const updatedAngles: number[] = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
-        onJointAnglesUpdate?.(updatedAngles);
+        setJointAngles?.(updatedAngles);
         updateGoalToEndEffector();
       };
 
@@ -464,10 +437,8 @@ export function Robot({
     });
     robot.updateMatrixWorld(true);
 
-    // Update joint angles
     jointAnglesRef.current = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
-    onJointAnglesUpdate(jointAnglesRef.current as number[]);
-
+    setJointAngles(jointAnglesRef.current as number[]);
     updateGoalToEndEffector();
 
     if (t >= 1.0) {
@@ -478,26 +449,13 @@ export function Robot({
     return true;
   };
 
-  // Helper: apply solver angles (IK mode)
-  const applyInverseKinematics = (robot: URDFRobot, jointNames: string[]) => {
-    if (!robot || !jointAnglesRef.current.length) return;
-
-    jointNames.forEach((name, index) => {
-      if (index < jointAnglesRef.current.length) {
-        const currentAngle = robot.joints[name]?.angle ?? 0;
-        const targetAngle = jointAnglesRef.current[index];
-        robot.setJointValue(name, targetAngle);
-      }
-    });
-  };
-
-  // Helper: forward kinematics (manual mode)
+  // Helper: forward kinematics
   const applyForwardKinematics = (robot: URDFRobot, jointNames: string[]) => {
-    if (!robot || !fkJointAngles.length) return;
+    if (!robot || !jointAngles.length) return;
 
     jointNames.forEach((name, index) => {
-      if (index < fkJointAngles.length) {
-        robot.setJointValue(name, fkJointAngles[index]);
+      if (index < jointAngles.length) {
+        robot.setJointValue(name, jointAngles[index]);
       }
     });
     robot.updateMatrixWorld(true);
@@ -515,20 +473,12 @@ export function Robot({
       if (applyHomeAnimation(robot, jointNames)) return;
     }
 
-    // IK should not fight manual joint dragging (sKeyPressed) or active drags
     if (!fkMode) {
-      if (sKeyPressed) {
-        return;
-      }
-      runIK();
+      if (!sKeyPressed) runIK();
       return;
     }
-
-    if (fkMode) {
-      applyForwardKinematics(robot, jointNames);
-    } else {
-      applyInverseKinematics(robot, jointNames);
-    }
+    if (drag) return;
+    applyForwardKinematics(robot, jointNames);
   });
 
   return (

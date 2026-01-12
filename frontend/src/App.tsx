@@ -20,11 +20,10 @@ function App() {
   initSocket("ws://127.0.0.1:8000/ws");
 
   const {
-    jointAngles: fkJointAngles,
+    jointAngles,
+    setJointsAngles,
     fkMode,
-    setFkMode,
-    setIkJoint,
-    setFkJoint,
+    setFkMode
   } = useJointState();
 
   const [selectedRobot, setSelectedRobot] = useState(ROBOT_MODELS[0]);
@@ -46,10 +45,9 @@ function App() {
               onSelect={handleRobotSelect} 
             />
             <JointAnglesPanel
-              jointAngles={fkJointAngles}
-              fkMode={fkMode}
+              jointAngles={jointAngles}
               setFkMode={setFkMode}
-              onAngleChange={setFkJoint}
+              setJointAngles={setJointsAngles}
             />
           </div>
         </Panel>
@@ -58,9 +56,9 @@ function App() {
             <Viewport 
               key={reloadKey}
               urdfPath={selectedRobot.url}
-              onJointAnglesUpdate={setIkJoint}
+              setJointAngles={setJointsAngles}
               setFkMode={setFkMode}
-              fkJointAngles={fkJointAngles}
+              jointAngles={jointAngles}
               fkMode={fkMode}
             />
           </div>
