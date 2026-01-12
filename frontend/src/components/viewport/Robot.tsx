@@ -9,6 +9,12 @@ import { is } from "@react-three/fiber/dist/declarations/src/core/utils";
 
 const clonePosition = (pos: [number, number, number]) => [...pos] as [number, number, number];
 const cloneQuaternion = (quat: [number, number, number, number]) => [...quat] as [number, number, number, number];
+const isSameVec3 = (a: [number, number, number], b: [number, number, number], eps = 1e-5) =>
+  Math.abs(a[0] - b[0]) < eps && Math.abs(a[1] - b[1]) < eps && Math.abs(a[2] - b[2]) < eps;
+const isSameQuat = (a: [number, number, number, number], b: [number, number, number, number], eps = 1e-5) =>
+  Math.abs(a[0] - b[0]) < eps && Math.abs(a[1] - b[1]) < eps && Math.abs(a[2] - b[2]) < eps && Math.abs(a[3] - b[3]) < eps;
+const isSameAngles = (a: number[], b: number[], eps = 1e-5) =>
+  a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < eps);
 
 export const SOLVE_STATUS = {
   CONVERGED: 0,
@@ -23,6 +29,7 @@ interface RobotProps {
   onJointAnglesUpdate?: (angles: number[]) => void;
   onSolveStatusesChange?: (statuses: number[]) => void;
   onDrag?: (dragging: boolean) => void;
+  onFailureCountChange?: (count: number) => void;
   fkJointAngles?: number[];
   fkMode?: boolean;
 }
@@ -33,6 +40,7 @@ export function Robot({
   onJointAnglesUpdate,
   onSolveStatusesChange,
   onDrag,
+  onFailureCountChange,
   fkJointAngles = [],
   fkMode = false,
 }: RobotProps) {
@@ -42,13 +50,23 @@ export function Robot({
   const goalRef = useRef<any>(null);
   const solverRef = useRef<any>(null);
   const jointAnglesRef = useRef<number[]>([]);
+  const lastSolveStatusesRef = useRef<number[] | null>(null);
   const lastValidGoalPositionRef = useRef<[number, number, number]>([0, 0, 0]);
   const lastValidGoalQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
   const convergedRef = useRef<boolean>(false);
+  const failureCountRef = useRef<number>(0);
 
   //GoalMarker state todo exchange with useRef for performance
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0, 0, 0]);
   const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
+
+  const setGoalPositionSafe = useCallback((pos: [number, number, number]) => {
+    setGoalPosition((prev) => (isSameVec3(prev, pos) ? prev : pos));
+  }, []);
+
+  const setGoalQuaternionSafe = useCallback((quat: [number, number, number, number]) => {
+    setGoalQuaternion((prev) => (isSameQuat(prev, quat) ? prev : quat));
+  }, []);
   
   // Animation state for gradual home pose transition
   const animationStartTimeRef = useRef<number | null>(null);
@@ -83,8 +101,10 @@ export function Robot({
       const quat = new THREE.Quaternion();
       endEffector.getWorldPosition(pos);
       endEffector.getWorldQuaternion(quat);
-      setGoalPosition([pos.x, pos.y, pos.z]);
-      setGoalQuaternion([quat.x, quat.y, quat.z, quat.w]);
+      const newPos: [number, number, number] = [pos.x, pos.y, pos.z];
+      const newQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
+      setGoalPositionSafe(newPos);
+      setGoalQuaternionSafe(newQuat);
     }
   }
 
@@ -110,29 +130,44 @@ export function Robot({
 
     // Solve
     const statuses = solver.solve();
-    onSolveStatusesChange([...statuses]);
+
+    const statusesArr = [...statuses];
+    const sameStatuses = lastSolveStatusesRef.current && statusesArr.length === lastSolveStatusesRef.current.length && statusesArr.every((v, i) => v === lastSolveStatusesRef.current![i]);
+    if (!sameStatuses) {
+      lastSolveStatusesRef.current = statusesArr;
+      onSolveStatusesChange?.(statusesArr);
+    }
 
     convergedRef.current = statuses.every((status: number) => status === SOLVE_STATUS.CONVERGED);
 
     if (convergedRef.current) {
+      failureCountRef.current = 0;
+      onFailureCountChange?.(0);
       setUrdfFromIK(robot, ikRoot);
       robot.updateMatrixWorld(true);
       const jointNames = Object.keys(robot.joints ?? {});
       const nextAngles: number[] = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
+      const changedAngles = !isSameAngles(jointAnglesRef.current, nextAngles);
       jointAnglesRef.current = nextAngles;
       
       // Update last valid goal
       lastValidGoalPositionRef.current = clonePosition(goalPosition);
       lastValidGoalQuaternionRef.current = cloneQuaternion(goalQuaternion);
 
-      if (onJointAnglesUpdate) {
+      if (changedAngles && onJointAnglesUpdate) {
         onJointAnglesUpdate(nextAngles);
       }
 
     } else if (!drag) {
-      // IK failed to converge - reset goal to last valid position
-      setGoalPosition(clonePosition(lastValidGoalPositionRef.current));
-      setGoalQuaternion(cloneQuaternion(lastValidGoalQuaternionRef.current));
+      // Require a few consecutive failures before resetting to avoid flicker
+      failureCountRef.current += 1;
+      onFailureCountChange?.(failureCountRef.current);
+      if (failureCountRef.current >= 3) {
+        setGoalPositionSafe(clonePosition(lastValidGoalPositionRef.current));
+        setGoalQuaternionSafe(cloneQuaternion(lastValidGoalQuaternionRef.current));
+        failureCountRef.current = 0;
+        onFailureCountChange?.(0);
+      }
     }
   }, [
     drag,
@@ -141,7 +176,10 @@ export function Robot({
     setGoalPosition,
     setGoalQuaternion,
     onJointAnglesUpdate,
-    onSolveStatusesChange
+    onSolveStatusesChange,
+    onFailureCountChange,
+    setGoalPositionSafe,
+    setGoalQuaternionSafe
   ]);
 
   const handleRobotReady = useCallback(
@@ -254,14 +292,16 @@ export function Robot({
         const quat = new THREE.Quaternion();
         endEffector.getWorldPosition(pos);
         endEffector.getWorldQuaternion(quat);
+        const newPos: [number, number, number] = [pos.x, pos.y, pos.z];
+        const newQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
         
-        lastValidGoalPositionRef.current = clonePosition([pos.x, pos.y, pos.z]);
-        lastValidGoalQuaternionRef.current = cloneQuaternion([quat.x, quat.y, quat.z, quat.w]);
-        setGoalPosition([pos.x, pos.y, pos.z]);
-        setGoalQuaternion([quat.x, quat.y, quat.z, quat.w]);
+        lastValidGoalPositionRef.current = clonePosition(newPos);
+        lastValidGoalQuaternionRef.current = cloneQuaternion(newQuat);
+        setGoalPositionSafe(newPos);
+        setGoalQuaternionSafe(newQuat);
       }
     },
-    []
+    [setGoalPositionSafe, setGoalQuaternionSafe]
   );  
 
   // Helper: animate from zero to home pose during startup

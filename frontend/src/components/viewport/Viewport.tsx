@@ -24,6 +24,7 @@ export function Viewport(props: ViewportProps) {
   
   const [drag, setDrag] = useState<boolean>(false);
   const [solveStatuses, setSolveStatusesState] = useState<number[]>([]);
+  const [failureCount, setFailureCount] = useState<number>(0);
 
   const setDragandDisableFkMode = useCallback((isDragging: boolean) => {
     setDrag(isDragging);
@@ -43,6 +44,10 @@ export function Viewport(props: ViewportProps) {
       <div className="absolute top-0 left-0 z-50 flex flex-col gap-11">
         <Stats/>
         <SolverStatus solveStatuses={solveStatuses} />
+        <div className="bg-black/60 text-white text-sm px-3 py-2 rounded">
+          <div className="font-semibold">IK Failures (recent)</div>
+          <div>{failureCount}</div>
+        </div>
       </div>
 
       <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>
@@ -68,6 +73,7 @@ export function Viewport(props: ViewportProps) {
             drag={drag}
             onJointAnglesUpdate={onJointAnglesUpdate}
             onSolveStatusesChange={handleSolveStatusesChange}
+            onFailureCountChange={setFailureCount}
             onDrag={setDragandDisableFkMode}
             fkJointAngles={fkJointAngles}
             fkMode={fkMode}

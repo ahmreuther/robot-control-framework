@@ -14,6 +14,9 @@ interface GoalMarkerProps {
 
 function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition, goalQuaternion, converged = true}: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
+  const isDraggingRef = useRef(false);
+  const lastPosRef = useRef<[number, number, number] | null>(null);
+  const lastQuatRef = useRef<[number, number, number, number] | null>(null);
   const [mode, setMode] = useState<"translate" | "rotate">("translate");
   const [local , setLocal] = useState<boolean>(true);
 
@@ -33,32 +36,56 @@ function GoalMarker({ onPositionChange, onQuaternionChange, onDrag, goalPosition
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
+  useEffect(() => {
+    if (!meshRef.current || !goalPosition) return;
+    if (isDraggingRef.current) return;
+    const [x, y, z] = goalPosition;
+    meshRef.current.position.set(x, y, z);
+    lastPosRef.current = goalPosition;
+  }, [goalPosition]);
+
+  useEffect(() => {
+    if (!meshRef.current || !goalQuaternion) return;
+    if (isDraggingRef.current) return;
+    const [x, y, z, w] = goalQuaternion;
+    meshRef.current.quaternion.set(x, y, z, w);
+    lastQuatRef.current = goalQuaternion;
+  }, [goalQuaternion]);
+
   useFrame(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    
-    const { x, y, z } = mesh.position;
-    onPositionChange([x, y, z]);
+    if (!isDraggingRef.current) return;
 
-    const { x: qx, y: qy, z: qz, w: qw } = mesh.quaternion;
-    onQuaternionChange([qx, qy, qz, qw]);
+    const currentPos: [number, number, number] = [mesh.position.x, mesh.position.y, mesh.position.z];
+    const currentQuat: [number, number, number, number] = [mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w];
 
-    meshRef.current.position.set(...goalPosition);
-    meshRef.current.quaternion.set(...goalQuaternion);
+    const posChanged = !lastPosRef.current || lastPosRef.current.some((v, i) => Math.abs(v - currentPos[i]) > 1e-5);
+    const quatChanged = !lastQuatRef.current || lastQuatRef.current.some((v, i) => Math.abs(v - currentQuat[i]) > 1e-5);
 
+    if (posChanged) {
+      onPositionChange(currentPos);
+      lastPosRef.current = currentPos;
+    }
+    if (quatChanged) {
+      onQuaternionChange(currentQuat);
+      lastQuatRef.current = currentQuat;
+    }
   });
 
   const handleMouseDown = () => {
+    isDraggingRef.current = true;
     onDrag(true);
   };
 
   const handleMouseUp = () => {
+    isDraggingRef.current = false;
     onDrag(false);
   };
 
   return (
     <>
-      <mesh ref={meshRef} position={goalPosition}>
+      <mesh ref={meshRef} position={goalPosition ?? [0,0,0]}>
         <sphereGeometry args={[0.03, 16, 16]} />
         <meshBasicMaterial 
           color={converged ? "#00ff00" : "#ff0000"} 
