@@ -54,7 +54,7 @@ export function getRobot(robotId) {
   return robots.get(robotId) || null;
 }
 
-export async function addRobot({ model, urdfPath, sceneNode, slotIndex }) {
+export async function addRobot({ model, urdfPath, sceneNode, slotIndex, createManipulator = false }) {
   const assignedSlot = Number.isFinite(slotIndex) ? slotIndex : getNextSlotIndex();
   const id = `robot-${nextId++}`;
   const record = {
@@ -63,6 +63,7 @@ export async function addRobot({ model, urdfPath, sceneNode, slotIndex }) {
     urdfPath,
     sceneNode: sceneNode || null,
     slotIndex: assignedSlot,
+    manipulator: null,
     opcuaSessionId: null,
     status: 'connecting',
 
