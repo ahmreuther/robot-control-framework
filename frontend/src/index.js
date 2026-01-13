@@ -5,12 +5,11 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
 import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 import URDFLoader from 'urdf-loader/src/URDFLoader.js';
-import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex } from './robotManager.js';
+import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory } from './robotManager.js';
 import { applyDefaultPose } from './URDFIKManipulator.js';
 customElements.define('urdf-viewer', URDFIKManipulator);
 
@@ -19,6 +18,25 @@ customElements.define('urdf-viewer', URDFIKManipulator);
 // TODO: Remove this once modules or parcel is being used
 const viewer = document.querySelector('urdf-viewer');
 setupMiniStats(viewer);
+
+// Provide a global manipulator factory once so addRobot can reuse it.
+setManipulatorFactory(() => {
+    if (!viewer) return null;
+    return new URDFIKManipulator({
+        scene: viewer.scene,
+        world: viewer.world,
+        camera: viewer.camera,
+        renderer: viewer.renderer,
+        controls: viewer.controls,
+        requestRender: () => {
+            if (typeof viewer.redraw === 'function') {
+                viewer.redraw();
+            } else if (viewer.renderer && viewer.scene && viewer.camera) {
+                viewer.renderer.render(viewer.scene, viewer.camera);
+            }
+        }
+    });
+});
 
 const limitsToggle = document.getElementById('ignore-joint-limits');
 const collisionToggle = document.getElementById('collision-toggle');
@@ -46,6 +64,16 @@ const robotSlidersList = document.getElementById('robot-sliders');
 let activeRobotId = null;
 let robotOffset = 0;
 let initialRobotRegistered = false;
+
+const logMessage = msg => {
+    const logContainer = document.getElementById('message-log');
+    if (!logContainer) return;
+    const line = document.createElement('div');
+    line.classList.add('log-entry');
+    line.textContent = msg;
+    logContainer.prepend(line);
+};
+
 const renderForAFewFrames = (frames = 6) => new Promise(resolve => {
     let count = 0;
     const tick = () => {
@@ -130,34 +158,33 @@ function setActiveRobot(id) {
 
 
 async function spawnRobot({ urdfPath, offsetX = 1.5, slotIndex = null }) {
-  if (!urdfPath || !viewer) return null;
+    if (!urdfPath || !viewer) return null;
 
-  // load URDF using the viewer’s loader hooks so custom mesh loading works
-  const loader = new URDFLoader();
-  if (viewer.loadMeshFunc) loader.loadMeshCb = viewer.loadMeshFunc;
-  if (viewer.fetchOptions) loader.fetchOptions = viewer.fetchOptions;
+    // load URDF using the viewer’s loader hooks so custom mesh loading works
+    const loader = new URDFLoader();
+    if (viewer.loadMeshFunc) loader.loadMeshCb = viewer.loadMeshFunc;
+    if (viewer.fetchOptions) loader.fetchOptions = viewer.fetchOptions;
 
-  const robot = await new Promise((resolve, reject) => {
-    loader.load(urdfPath, r => resolve(r), undefined, err => reject(err));
-  });
+    const robot = await new Promise((resolve, reject) => {
+        loader.load(urdfPath, r => resolve(r), undefined, err => reject(err));
+    });
 
     // stagger robots in X using the requested slot index or the next available slot
     const slot = Number.isFinite(slotIndex) ? slotIndex : getNextSlotIndex();
     robot.position.x = offsetX * slot;
-  robot.name = robot.name || `robot_${Date.now()}`;
+    robot.name = robot.name || `robot_${Date.now()}`;
 
-  applyDefaultPose(robot);           // zero joints to a safe pose
     robot.traverse(node => {
         if (node && node.isObject3D) node.frustumCulled = false;
     });
-  robot.updateMatrixWorld(true);
+    robot.updateMatrixWorld(true);
 
-  viewer.world.add(robot);
-  viewer.world.updateMatrixWorld(true);
+    viewer.world.add(robot);
+    viewer.world.updateMatrixWorld(true);
     await renderForAFewFrames();
     if (typeof viewer.redraw === 'function') viewer.redraw();
 
-  return robot;
+    return robot;
 };
 
 function disposeRobotNode(node) {
@@ -173,26 +200,35 @@ function disposeRobotNode(node) {
 
 
 addRobotBtn.addEventListener('click', async () => {
-    const selectedName = addRobotSelect.value;
-    if (!selectedName) return;
-    
-    const model = robotModels.find(m => m.name === selectedName);
-    if (!model) return;
+    try {
+        const selectedName = addRobotSelect.value;
+        if (!selectedName) return;
+        
+        const model = robotModels.find(m => m.name === selectedName);
+        if (!model) return;
 
-    const slotIndex = getNextSlotIndex();
-    const record = await addRobot({
-        model: model.name,
-        urdfPath: model.urdf,
-        sceneNode: null,
-        slotIndex
-    });
-    const robotNode = await spawnRobot({ urdfPath: model.urdf, slotIndex });
-    if (robotNode) record.sceneNode = robotNode;
+        const slotIndex = getNextSlotIndex();
+        const record = await addRobot({
+            model: model.name,
+            urdfPath: model.urdf,
+            sceneNode: null,
+            slotIndex
+        });
+        const robotNode = await spawnRobot({ urdfPath: model.urdf, slotIndex });
+        if (robotNode) {
+            record.sceneNode = robotNode;
+            robotNode.updateMatrixWorld(true);
+            record.manipulator.setRobot(robotNode, record.id);
+        }
 
-    addRobotOption(record.id, model.name);
-    setActiveRobot(record.id);
+        addRobotOption(record.id, model.name);
+        setActiveRobot(record.id);
 
-    robotCountValue.textContent = listRobots().length; // update count
+        robotCountValue.textContent = listRobots().length; // update count
+    } catch (err) {
+        console.error('Failed to add robot', err);
+        logMessage('Failed to add robot: ' + (err?.message || err));
+    }
 });
 
 deleteRobotBtn.addEventListener('click', async () => {
@@ -239,6 +275,7 @@ viewer.addEventListener('urdf-processed', async () => {
             urdfPath: viewer.urdf,
             sceneNode: viewer.robot,
             slotIndex,
+            createManipulator: false,
         });
         addRobotOption(record.id, record.model || record.id);
         setActiveRobot(record.id);

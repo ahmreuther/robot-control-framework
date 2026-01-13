@@ -1,14 +1,27 @@
-import URDFIKManipulator from './URDFIKManipulator.js';
-// Minimal Robot Manager to track multiple robots and OPC UA sessions
-
 let nextId = 1;
 const robots = new Map();
 let statusListener = null;
+let manipulatorFactory = null; // set once from UI layer
+
+function attachManipulator(record, manipulator) {
+  if (!record) return null;
+  record.manipulator = manipulator || null;
+  return record.manipulator;
+}
+
+function detachManipulator(record) {
+  if (!record?.manipulator) return;
+  try {
+    record.manipulator.remove?.();
+  } finally {
+    record.manipulator = null;
+  }
+}
 
 function getNextSlotIndex() {
   const used = new Set();
   robots.forEach(r => {
-    if (r && Number.isFinite(r.slotIndex)) used.add(r.slotIndex);
+    if (Number.isFinite(r?.slotIndex)) used.add(r.slotIndex);
   });
 
   let slot = 0;
@@ -34,16 +47,17 @@ const opcuaApi = {
 };
 
 function notifyStatus(robotId, status) {
-  if (typeof statusListener === 'function'){
-     statusListener(robotId, status);
+  if (typeof statusListener === 'function') {
+    statusListener(robotId, status);
   }
 }
 
 export function setStatusListener(listener) {
-    statusListener = null;
-    if (listener && typeof listener === 'function'){
-        statusListener = listener;
-    }
+  statusListener = typeof listener === 'function' ? listener : null;
+}
+
+export function setManipulatorFactory(factoryFn) {
+  manipulatorFactory = typeof factoryFn === 'function' ? factoryFn : null;
 }
 
 export function listRobots() {
@@ -54,7 +68,13 @@ export function getRobot(robotId) {
   return robots.get(robotId) || null;
 }
 
-export async function addRobot({ model, urdfPath, sceneNode, slotIndex, createManipulator = false }) {
+export async function addRobot({
+  model,
+  urdfPath,
+  sceneNode,
+  slotIndex,
+  createManipulator = true,
+}) {
   const assignedSlot = Number.isFinite(slotIndex) ? slotIndex : getNextSlotIndex();
   const id = `robot-${nextId++}`;
   const record = {
@@ -66,11 +86,16 @@ export async function addRobot({ model, urdfPath, sceneNode, slotIndex, createMa
     manipulator: null,
     opcuaSessionId: null,
     status: 'connecting',
-
-    gizmoPosition: null,
-    gizmoQuaternion: null
   };
   robots.set(id, record);
+  if (createManipulator) {
+    const factory = manipulatorFactory;
+    if (typeof factory !== 'function') {
+      throw new Error('addRobot requires a manipulator factory. Call setManipulatorFactory first.');
+    }
+    const manipulator = factory(record) || null;
+    if (manipulator) attachManipulator(record, manipulator);
+  }
   notifyStatus(id, record.status);
 
   try {
@@ -96,10 +121,7 @@ export async function removeRobot(robotId) {
     if (record.opcuaSessionId) {
       await opcuaApi.closeSession(record.opcuaSessionId);
     }
-
-    if (record.manipulator) {
-            record.manipulator.remove();
-        }
+    detachManipulator(record);
 
   } finally {
     robots.delete(robotId);
@@ -110,7 +132,7 @@ export async function removeRobot(robotId) {
 }
 
 export function clearAll() {
-  robots.forEach(r => r.manipulator?.remove());
+  robots.forEach(r => detachManipulator(r));
   robots.clear();
   nextId = 1;
   notifyStatus(null, 'cleared');

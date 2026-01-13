@@ -68,14 +68,24 @@ export const applyDefaultPose = (robot) => {
     }
 };
 
-export default
-    class URDFIKManipulator extends URDFManipulator {
-    constructor(...args) {
-        super(...args);
+export default class URDFIKManipulator extends URDFManipulator {
+    constructor(context = {}) {
+        // context is optional; when provided, it lets us share an existing scene/camera/renderer
+        super();
+        this.robotId = null; // set by robotManager
+        this.requestRender = context.requestRender || null;
+
+        // Prefer injected context from caller (e.g., viewer) so TransformControls bind to the right DOM element
+        this.scene = context.scene || this.scene;
+        this.world = context.world || this.world;
+        this.camera = context.camera || this.camera;
+        this.renderer = context.renderer || this.renderer;
+        this.controls = context.controls || this.controls;
+
         const controls = this.controls;
 
         // Transform controls
-        const transformControls = new TransformControls(this.camera, this.renderer.domElement);
+        const transformControls = new TransformControls(this.camera, this.renderer?.domElement);
         transformControls.setSpace('world');
         transformControls.addEventListener('change', () => this.redraw());
         transformControls.setSpace('local');
@@ -89,7 +99,6 @@ export default
         targetObject.add(sphere);
 
         this.world.add(targetObject);
-        //let transformControlsEnabled = true;
         transformControls.attach(targetObject);
 
         // Members
@@ -97,7 +106,6 @@ export default
         this.targetObject = targetObject;
         this.ikRoot = null;
         this.goal = null;
-        //this.helper = null;
         this.solver = null;
 
         //this.solveAvgMs = 0;
@@ -109,7 +117,10 @@ export default
         
         transformControls.addEventListener('dragging-changed', e => controls.enabled = !e.value);
         transformControls.addEventListener('mouseDown', () => this.onDragStart());
-        transformControls.addEventListener('change', () => this.onDragChange());
+        transformControls.addEventListener('change', () => {
+            this.onDragChange();
+            if (this.requestRender) this.requestRender();
+        });
         transformControls.addEventListener('mouseUp', () => this.onDragEnd());
 
         // keyboard shortcuts
@@ -154,6 +165,16 @@ export default
         this.labelTexture = texture;
         this.startPos = new Vector3();
     }
+    
+    /**
+     * Attach an externally provided URDF robot to this manipulator and re-init IK/gizmo state.
+     */
+    setRobot(robot, robotId = null) {
+        if (!robot) return;
+        this.robot = robot;
+        this.robotId = robotId ?? this.robotId;
+        this.dispatchEvent(new Event('urdf-processed'));
+    }
 
     init() {
         
@@ -195,7 +216,7 @@ export default
     }
     */
     resetGoal() {
-        // Reset the goal
+        // Reset the goal to the tool_point of the current robot
         const ik = this.ikRoot;
         const goal = this.goal;
         const tool_point = ik.find(c => c.name === 'tool_point');
@@ -206,9 +227,11 @@ export default
         targetObject.position.set(...goal.position);
         targetObject.quaternion.set(...goal.quaternion);
         this.redraw();
+        if (this.requestRender) this.requestRender();
     }
 
     solve() {
+        if (!this.robot || !this.ikRoot || !this.goal) return;
         const goal = this.goal;
         const ik = this.ikRoot;
         const robot = this.robot;
@@ -237,6 +260,7 @@ export default
             }
 
         this.redraw();
+        if (this.requestRender) this.requestRender();
     }
 
     
@@ -348,4 +372,29 @@ export default
         }
         
     }
+    remove() {
+        // Detach transform controls
+        if (this.transformControls) {
+            this.transformControls.detach();
+
+            const helper = this.transformControls.getHelper();
+            if (helper && helper.parent) {
+                helper.parent.remove(helper);
+            }
+
+            this.transformControls.dispose?.();
+            this.transformControls = null;
+        }
+
+        // Remove gizmo target object
+        if (this.targetObject && this.targetObject.parent) {
+            this.targetObject.parent.remove(this.targetObject);
+        }
+
+        this.targetObject = null;
+        this.goal = null;
+        this.ikRoot = null;
+        this.solver = null;
+    }
+
 }
