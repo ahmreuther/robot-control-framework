@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { SocketContext } from '../hooks/use-socket';
-import { LogContext } from "../App";
+import { LogContext } from '../contexts/LogContext';
 
 type AxleValues = Record<string, number>;
 
@@ -28,8 +28,7 @@ export default function WebSocketReciever() {
     // Handle every incoming WebSocket message
     const handleMessage = useCallback((msg: string) => {
         if (!msg) return;
-        console.log('WS message:', msg);
-        setLogs(prev => prev + msg); // always log
+        setLogs(prev => prev + `Received: ${msg}\n`); // always log
 
         try {
             if (msg.startsWith('x|robotinfo:')) {
@@ -84,10 +83,7 @@ export default function WebSocketReciever() {
         const { data, timeStamp } = socket.lastMessage;
 
         // Log every incoming message
-        console.group('📩 WS lastMessage');
-        console.log('Timestamp:', new Date(timeStamp));
-        console.log('Raw data:', data);
-        console.groupEnd();
+        console.log('Websocket data:', data);
 
         if (typeof data === 'string') handleMessage(data);
     }, [socket?.lastMessage, handleMessage]);

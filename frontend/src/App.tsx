@@ -6,9 +6,11 @@ import { Viewport } from "./components/viewport/Viewport";
 import {type ModelConfig } from './components/MenuComponents/ControlsComponents/URDFSelector';
 import { SidebarMenu } from './components/Menu';
 import { SocketProvider } from './hooks/use-socket';
-import { UrlProvider } from './components/UrlContext';
+import { UrlProvider } from './contexts/UrlContext';
 import { useJointState } from "./hooks/useJointState";
 import WebSocketReciever  from './components/WebsocketReciever';
+import { LogContext } from './contexts/LogContext';
+import { RobotInfoContext, RobotInfoProvider } from './contexts/RobotInfoContext';
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -17,14 +19,6 @@ const ROBOT_MODELS: ModelConfig[] = [
   { id: 'ur5e', label: 'UR5e', url: '/urdf/ur5_description/urdf/ur5_robot.urdf' },
 ];
 
-// Create context for logs
-export const LogContext = createContext<{
-  logs: string;
-  setLogs: React.Dispatch<React.SetStateAction<string>>;
-}>({
-  logs: '',
-  setLogs: () => {}
-});
 
 function App() {
 
@@ -46,9 +40,17 @@ function App() {
     setReloadKey(prev => prev + 1);
   };
 
-  const [logs, setLogs] = useState("Start of logs...\n");
+  const [logs, setLogs] = useState(null);
   const [opcuaUrl, setOpcuaUrl] = useState<string | null>(null);
   
+  const [robotName, setRobotName] = useState(null);
+  const [robotStatus, setRobotStatus] = useState(null);
+  const [robotMode, setRobotMode] = useState(null);
+  const [axleValues, setAxleValues] = useState(null);
+  const [robotInfo, setRobotInfo] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
+
+
   const logWrapper = {logs, setLogs};
 
   return (
@@ -58,6 +60,10 @@ function App() {
           <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
             <SocketProvider url='ws://127.0.0.1:8001/ws'>
               <LogContext.Provider value={logWrapper}>
+                <RobotInfoProvider robotName={robotName} robotInfo={robotInfo} robotMode={robotMode}
+                 robotStatus={robotStatus} axleValues={axleValues} debugInfo={debugInfo}
+                 setAxleValues={setAxleValues} setDebugInfo={setDebugInfo} setRobotInfo={setRobotInfo} setRobotMode={setRobotMode}
+                 setRobotName={setRobotName} setRobotStatus={setRobotStatus}>
                 <WebSocketReciever/>
                 <div className="flex flex-col h-full bg-[#202025]">
                   <SidebarMenu
@@ -68,6 +74,7 @@ function App() {
                     setJointAngles={setJointsAngles}
                   />
                 </div>
+                </RobotInfoProvider>
               </LogContext.Provider>
             </SocketProvider>
           </UrlProvider>

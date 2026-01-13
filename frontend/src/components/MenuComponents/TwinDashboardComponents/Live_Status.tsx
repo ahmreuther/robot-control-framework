@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { SocketContext } from '../../../hooks/use-socket';
+import { useRobotInfoContext, RobotInfoContext } from '../../../contexts/RobotInfoContext';
 
 type AxleValues = Record<string, number>;
 
@@ -13,14 +14,9 @@ type RobotInfo = {
 
 export default function Live_Status() {
     const wsHook = useContext(SocketContext);
-
-    const [robotName, setRobotName] = useState('-');
-    const [robotStatus, setRobotStatus] = useState('Not Connected');
-    const [robotMode, setRobotMode] = useState('-');
-    const [axleValues, setAxleValues] = useState<AxleValues>({});
-    const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
-    const [debugInfo, setDebugInfo] = useState('Initializing...');
-    const [messageLog, setMessageLog] = useState<string[]>([]); // Keep full history
+    
+    const {robotName, setRobotName, robotStatus, setRobotStatus , robotMode, setRobotMode ,
+         axleValues, setAxleValues , robotInfo, setRobotInfo, debugInfo, setDebugInfo} = useRobotInfoContext();
 
     // Format axle values for display
     const jointsText =
@@ -29,7 +25,7 @@ export default function Live_Status() {
             : Object.entries(axleValues)
                 .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
                 .join(', ');
-                
+
     return (
         <div className="overflow-auto rounded p-4 space-y-3 text-white bg-black bg-opacity-70 border border-white/20">
             {/* Identifier Header */}
@@ -52,16 +48,6 @@ export default function Live_Status() {
                 <StatusItem label="Joints (Axles)" value={jointsText} />
                 {robotInfo.manufacturer && <StatusItem label="Manufacturer" value={robotInfo.manufacturer} />}
                 {robotInfo.serialNumber && <StatusItem label="Serial Number" value={robotInfo.serialNumber} />}
-            </div>
-
-            {/* Optional: live message log */}
-            <div className="mt-4 text-xs text-gray-400 overflow-auto max-h-40 bg-black/30 p-2 rounded">
-                <div className="font-bold mb-1">Message Log:</div>
-                {messageLog.map((msg, idx) => (
-                    <div key={idx} className="border-b border-white/10 py-0.5">
-                        {msg}
-                    </div>
-                ))}
             </div>
         </div>
     );

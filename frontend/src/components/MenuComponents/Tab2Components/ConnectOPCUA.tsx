@@ -1,7 +1,7 @@
 
 import { Button, Input } from "@heroui/react";
 import { useState, useContext, useEffect } from "react";
-import { UrlContext } from "../../UrlContext";
+import { UrlContext } from "../../../contexts/UrlContext";
 import Synchronize_Button from "./SynchroniseButton";
 import { useSendMessage } from "../../../hooks/send-message";
 

@@ -1,7 +1,7 @@
 // Skizze für die synchronisierungs button logik, übernommen aus dem Vorgängerprojekt
 
-import { useUrlContext } from "../../UrlContext";
-import { LogContext } from "../../../App";
+import { useUrlContext } from "../../../contexts/UrlContext";
+import { LogContext } from "../../../contexts/LogContext";
 import { useContext, useState } from "react";
 import { Switch, Label } from "@heroui/react";
 import {useSendMessage} from "../../../hooks/send-message";
