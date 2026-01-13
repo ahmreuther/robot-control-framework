@@ -13,6 +13,8 @@ interface MenuProps {
   onSelect: (robot: ModelConfig) => void;
   jointManager: JointStateManager;
   jointLimits?: Array<JointLimit | null>;
+  setShowCollisionMesh?: (show: boolean) => void;
+  showCollisionMesh?: boolean;
 }
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
@@ -58,6 +60,8 @@ export function SidebarMenu(MenuProps: MenuProps) {
           <JointAnglesPanel
             jointManager={MenuProps.jointManager}
             jointLimits={MenuProps.jointLimits}
+            showCollisionMesh={MenuProps.showCollisionMesh}
+            setShowCollisionMesh={MenuProps.setShowCollisionMesh}
           />
         </div>
         }

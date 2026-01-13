@@ -10,7 +10,8 @@ import { JointManagerPanel } from "./JointManagerPanel";
 export interface ViewportProps {
   urdfPath: string;
   jointManager: JointStateManager;
-  onJointLimitsLoaded?: (limits: Array<import("../../hooks/useSceneState").JointLimit | null>) => void;
+  onJointLimitsLoaded: (limits: Array<import("../../hooks/useSceneState").JointLimit | null>) => void;
+  showCollisionMesh: boolean;
 }
 
 export function Viewport(props: ViewportProps) {
@@ -60,6 +61,7 @@ export function Viewport(props: ViewportProps) {
             onDrag={setDrag}
             jointManager={jointManager}
             onJointLimitsLoaded={onJointLimitsLoaded}
+            showCollisionMesh={props.showCollisionMesh}
           />
         </Suspense>
       </Canvas>

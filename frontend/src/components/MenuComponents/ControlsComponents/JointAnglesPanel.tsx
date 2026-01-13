@@ -12,6 +12,8 @@ export interface JointAnglesPanelProps {
   step?: number;
   onCollisionMeshToggle?: (visible: boolean) => void;
   jointLimits?: Array<JointLimit | null>;
+  showCollisionMesh: boolean;
+  setShowCollisionMesh?: (show: boolean) => void;
 }
 
 const PANEL_WRITER_ID = 'joint-angles-panel';
@@ -24,8 +26,9 @@ export function JointAnglesPanel({
   step = 1,
   onCollisionMeshToggle,
   jointLimits,
+  showCollisionMesh = false,
+  setShowCollisionMesh,
 }: JointAnglesPanelProps) {
-  const [showCollisionMesh, setShowCollisionMesh] = useState(false);
   const [showRadians, setShowRadians] = useState(false);
   const [localAngles, setLocalAngles] = useState<number[]>([]);
   const [isEditing, setIsEditing] = useState(false);

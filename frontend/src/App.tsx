@@ -29,7 +29,9 @@ function App() {
     handleRobotSelect,
     setJointLimits,
     jointLimits,
-    options
+    options,
+    showCollisionMesh,
+    setShowCollisionMesh,
   } = useSceneState();
 
   const [logs, setLogs] = useState("Start of logs...\n");
@@ -50,6 +52,8 @@ function App() {
                     options={options} 
                     onSelect={(robot) => handleRobotSelect(robot)} 
                     jointLimits={jointLimits}
+                    showCollisionMesh={showCollisionMesh}
+                    setShowCollisionMesh={setShowCollisionMesh}
                   />
                 </div>
               </LogContext.Provider>
@@ -63,6 +67,7 @@ function App() {
               urdfPath={selectedRobot.url}
               jointManager={jointManager}
               onJointLimitsLoaded={setJointLimits}
+              showCollisionMesh={showCollisionMesh}
             />
           </div>
         </Panel>

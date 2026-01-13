@@ -25,6 +25,7 @@ interface RobotProps {
   onDrag: (dragging: boolean) => void;
   onJointLimitsLoaded: (limits: Array<JointLimit | null>) => void;
   jointManager: JointStateManager;
+  showCollisionMesh: boolean;
 }
 
 export function Robot({
@@ -34,9 +35,38 @@ export function Robot({
   onDrag,
   onJointLimitsLoaded,
   jointManager,
+  showCollisionMesh,
 }: RobotProps) {
   const robotRef = useRef<URDFRobot | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
+  
+    useEffect(() => {
+      if (!robotRef.current) return;
+      if (typeof showCollisionMesh === 'undefined') return;
+      if (showCollisionMesh) {
+        robotRef.current.traverse((obj: any) => {
+          if (obj.geometry) {
+            obj.material = new THREE.MeshPhongMaterial({
+              color: 0xff4444,
+              opacity: 0.3,
+              transparent: true,
+              wireframe: false,
+            });
+          }
+        });
+      } else {
+        robotRef.current.traverse((obj: any) => {
+          if (obj.geometry) {
+            obj.material = new THREE.MeshPhongMaterial({
+              color: 0xcccccc,
+              opacity: 1.0,
+              transparent: false,
+              wireframe: false,
+            });
+          }
+        });
+      }
+    }, [showCollisionMesh]);
   const ikRootRef = useRef<any>(null);
   
   const convergedRef = useRef<boolean>(false);
@@ -69,12 +99,12 @@ export function Robot({
   const homePositionRef = useRef<number[]>([]);
   const isAnimatingRef = useRef(false);
 
-  // Interaction / highlighting state
   const [hoveredJoint, setHoveredJoint] = useState<string | null>(null);
 
   const hoveredJointRef = useRef<any>(null);
   const materialMapRef = useRef<Map<THREE.Object3D, THREE.Material>>(new Map());
-  const controlsRef = useRef<any>(null);
+
+  const [showGoalMarker, setShowGoalMarker] = useState(false);
 
   // Local helpers
   const findEndEffectorInRobot = (robot: URDFRobot | null) => {
@@ -146,11 +176,20 @@ export function Robot({
       setGoalPosition(newPos);
       setGoalQuaternion(newQuat);
       
-      // Also update last valid goal to prevent IK from resetting
       lastValidGoalPositionRef.current = [...newPos];
       lastValidGoalQuaternionRef.current = [...newQuat];
     }
   }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'h' || e.key === 'H') {
+        setShowGoalMarker((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = jointManager.subscribe((angles) => {
@@ -191,9 +230,11 @@ export function Robot({
     const worldPos = new THREE.Vector3(...goalPosition);
     const localPos = robotGroup.worldToLocal(worldPos.clone());
     
-    goal.setPosition(localPos.x, localPos.y, localPos.z);
-    goal.setQuaternion(...goalQuaternion);
-    goal.setMatrixNeedsUpdate();
+    if(!goal) {
+      goal.setPosition(localPos.x, localPos.y, localPos.z);
+      goal.setQuaternion(...goalQuaternion);
+      goal.setMatrixNeedsUpdate();
+    }
     
     // Always sync IK with current robot state before solving
     setIKFromUrdf(ikRoot, robot);
@@ -331,57 +372,6 @@ export function Robot({
         setGoalPosition(newPos);
         setGoalQuaternion(newQuat)
       }
-
-      // // Initialize urdf-loader pointer drag controls
-      // const robotObj: any = robotRef.current;
-      // const controls = new PointerURDFDragControls(robotObj, camera, gl.domElement);
-      // controlsRef.current = controls;
-
-      // controls.updateJoint = (joint: any, angle: number) => {
-      //   const robot = robotRef.current;
-      //   if (!robot) return;
-
-      //   //robot.setJointValue(joint.name, angle);
-      //   //robot.updateMatrixWorld(true);
-        
-      //   // Emit updated angles to parent
-      //   const jointNames = Object.keys(robot.joints ?? {});
-      //   const updatedAngles: number[] = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
-      //   //jointManager.setAngles(WRITER_ID.DRAG, updatedAngles);
-      //   robot.setJointValue(joint.name, angle);
-      //   robot.updateMatrixWorld(true);
-        
-      //   updateGoalToEndEffector();
-      // };
-
-      // controls.onDragStart = (joint: any) => {
-      //   jointManager.mountWriter(WRITER_ID.DRAG, WRITER_PRIORITY.DRAG);
-      //   onDrag?.(true);
-      // };
-
-      // controls.onDragEnd = (joint: any) => {
-      //   jointManager.unmountWriter(WRITER_ID.DRAG);
-      //   onDrag?.(false);
-      // };
-
-      // controls.onHover = (joint: any) => {
-      //   if (hoveredJointRef.current) {
-      //     highlightJointGeometry(hoveredJointRef.current, false);
-      //   }
-      //   hoveredJointRef.current = joint;
-      //   if (joint) {
-      //     highlightJointGeometry(joint, true);
-      //   }
-      //   setHoveredJoint(joint?.name ?? null);
-      // };
-
-      // controls.onUnhover = (joint: any) => {
-      //   if (joint) {
-      //     highlightJointGeometry(joint, false);
-      //   }
-      //   hoveredJointRef.current = null;
-      //   setHoveredJoint(null);
-      // };
     },
     [gl, camera]
   );  
@@ -484,6 +474,7 @@ export function Robot({
       <RobotLoader 
         urdfPath={urdfPath}
         onRobotReady={handleRobotReady} 
+        showCollisionMesh={showCollisionMesh}
       />
       <DragControls
         robot={robotRef.current}
@@ -495,7 +486,8 @@ export function Robot({
         onUnhover={handleUnhover}
         onUpdateJoint={handleUpdateJoint}
       />
-      {!isAnimatingRef.current && ( <GoalMarker
+      {!isAnimatingRef.current && showGoalMarker && (
+        <GoalMarker
           onPositionChange={setGoalPosition}
           onQuaternionChange={setGoalQuaternion}
           goalQuaternion={goalQuaternion}
