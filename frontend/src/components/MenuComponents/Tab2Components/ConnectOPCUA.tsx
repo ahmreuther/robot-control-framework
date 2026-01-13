@@ -4,13 +4,14 @@ import { useState, useContext, useEffect } from "react";
 import { UrlContext } from "../../../contexts/UrlContext";
 import Synchronize_Button from "./SynchroniseButton";
 import { useSendMessage } from "../../../hooks/send-message";
+import {RobotInfoContext} from "../../../contexts/RobotInfoContext"; [RobotInfoContext]
 
 // Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
 function ConnectOPCUA() {
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
   const {url, setUrl}  = useContext(UrlContext);
   const { sendMessage } = useSendMessage();
-
+  const isConnected = useContext(RobotInfoContext).robotStatus === "Connected";
   // Load saved URL from localStorage on mount
   useEffect(() => {
     const lastUrl = localStorage.getItem("lastOpcUaUrl");
@@ -45,6 +46,7 @@ function ConnectOPCUA() {
             className="w-full text-xs"
             placeholder="OPC UA Server URL"
             list={savedUrl ? "savedUrls" : undefined}
+            disabled={isConnected}
           />
         {savedUrl && (
           <datalist id="savedUrls">
