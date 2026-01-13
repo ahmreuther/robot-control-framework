@@ -9,6 +9,7 @@ import { useSceneState } from './hooks/useSceneState';
 import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './components/UrlContext';
 import { useJointState } from "./hooks/useJointState";
+import { OPCUAAddressSpace } from './components/OPCUAAdressspace';
 
 // Create context for logs
 export const LogContext = createContext<{
@@ -58,6 +59,7 @@ function App() {
                     setJointAngles={setJointsAngles}
                     jointLimits={jointLimits}
                   />
+                  <OPCUAAddressSpace />
                 </div>
               </LogContext.Provider>
             </SocketProvider>

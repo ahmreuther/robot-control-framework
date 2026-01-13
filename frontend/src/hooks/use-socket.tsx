@@ -36,12 +36,9 @@ export function SocketProvider(props: SocketProviderProps) {
 }
 
 // used like : const socket = useSocket(); in order to use the websocket connection
-export function useSocket(): WebSocketLike {
-  const wsCtx = useContext(SocketContext)
-  const socket = wsCtx?.getWebSocket()
-  if (!socket) {
-    throw new Error("useSocket must be used within a SocketContext.Provider");
-  }
-
-  return socket;
+// returns null until the WebSocket instance exists
+export function useSocket(): WebSocketLike | null {
+  const wsCtx = useContext(SocketContext);
+  const socket = wsCtx?.getWebSocket();
+  return socket ?? null;
 }
