@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useUrlContext } from "./UrlContext";
 import { useSocket } from "../hooks/use-socket";
 
@@ -44,7 +44,14 @@ export const OPCUAAddressSpace: React.FC = () => {
 
   const containerRef = useRef<HTMLDivElement | null>(null); // pointer to the container in which the address space tree is rendered
 
-
+  // Manually update innerHTML only when html changes to prevent tree collapse
+  useEffect(() => {
+    if (containerRef.current && html) {
+      containerRef.current.innerHTML = html;
+    } else if (containerRef.current && !html) {
+      containerRef.current.innerHTML = '';
+    }
+  }, [html]);
 
     // --- Toggle Open/Close --- with reset of the tree after closing to avoid errors on reopen
   const toggleOpen = () => {
@@ -291,6 +298,11 @@ export const OPCUAAddressSpace: React.FC = () => {
   `;
 
 const addSubscription = (node: SelectedNodeInfo) => {
+    const nodeClass = node?.attributes?.nodeclass;
+    if (nodeClass !== "2") {
+      console.warn("[addSubscription] Can only subscribe to Variables (NodeClass 2)");
+      return;
+    }
     setSubscriptions((prev) => {
       if (prev.find((s) => s.nodeId === node.nodeId)) return prev;
 
@@ -326,6 +338,11 @@ const addSubscription = (node: SelectedNodeInfo) => {
   };
 
   const addEventSubscription = (node: SelectedNodeInfo) => {
+    const nodeClass = node?.attributes?.nodeclass;
+    if (nodeClass !== "1") {
+      console.warn("[addEventSubscription] Can only subscribe to Events on Objects (NodeClass 1)");
+      return;
+    }
     setEventSubscriptions((prev) => {
       if (prev.find((s) => s.nodeId === node.nodeId)) return prev;
 
@@ -359,6 +376,11 @@ const addSubscription = (node: SelectedNodeInfo) => {
   };
 
   const openMethodDialog = (node: SelectedNodeInfo) => {
+    const nodeClass = node?.attributes?.nodeclass;
+    if (nodeClass !== "4") {
+      console.warn("[openMethodDialog] Can only call Methods (NodeClass 4)");
+      return;
+    }
     setMethodNode(node);
     setMethodDialogOpen(true);
     setMethodInputsJSON("{}");
@@ -396,77 +418,21 @@ const addSubscription = (node: SelectedNodeInfo) => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      
-      if (message.startsWith("Method call result:")) {
-        setMethodResult(message.replace("Method call result:", "").trim());
-      } else if (message.startsWith("❌") && message.toLowerCase().includes("method")) {
-        setMethodResult(message);
-      }
-    };
+    const lastMessage = (socket as any).lastMessage;
+    if (!lastMessage) return;
 
-    (socket as any).addEventListener?.("message", handleMessage);
+    const message = lastMessage.data;
+    console.log("[OPCUAAddressSpace] Received WebSocket message:", message);
     
-    return () => {
-      (socket as any).removeEventListener?.("message", handleMessage);
-    };
-  }, [socket]);
-
-  const openMethodDialog = (node: SelectedNodeInfo) => {
-    setMethodNode(node);
-    setMethodDialogOpen(true);
-    setMethodInputsJSON("{}");
-    setMethodResult(null);
-  };
-
-  const callMethod = () => {
-    if (!methodNode || !socket || socket.readyState !== WebSocket.OPEN || !OPC_UA_URL) return;
-
-    try {
-      const inputs = JSON.parse(methodInputsJSON);
-      const payload = JSON.stringify({
-        url: OPC_UA_URL,
-        nodeId: methodNode.nodeId,
-        inputs: inputs
-      });
-
-      const msg = `call|${payload}`;
-      (socket as WebSocket).send(msg);
-      console.log("[OPCUAAddressSpace] Sent method call:", msg);
-      setMethodResult("Calling method...");
-    } catch (err: any) {
-      setMethodResult(`❌ Invalid JSON: ${err.message}`);
+    if (message.startsWith("Method call result:")) {
+      const result = message.replace("Method call result:", "").trim();
+      console.log("[OPCUAAddressSpace] Setting method result:", result);
+      setMethodResult(result);
+    } else if (message.startsWith("❌") && message.toLowerCase().includes("method")) {
+      console.log("[OPCUAAddressSpace] Setting method error:", message);
+      setMethodResult(message);
     }
-  };
-
-  const closeMethodDialog = () => {
-    setMethodDialogOpen(false);
-    setMethodNode(null);
-    setMethodInputsJSON("{}");
-    setMethodResult(null);
-  };
-
-  // WebSocket listener for method call results
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      
-      if (message.startsWith("Method call result:")) {
-        setMethodResult(message.replace("Method call result:", "").trim());
-      } else if (message.startsWith("❌") && message.toLowerCase().includes("method")) {
-        setMethodResult(message);
-      }
-    };
-
-    (socket as any).addEventListener?.("message", handleMessage);
-    
-    return () => {
-      (socket as any).removeEventListener?.("message", handleMessage);
-    };
-  }, [socket]);
+  }, [socket, (socket as any)?.lastMessage]);
 
   // Polling effect: request latest value for all subscribed nodes periodically
   useEffect(() => {
@@ -601,7 +567,7 @@ const addSubscription = (node: SelectedNodeInfo) => {
           {!loading && !error && html && (
             // layout: left = tree, right = node info panel (space reserved for future widgets)
             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <div id="info-content" ref={containerRef} style={{ flex: 1 }} dangerouslySetInnerHTML={{ __html: html }} />
+              <div id="info-content" ref={containerRef} style={{ flex: 1 }} />
 
               <div
                 style={{
@@ -815,7 +781,7 @@ const addSubscription = (node: SelectedNodeInfo) => {
                 Input Parameters (JSON)
               </label>
               <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>
-                Example: {{"paramName": "value", "count": 42}}
+                Example: {`{"paramName": "value", "count": 42}`}
               </div>
               <textarea
                 value={methodInputsJSON}
@@ -885,14 +851,4 @@ const addSubscription = (node: SelectedNodeInfo) => {
     </div>
   );
 };
-
-
-
-
-/*
-Bugs to fix:
-
--when showing the node info üanel, the tree closes
--when subscribing to a node, the tree  just closes has to do something with the polling rate
-
-*/
+export default OPCUAAddressSpace;
