@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useUrlContext } from "./UrlContext";
+import { useUrlContext } from "../contexts/UrlContext";
 import { useSocket } from "../hooks/use-socket";
 
 type SelectedNodeInfo = {
@@ -7,7 +7,7 @@ type SelectedNodeInfo = {
   attributes: Record<string, string>;
 };
 
-const REST_BACKEND_BASE = "http://127.0.0.1:8000"; //FastApi backend base url port 8000
+const REST_BACKEND_BASE = "http://127.0.0.1:8001"; //FastApi backend base url port 8000
 
 
 const INDENT_PER_LEVEL_PX = 10; // px per tree level for indentation
