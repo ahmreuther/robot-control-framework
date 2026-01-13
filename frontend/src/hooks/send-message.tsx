@@ -1,6 +1,6 @@
 //used to send messages via websocket to backend
 import { useContext } from "react";
-import { LogContext } from "/src/App";
+import { LogContext } from "../App";
 import { useUrlContext } from "../components/UrlContext";
 import { useSocket } from "./use-socket";
 

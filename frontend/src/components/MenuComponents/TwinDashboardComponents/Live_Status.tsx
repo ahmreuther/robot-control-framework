@@ -20,6 +20,7 @@ export default function Live_Status() {
     const [axleValues, setAxleValues] = useState<AxleValues>({});
     const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
     const [debugInfo, setDebugInfo] = useState('Initializing...');
+    const [messageLog, setMessageLog] = useState<string[]>([]); // Keep full history
 
     // Format axle values for display
     const jointsText =
@@ -29,104 +30,83 @@ export default function Live_Status() {
                 .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
                 .join(', ');
 
+    // Handle every incoming WebSocket message
     const handleMessage = useCallback((msg: string) => {
         if (!msg) return;
+        console.log('WS message:', msg);
 
-        // ---- Handle prefixed messages first ----
-        if (msg.startsWith("x|")) {
-            if (msg.startsWith("x|robotinfo:")) {
-                try {
-                    const payload = JSON.parse(msg.slice("x|robotinfo:".length));
-                    setRobotInfo(payload);
-                    if (payload.model) setRobotName(payload.model);
-                    setRobotStatus('Connected');
-                    setDebugInfo('✅ Robot info received');
-                } catch (e) {
-                    setDebugInfo('❌ Failed to parse robotinfo: ' + String(e));
-                }
-            } else if (msg.startsWith("x|Mode:")) {
-                const modeValue = msg.replace("x|Mode:", "").trim();
-                setRobotMode(modeValue);
-                setRobotStatus('Connected');
-                setDebugInfo('✅ Mode: ' + modeValue);
-            } else if (msg.startsWith("x|angles:")) {
-                try {
-                    const dictStr = msg.replace("x|angles:", "").replace(/'/g, '"');
-                    const anglesMsg = JSON.parse(dictStr);
-                    if (anglesMsg.angles) setAxleValues(anglesMsg.angles);
-                    setDebugInfo('✅ Axle values updated');
-                } catch (e) {
-                    setDebugInfo('❌ Failed to parse axle values: ' + String(e));
-                }
-            }
-            return;
-        }
+        setMessageLog(prev => [...prev, msg]); // always log
 
-        // ---- Handle unprefixed live status messages ----
-        if (msg.startsWith("Robot info sent:")) {
-            try {
-                const payload = JSON.parse(msg.replace("Robot info sent:", "").trim());
+        try {
+            if (msg.startsWith('x|robotinfo:')) {
+                const payload = JSON.parse(msg.slice('x|robotinfo:'.length));
                 setRobotInfo(payload);
                 if (payload.model) setRobotName(payload.model);
                 setRobotStatus('Connected');
                 setDebugInfo('✅ Robot info received');
-            } catch (e) {
-                setDebugInfo('❌ Failed to parse robot info: ' + String(e));
-            }
-            return;
-        }
-
-        if (msg.startsWith("Axle values collected:")) {
-            try {
-                const dictStr = msg.replace("Axle values collected:", "").replace(/'/g, '"');
-                const anglesMsg = JSON.parse(dictStr);
-                if (anglesMsg) setAxleValues(anglesMsg);
+            } else if (msg.startsWith('x|Mode:')) {
+                const mode = msg.replace('x|Mode:', '').trim();
+                setRobotMode(mode);
+                setRobotStatus('Connected');
+                setDebugInfo('✅ Mode: ' + mode);
+            } else if (msg.startsWith('x|angles:')) {
+                const parsed = JSON.parse(msg.replace('x|angles:', '').replace(/'/g, '"'));
+                if (parsed?.angles) setAxleValues(prev => ({ ...prev, ...parsed.angles }));
                 setDebugInfo('✅ Axle values updated');
-            } catch (e) {
-                setDebugInfo('❌ Failed to parse axle values: ' + String(e));
+            } else if (msg.startsWith('Robot info sent:')) {
+                const payload = JSON.parse(msg.replace('Robot info sent:', '').trim());
+                setRobotInfo(payload);
+                if (payload.model) setRobotName(payload.model);
+                setRobotStatus('Connected');
+                setDebugInfo('✅ Robot info received');
+            } else if (msg.startsWith('Axle values collected:')) {
+                const parsed = JSON.parse(msg.replace('Axle values collected:', '').replace(/'/g, '"'));
+                setAxleValues(prev => ({ ...prev, ...parsed }));
+                setDebugInfo('✅ Axle values updated');
+            } else if (msg.startsWith('stream mode|')) {
+                const modeValue = msg.split('|')[0].replace('stream mode', '').trim();
+                if (modeValue) setRobotMode(modeValue);
+                setRobotStatus('Connected');
+            } else if (msg.startsWith('✅ Connected to ')) {
+                setRobotStatus('Connected');
+            } else if (msg.startsWith('🔌 Disconnected from ')) {
+                setRobotStatus('Not Connected');
+                setRobotName('-');
+                setRobotMode('-');
+                setAxleValues({});
+                setRobotInfo({});
+                setDebugInfo('🔌 Disconnected');
             }
-            return;
-        }
-
-        if (msg.startsWith("stream mode|")) {
-            // Optional: parse stream mode updates if sent differently
-            const modeValue = msg.split("|")[0].replace("stream mode", "").trim();
-            if (modeValue) setRobotMode(modeValue);
-            setRobotStatus('Connected');
-            return;
-        }
-
-        // ---- Connection / Disconnection ----
-        if (msg.startsWith("✅ Connected to ")) setRobotStatus('Connected');
-        if (msg.startsWith("🔌 Disconnected from ")) {
-            setRobotStatus('Not Connected');
-            setRobotName('-');
-            setRobotMode('-');
-            setAxleValues({});
-            setRobotInfo({});
-            setDebugInfo('🔌 Disconnected');
+        } catch (e) {
+            setDebugInfo('❌ Failed to handle message: ' + String(e));
         }
     }, []);
 
-    // Listen to WebSocket lastMessage
+
+    // Listen to wsHook.lastMessage
     useEffect(() => {
         if (!wsHook?.lastMessage) return;
-        const msg = wsHook.lastMessage.data;
-        if (typeof msg === 'string') handleMessage(msg);
+
+        const { data, timeStamp } = wsHook.lastMessage;
+
+        // Log every incoming message
+        console.group('📩 WS lastMessage');
+        console.log('Timestamp:', new Date(timeStamp));
+        console.log('Raw data:', data);
+        console.groupEnd();
+
+        if (typeof data === 'string') handleMessage(data);
     }, [wsHook?.lastMessage, handleMessage]);
 
     return (
         <div className="overflow-auto rounded p-4 space-y-3 text-white bg-black bg-opacity-70 border border-white/20">
-
             {/* Identifier Header */}
-            <div className="text-sm font-bold uppercase tracking-wide text-white/90 border-b border-white/20 pb-2">
+            <div className="text-sm font-bold uppercase tracking-wide border-b border-white/20 pb-2">
                 Live Status
             </div>
 
             {/* Debug Info */}
-            <div className="text-xs text-gray-400 p-2 bg-black/50 rounded">
-                {debugInfo}
-            </div>
+            <div className="text-xs text-gray-400 p-2 bg-black/50 rounded">{debugInfo}</div>
 
             {/* Status items */}
             <div className="flex flex-col space-y-2">
@@ -138,12 +118,18 @@ export default function Live_Status() {
                 />
                 <StatusItem label="Mode" value={robotMode} />
                 <StatusItem label="Joints (Axles)" value={jointsText} />
-                {robotInfo.manufacturer && (
-                    <StatusItem label="Manufacturer" value={robotInfo.manufacturer} />
-                )}
-                {robotInfo.serialNumber && (
-                    <StatusItem label="Serial Number" value={robotInfo.serialNumber} />
-                )}
+                {robotInfo.manufacturer && <StatusItem label="Manufacturer" value={robotInfo.manufacturer} />}
+                {robotInfo.serialNumber && <StatusItem label="Serial Number" value={robotInfo.serialNumber} />}
+            </div>
+
+            {/* Optional: live message log */}
+            <div className="mt-4 text-xs text-gray-400 overflow-auto max-h-40 bg-black/30 p-2 rounded">
+                <div className="font-bold mb-1">Message Log:</div>
+                {messageLog.map((msg, idx) => (
+                    <div key={idx} className="border-b border-white/10 py-0.5">
+                        {msg}
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -165,3 +151,4 @@ function StatusItem({
         </div>
     );
 }
+
