@@ -232,12 +232,9 @@ export function Robot({
     // Transform goal from world space to robot local space
     const worldPos = new THREE.Vector3(...goalPosition);
     const localPos = robotGroup.worldToLocal(worldPos.clone());
-    
-    if(!goal) {
-      goal.setPosition(localPos.x, localPos.y, localPos.z);
-      goal.setQuaternion(...goalQuaternion);
-      goal.setMatrixNeedsUpdate();
-    }
+    goal.setPosition(localPos.x, localPos.y, localPos.z);
+    goal.setQuaternion(...goalQuaternion);
+    goal.setMatrixNeedsUpdate();
     
     // Always sync IK with current robot state before solving
     setIKFromUrdf(ikRoot, robot);
