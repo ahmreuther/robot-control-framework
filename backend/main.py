@@ -57,6 +57,72 @@ app.mount("/llm", mcp_server.mcp_app)
 
 # app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="root")
 
+@app.get("/device_set_json")
+async def get_device_set_json(url: str):
+    """Returns the complete DeviceSet tree as JSON."""
+    from fastapi.responses import JSONResponse
+    
+    client = opcua.get_client(url)
+    if not client:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"No OPC UA client connected for URL: {url}"}
+        )
+    try:
+        root = client.client.get_root_node()
+        from modules.GetAddressSpace import collect_node_details
+        detailed = await collect_node_details(root, children_depth=2)
+        return JSONResponse(content=detailed)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.get("/node_json")
+async def get_node_json(url: str, nodeid: str):
+    """Returns details of a single node as JSON."""
+    from fastapi.responses import JSONResponse
+    
+    client = opcua.get_client(url)
+    if not client:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "No OPC UA client for this URL"}
+        )
+    try:
+        node = client.client.get_node(nodeid)
+        from modules.GetAddressSpace import collect_node_details
+        detail = await collect_node_details(node, children_depth=0)
+        return JSONResponse(content=detail)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.get("/subtree_children_json")
+async def get_subtree_children_json(url: str, nodeid: str):
+    """Returns the children of a node as JSON."""
+    from fastapi.responses import JSONResponse
+    
+    client = opcua.get_client(url)
+    if not client:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"No OPC UA client connected for URL: {url}"}
+        )
+    try:
+        node = client.client.get_node(nodeid)
+        from modules.GetAddressSpace import collect_node_details
+        detailed = await collect_node_details(node, children_depth=2)
+        return JSONResponse(content=detailed)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
     # asyncio.run(main())
