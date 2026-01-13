@@ -10,7 +10,7 @@ import { UrlProvider } from './contexts/UrlContext';
 import { useJointState } from "./hooks/useJointState";
 import WebSocketReciever  from './components/WebsocketReciever';
 import { LogContext } from './contexts/LogContext';
-import { RobotInfoContext, RobotInfoProvider } from './contexts/RobotInfoContext';
+import { RobotInfoContext, RobotInfoProvider, AxleValues, RobotInfo } from './contexts/RobotInfoContext';
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -43,12 +43,12 @@ function App() {
   const [logs, setLogs] = useState(null);
   const [opcuaUrl, setOpcuaUrl] = useState<string | null>(null);
   
-  const [robotName, setRobotName] = useState(null);
-  const [robotStatus, setRobotStatus] = useState(null);
-  const [robotMode, setRobotMode] = useState(null);
-  const [axleValues, setAxleValues] = useState(null);
-  const [robotInfo, setRobotInfo] = useState(null);
-  const [debugInfo, setDebugInfo] = useState(null);
+  const [robotName, setRobotName] = useState('-');
+  const [robotStatus, setRobotStatus] = useState('Not Connected');
+  const [robotMode, setRobotMode] = useState('-');
+  const [axleValues, setAxleValues] = useState<AxleValues>({});
+  const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
+  const [debugInfo, setDebugInfo] = useState('Initializing...');
 
 
   const logWrapper = {logs, setLogs};

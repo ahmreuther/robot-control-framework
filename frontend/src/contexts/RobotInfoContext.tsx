@@ -1,8 +1,8 @@
 import { createContext, useContext, type PropsWithChildren } from "react";
 
-type AxleValues = Record<string, number>;
+export type AxleValues = Record<string, number>;
 
-type RobotInfo = {
+export type RobotInfo = {
     manufacturer?: string;
     model?: string;
     serialNumber?: string;
