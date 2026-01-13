@@ -5,12 +5,11 @@ import { Robot } from "./Robot";
 import { Stats } from "./Stats";
 import { SolverStatus } from "./SolverStatus";
 import type { JointStateManager } from "../../hooks/useJointState";
-import { JointLimit } from "../../hooks/useSceneState";
+import { JointManagerPanel } from "./JointManagerPanel";
 
 export interface ViewportProps {
   urdfPath: string;
   jointManager: JointStateManager;
-  jointLimits: Array<JointLimit | null>;
   onJointLimitsLoaded?: (limits: Array<import("../../hooks/useSceneState").JointLimit | null>) => void;
 }
 
@@ -18,7 +17,6 @@ export function Viewport(props: ViewportProps) {
   const { 
     urdfPath,
     jointManager,
-    jointLimits,
     onJointLimitsLoaded
   } = props;
   
@@ -32,6 +30,9 @@ export function Viewport(props: ViewportProps) {
       <div className="absolute top-0 left-0 z-50 flex flex-col gap-11">
         <Stats/>
         <SolverStatus solveStatuses={solveStatuses} />
+      </div>
+      <div className="absolute top-0 right-0 m-4 z-50">
+        <JointManagerPanel jointManager={jointManager} />
       </div>
 
       <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>

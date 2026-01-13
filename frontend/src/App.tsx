@@ -49,7 +49,7 @@ function App() {
                     jointManager={jointManager}
                     options={options} 
                     onSelect={(robot) => handleRobotSelect(robot)} 
-                    jointLimits={jointLimits} // Assuming you want to pass the first JointLimit
+                    jointLimits={jointLimits}
                   />
                 </div>
               </LogContext.Provider>
@@ -62,7 +62,6 @@ function App() {
               key={reloadKey}
               urdfPath={selectedRobot.url}
               jointManager={jointManager}
-              jointLimits={jointLimits}
               onJointLimitsLoaded={setJointLimits}
             />
           </div>

@@ -1,12 +1,21 @@
 import { useCallback, useMemo, useState } from "react";
 
-const WRITER_PRIORITY = {
+export const WRITER_PRIORITY = {
   RESET: 6,      // Reset
   ANIMATION: 5,  // Home pose animation
   SYN: 4,         // Synchronized motion
   IK: 3,         // Inverse kinematics
   DRAG: 2,      // Manual joint drag 
   FK: 1,         // Forward kinematic
+};
+
+export const WRITER_ID = {
+  RESET: 'joint-reset',
+  ANIMATION: 'joint-animation',
+  SYN: 'joint-syn',
+  IK: 'joint-ik',
+  DRAG: 'joint-drag',
+  FK: 'joint-fk',
 };
 
 type JointStateListener = (angles: number[]) => void;

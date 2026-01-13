@@ -2,7 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { TransformControls } from "@react-three/drei";
 import { useRef, useEffect, useState } from "react";
 import { Mesh } from "three";
-import type { JointStateManager } from "../../hooks/useJointState";
+import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from "../../hooks/useJointState";
 
 interface GoalMarkerProps {
   onPositionChange: (position: [number, number, number]) => void;
@@ -13,9 +13,6 @@ interface GoalMarkerProps {
   goalQuaternion?: [number, number, number, number];
   converged?: boolean;
 }
-
-const IK_WRITER_ID = 'robot-ik';
-const WRITER_PRIORITY = { IK: 5 };
 
 function GoalMarker({
   onPositionChange,
@@ -86,15 +83,13 @@ function GoalMarker({
 
   const handleMouseDown = () => {
     isDraggingRef.current = true;
-    // Mount IK writer when drag starts
-    jointManager.mountWriter(IK_WRITER_ID, WRITER_PRIORITY.IK);
+    jointManager.mountWriter(WRITER_ID.IK, WRITER_PRIORITY.IK);
     onDrag(true);
   };
 
   const handleMouseUp = () => {
     isDraggingRef.current = false;
-    // Unmount IK writer when drag ends
-    jointManager.unmountWriter(IK_WRITER_ID);
+    jointManager.unmountWriter(WRITER_ID.IK);
     onDrag(false);
   };
 
