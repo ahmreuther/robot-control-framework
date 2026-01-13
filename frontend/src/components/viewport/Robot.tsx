@@ -40,31 +40,34 @@ export function Robot({
   const robotRef = useRef<URDFRobot | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
   
+    // Store original materials for restoration
+    const originalMaterialMap = useRef(new Map<THREE.Object3D, THREE.Material>());
+
     useEffect(() => {
       if (!robotRef.current) return;
       if (typeof showCollisionMesh === 'undefined') return;
-      if (showCollisionMesh) {
-        robotRef.current.traverse((obj: any) => {
-          if (obj.geometry) {
+      robotRef.current.traverse((obj: any) => {
+        if (obj.geometry && obj.material) {
+          if (showCollisionMesh) {
+            if (!originalMaterialMap.current.has(obj)) {
+              originalMaterialMap.current.set(obj, obj.material);
+            }
             obj.material = new THREE.MeshPhongMaterial({
               color: 0xff4444,
               opacity: 0.3,
               transparent: true,
               wireframe: false,
             });
+          } else {
+            const orig = originalMaterialMap.current.get(obj);
+            if (orig) {
+              obj.material = orig;
+            }
           }
-        });
-      } else {
-        robotRef.current.traverse((obj: any) => {
-          if (obj.geometry) {
-            obj.material = new THREE.MeshPhongMaterial({
-              color: 0xcccccc,
-              opacity: 1.0,
-              transparent: false,
-              wireframe: false,
-            });
-          }
-        });
+        }
+      });
+      if (!showCollisionMesh) {
+        originalMaterialMap.current.clear();
       }
     }, [showCollisionMesh]);
   const ikRootRef = useRef<any>(null);

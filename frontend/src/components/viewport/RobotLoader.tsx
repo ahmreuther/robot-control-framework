@@ -9,10 +9,9 @@ export interface RobotLoaderProps {
     urdfPath: string;
     onRobotReady?: (robot: URDFRobot, robotGroup: THREE.Group, jointLimits: Array<JointLimit | null>) => void;
     showCollisionMesh: boolean;
-    setCollisionMeshes?: (meshes: THREE.Mesh[]) => void;
 }
 
-const RobotLoader = ({ urdfPath, onRobotReady, showCollisionMesh, setCollisionMeshes }: RobotLoaderProps) => {
+const RobotLoader = ({ urdfPath, onRobotReady, showCollisionMesh}: RobotLoaderProps) => {
     const url = urdfPath;
     const { scene } = useThree();
     const robotRef = useRef<any | null>(null);
@@ -67,6 +66,7 @@ const RobotLoader = ({ urdfPath, onRobotReady, showCollisionMesh, setCollisionMe
             }
         };
     }, [url, scene, onRobotReady]);
+       
     return null;
 }
 
