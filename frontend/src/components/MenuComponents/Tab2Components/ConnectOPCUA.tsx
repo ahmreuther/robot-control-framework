@@ -1,17 +1,17 @@
 
 import { Button, Input } from "@heroui/react";
 import { useState, useContext, useEffect } from "react";
-import { UrlContext } from "../../UrlContext";
+import { UrlContext } from "../../../contexts/UrlContext";
 import Synchronize_Button from "./SynchroniseButton";
 import { useSendMessage } from "../../../hooks/send-message";
+import {RobotInfoContext} from "../../../contexts/RobotInfoContext"; [RobotInfoContext]
 
 // Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
 function ConnectOPCUA() {
-  const [url, setUrl] = useState("");
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
-  const { setUrl: setContextUrl } = useContext(UrlContext);
+  const {url, setUrl}  = useContext(UrlContext);
   const { sendMessage } = useSendMessage();
-
+  const isConnected = useContext(RobotInfoContext).robotStatus === "Connected";
   // Load saved URL from localStorage on mount
   useEffect(() => {
     const lastUrl = localStorage.getItem("lastOpcUaUrl");
@@ -23,16 +23,16 @@ function ConnectOPCUA() {
 
 
   function handleConnect() {
+    sendMessage("connect")
+    // Setze URL im UrlContext wenn erfolgreich (wird durch Backend-Response aktualisiert)
     const trimmedUrl = url.trim();
     if (trimmedUrl) {
-      setContextUrl(trimmedUrl);
-      sendMessage("connect")
+      setUrl(trimmedUrl);
     }
   }
 
   function handleDisconnect(){
     sendMessage("disconnect")
-    setContextUrl(null); // URL löschen bei Disconnect
   }
 
 
@@ -46,6 +46,7 @@ function ConnectOPCUA() {
             className="w-full text-xs"
             placeholder="OPC UA Server URL"
             list={savedUrl ? "savedUrls" : undefined}
+            disabled={isConnected}
           />
         {savedUrl && (
           <datalist id="savedUrls">

@@ -1,8 +1,8 @@
 // Skizze für die synchronisierungs button logik, übernommen aus dem Vorgängerprojekt
 
-import { useUrlContext } from "../../UrlContext";
-import { LogContext } from "../../../App";
-import { useContext, useState } from "react";
+import { useUrlContext } from "../../../contexts/UrlContext";
+import { useLogContext } from "../../../contexts/LogContext";
+import { useState } from "react";
 import { Switch, Label } from "@heroui/react";
 import {useSendMessage} from "../../../hooks/send-message";
 
@@ -10,7 +10,7 @@ import {useSendMessage} from "../../../hooks/send-message";
 export default function Synchronize_Button() {
 
     const { url: connectedUrl } = useUrlContext();      //aktuelle verbundene url(oder nicht)
-    const {setLogs } = useContext(LogContext);
+    const {setLogs} = useLogContext();
     const [isSyncActive, setIsSyncActive] = useState(false); // darf stream aktiv sein
     const { sendMessage } = useSendMessage(); 
 

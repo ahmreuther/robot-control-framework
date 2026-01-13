@@ -1,13 +1,15 @@
 //used to send messages via websocket to backend
-import { useContext } from "react";
-import { LogContext } from "/src/App";
-import { useUrlContext } from "../components/UrlContext";
+import { useRef } from "react";
+import { useLogContext } from "../contexts/LogContext";
+import { useUrlContext } from "../contexts/UrlContext";
 import { useSocket } from "./use-socket";
+import { WebSocketLike } from "react-use-websocket/dist/lib/types";
 
 export function useSendMessage() {
-  const socket = useSocket();
-  const { logs, setLogs } = useContext(LogContext);
-  const { url: contextUrl } = useUrlContext();
+  const socket: WebSocketLike = useSocket();
+  const { setLogs} = useLogContext()
+  const { url: contextUrl} = useUrlContext();
+  const wsRef = useRef(null)
 
   function sendMessage(type: "connect" | "disconnect" | string) {
     if (!contextUrl) {
@@ -18,7 +20,8 @@ export function useSendMessage() {
     const msg = `${type}|${contextUrl}`;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
-      (socket as WebSocket).send(msg);
+      wsRef.current = socket
+      wsRef.current.send(msg);
       setLogs(prev => prev + `Sent: ${msg}\n`);
     } else {
       setLogs(prev => prev + `❌ WebSocket not ready (state ${socket?.readyState})\n`);
