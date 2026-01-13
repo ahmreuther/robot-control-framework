@@ -105,7 +105,7 @@ export function JointAnglesPanel({
           className="w-4 h-4 cursor-pointer"
         />
         <label htmlFor="show-radians" className="cursor-pointer text-white/80 flex-1">
-          {showRadians ? 'Radians' : 'Degrees'}
+          {'Radians'}
         </label>
       </div>
 
@@ -139,7 +139,9 @@ export function JointAnglesPanel({
               />
               <span className="w-16 text-right text-white/60">
                 {showRadians ? valueDisp.toFixed(3) : Math.round(valueDisp)}
+
               </span>
+              {showRadians ? 'rad' : '°'}
             </div>
           );
         })}
