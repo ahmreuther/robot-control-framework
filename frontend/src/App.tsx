@@ -1,4 +1,4 @@
-import { createContext, useState } from 'react';
+import { useState } from 'react';
 import './App.css';
 
 import { Panel, Group } from 'react-resizable-panels'
@@ -9,8 +9,8 @@ import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './contexts/UrlContext';
 import { useJointState } from "./hooks/useJointState";
 import WebSocketReciever  from './components/WebsocketReciever';
-import { LogContext } from './contexts/LogContext';
-import { RobotInfoContext, RobotInfoProvider, AxleValues, RobotInfo } from './contexts/RobotInfoContext';
+import { LogProvider} from './contexts/LogContext';
+import { RobotInfoProvider, AxleValues, RobotInfo } from './contexts/RobotInfoContext';
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -50,16 +50,13 @@ function App() {
   const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
   const [debugInfo, setDebugInfo] = useState('Initializing...');
 
-
-  const logWrapper = {logs, setLogs};
-
   return (
     <div className="w-screen h-screen overflow-hidden bg-[#202025] text-white">
       <Group>
         <Panel defaultSize="20%">
           <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
             <SocketProvider url='ws://127.0.0.1:8001/ws'>
-              <LogContext.Provider value={logWrapper}>
+              <LogProvider logs={logs} setlogs={setLogs}>
                 <RobotInfoProvider robotName={robotName} robotInfo={robotInfo} robotMode={robotMode}
                  robotStatus={robotStatus} axleValues={axleValues} debugInfo={debugInfo}
                  setAxleValues={setAxleValues} setDebugInfo={setDebugInfo} setRobotInfo={setRobotInfo} setRobotMode={setRobotMode}
@@ -75,7 +72,7 @@ function App() {
                   />
                 </div>
                 </RobotInfoProvider>
-              </LogContext.Provider>
+              </LogProvider>
             </SocketProvider>
           </UrlProvider>
         </Panel>
