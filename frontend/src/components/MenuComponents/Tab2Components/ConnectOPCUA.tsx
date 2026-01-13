@@ -32,7 +32,6 @@ function ConnectOPCUA() {
 
   function handleDisconnect(){
     sendMessage("disconnect")
-    setUrl(null); // URL löschen bei Disconnect
   }
 
 
