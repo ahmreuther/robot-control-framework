@@ -1,14 +1,14 @@
 //used to send messages via websocket to backend
-import { useContext, useRef } from "react";
-import { LogContext } from "../contexts/LogContext";
+import { useRef } from "react";
+import { useLogContext } from "../contexts/LogContext";
 import { useUrlContext } from "../contexts/UrlContext";
 import { useSocket } from "./use-socket";
 import { WebSocketLike } from "react-use-websocket/dist/lib/types";
 
 export function useSendMessage() {
   const socket: WebSocketLike = useSocket();
-  const { logs, setLogs } = useContext(LogContext);
-  const { url: contextUrl } = useUrlContext();
+  const { setLogs} = useLogContext()
+  const { url: contextUrl} = useUrlContext();
   const wsRef = useRef(null)
 
   function sendMessage(type: "connect" | "disconnect" | string) {

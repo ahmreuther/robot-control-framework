@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { SocketContext } from '../hooks/use-socket';
-import { LogContext } from '../contexts/LogContext';
-import { useRobotInfoContext, RobotInfoContext } from '../contexts/RobotInfoContext';
+import { useLogContext } from '../contexts/LogContext';
+import { useRobotInfoContext} from '../contexts/RobotInfoContext';
 
 type AxleValues = Record<string, number>;
 
@@ -17,10 +17,9 @@ export default function WebSocketReciever() {
     
     const socket = useContext(SocketContext);
 
-    const {robotName, setRobotName, robotStatus, setRobotStatus , robotMode, setRobotMode ,
-             axleValues, setAxleValues , robotInfo, setRobotInfo, debugInfo, setDebugInfo} = useRobotInfoContext();
+    const {setRobotName, setRobotStatus, setRobotMode, setAxleValues, setRobotInfo, setDebugInfo} = useRobotInfoContext();
 
-    const { logs, setLogs } = useContext(LogContext);
+    const { setLogs } = useLogContext();
 
     // Handle every incoming WebSocket message
     const handleMessage = useCallback((msg: string) => {

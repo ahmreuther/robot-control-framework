@@ -1,13 +1,8 @@
-import { useContext } from 'react';
-import { SocketContext } from '../../../hooks/use-socket';
 import { useRobotInfoContext} from '../../../contexts/RobotInfoContext';
 
 
-
-
 export default function Live_Status() {
-    const {robotName, setRobotName, robotStatus, setRobotStatus , robotMode, setRobotMode ,
-         axleValues, setAxleValues , robotInfo, setRobotInfo, debugInfo, setDebugInfo} = useRobotInfoContext();
+    const {robotName, robotStatus, robotMode, axleValues, robotInfo, debugInfo} = useRobotInfoContext();
 
     // Format axle values for display
     const jointsText =

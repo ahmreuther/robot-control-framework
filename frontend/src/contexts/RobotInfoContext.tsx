@@ -90,7 +90,7 @@ export function RobotInfoProvider(props: RobotInfoProviderProps) {
 export function useRobotInfoContext() {
   const context = useContext(RobotInfoContext);
   if (!context) {
-    throw new Error("useUrlContext must be used within a RobotInfoProvider");
+    throw new Error("useRobotContext must be used within a RobotInfoProvider");
   }
   return context;
 }
