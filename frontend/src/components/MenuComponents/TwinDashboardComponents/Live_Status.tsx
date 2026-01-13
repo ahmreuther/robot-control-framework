@@ -1,66 +1,119 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useCallback, useContext } from 'react';
+import { SocketContext } from '../../../hooks/use-socket';
 
-type Subscriptions = Record<string, string>;
-const WS_URL = 'ws://127.0.0.1:8000/ws';
+type AxleValues = Record<string, number>;
+
+type RobotInfo = {
+    manufacturer?: string;
+    model?: string;
+    serialNumber?: string;
+    gotoMethodNodeId?: string;
+    toggleEndEffMethodNodeId?: string | null;
+};
 
 export default function Live_Status() {
-    const socketRef = useRef<WebSocket | null>(null);
+    const wsHook = useContext(SocketContext);
 
     const [robotName, setRobotName] = useState('-');
     const [robotStatus, setRobotStatus] = useState('Not Connected');
     const [robotMode, setRobotMode] = useState('-');
-    const [jointsText, setJointsText] = useState('-');
-    const [tcpText, setTcpText] = useState('-');
-    const [subscriptions, setSubscriptions] = useState<Subscriptions>({});
+    const [axleValues, setAxleValues] = useState<AxleValues>({});
+    const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
+    const [debugInfo, setDebugInfo] = useState('Initializing...');
 
-    // Combine all subscriptions into a single string for display
-    const subscriptionsText =
-        Object.keys(subscriptions).length === 0
-            ? 'Keine Subscriptions'
-            : Object.entries(subscriptions)
-                .map(([k, v]) => `${k}: ${v}`)
+    // Format axle values for display
+    const jointsText =
+        Object.keys(axleValues).length === 0
+            ? '-'
+            : Object.entries(axleValues)
+                .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
                 .join(', ');
 
-    /*
-    useEffect(() => {
-      const ws = new WebSocket(WS_URL);
-      socketRef.current = ws;
-
-      const appendLog = (m: string) =>
-        setMessageLog((prev) => [...prev.slice(-199), `${new Date().toLocaleTimeString()} · ${m}`]);
-
-      ws.onopen = () => {
-        appendLog(`WebSocket opened to ${WS_URL}`);
-        ws.send('status');
-      };
-
-      ws.onmessage = (ev) => {
-        const msg = typeof ev.data === 'string' ? ev.data : '';
-        appendLog(msg);
-        handleMessage(msg);
-      };
-
-      ws.onclose = () => {
-        appendLog('WebSocket closed');
-        setRobotStatus('Not Connected');
-        setRobotMode('-');
-        setSubscriptions({});
-      };
-
-      ws.onerror = () => appendLog('WebSocket error');
-
-      function handleMessage(msg: string) {
+    const handleMessage = useCallback((msg: string) => {
         if (!msg) return;
-        if (msg.startsWith('✅ Connected')) setRobotStatus('Connected');
-        else if (msg.startsWith('Model:')) setRobotName(msg.replace('Model:', '').trim() || '-');
-        else if (msg.startsWith('x|Mode:')) setRobotMode(msg.replace('x|Mode:', '').trim() || '-');
-        else if (msg.startsWith('x|angles:')) setJointsText(msg.replace('x|angles:', '').trim());
-        else if (msg.startsWith('TCP_POS|')) setTcpText(msg.replace('TCP_POS|', '').trim());
-      }
 
-      return () => ws.close();
+        // ---- Handle prefixed messages first ----
+        if (msg.startsWith("x|")) {
+            if (msg.startsWith("x|robotinfo:")) {
+                try {
+                    const payload = JSON.parse(msg.slice("x|robotinfo:".length));
+                    setRobotInfo(payload);
+                    if (payload.model) setRobotName(payload.model);
+                    setRobotStatus('Connected');
+                    setDebugInfo('✅ Robot info received');
+                } catch (e) {
+                    setDebugInfo('❌ Failed to parse robotinfo: ' + String(e));
+                }
+            } else if (msg.startsWith("x|Mode:")) {
+                const modeValue = msg.replace("x|Mode:", "").trim();
+                setRobotMode(modeValue);
+                setRobotStatus('Connected');
+                setDebugInfo('✅ Mode: ' + modeValue);
+            } else if (msg.startsWith("x|angles:")) {
+                try {
+                    const dictStr = msg.replace("x|angles:", "").replace(/'/g, '"');
+                    const anglesMsg = JSON.parse(dictStr);
+                    if (anglesMsg.angles) setAxleValues(anglesMsg.angles);
+                    setDebugInfo('✅ Axle values updated');
+                } catch (e) {
+                    setDebugInfo('❌ Failed to parse axle values: ' + String(e));
+                }
+            }
+            return;
+        }
+
+        // ---- Handle unprefixed live status messages ----
+        if (msg.startsWith("Robot info sent:")) {
+            try {
+                const payload = JSON.parse(msg.replace("Robot info sent:", "").trim());
+                setRobotInfo(payload);
+                if (payload.model) setRobotName(payload.model);
+                setRobotStatus('Connected');
+                setDebugInfo('✅ Robot info received');
+            } catch (e) {
+                setDebugInfo('❌ Failed to parse robot info: ' + String(e));
+            }
+            return;
+        }
+
+        if (msg.startsWith("Axle values collected:")) {
+            try {
+                const dictStr = msg.replace("Axle values collected:", "").replace(/'/g, '"');
+                const anglesMsg = JSON.parse(dictStr);
+                if (anglesMsg) setAxleValues(anglesMsg);
+                setDebugInfo('✅ Axle values updated');
+            } catch (e) {
+                setDebugInfo('❌ Failed to parse axle values: ' + String(e));
+            }
+            return;
+        }
+
+        if (msg.startsWith("stream mode|")) {
+            // Optional: parse stream mode updates if sent differently
+            const modeValue = msg.split("|")[0].replace("stream mode", "").trim();
+            if (modeValue) setRobotMode(modeValue);
+            setRobotStatus('Connected');
+            return;
+        }
+
+        // ---- Connection / Disconnection ----
+        if (msg.startsWith("✅ Connected to ")) setRobotStatus('Connected');
+        if (msg.startsWith("🔌 Disconnected from ")) {
+            setRobotStatus('Not Connected');
+            setRobotName('-');
+            setRobotMode('-');
+            setAxleValues({});
+            setRobotInfo({});
+            setDebugInfo('🔌 Disconnected');
+        }
     }, []);
-    */
+
+    // Listen to WebSocket lastMessage
+    useEffect(() => {
+        if (!wsHook?.lastMessage) return;
+        const msg = wsHook.lastMessage.data;
+        if (typeof msg === 'string') handleMessage(msg);
+    }, [wsHook?.lastMessage, handleMessage]);
 
     return (
         <div className="overflow-auto rounded p-4 space-y-3 text-white bg-black bg-opacity-70 border border-white/20">
@@ -70,7 +123,12 @@ export default function Live_Status() {
                 Live Status
             </div>
 
-            {/* Column layout */}
+            {/* Debug Info */}
+            <div className="text-xs text-gray-400 p-2 bg-black/50 rounded">
+                {debugInfo}
+            </div>
+
+            {/* Status items */}
             <div className="flex flex-col space-y-2">
                 <StatusItem label="Connected Robot" value={robotName} />
                 <StatusItem
@@ -79,15 +137,18 @@ export default function Live_Status() {
                     valueClass={robotStatus === 'Connected' ? 'text-green-400' : 'text-yellow-400'}
                 />
                 <StatusItem label="Mode" value={robotMode} />
-                <StatusItem label="TCP" value={tcpText} />
-                <StatusItem label="Joints" value={jointsText} />
-                <StatusItem label="Subscriptions" value={subscriptionsText} />
+                <StatusItem label="Joints (Axles)" value={jointsText} />
+                {robotInfo.manufacturer && (
+                    <StatusItem label="Manufacturer" value={robotInfo.manufacturer} />
+                )}
+                {robotInfo.serialNumber && (
+                    <StatusItem label="Serial Number" value={robotInfo.serialNumber} />
+                )}
             </div>
         </div>
     );
 }
 
-/* Helper for single-line status items */
 function StatusItem({
                         label,
                         value,

@@ -3,7 +3,7 @@ import './App.css';
 
 import { Panel, Group } from 'react-resizable-panels'
 import { Viewport } from "./components/viewport/Viewport";
-import {type ModelConfig } from './components/URDFSelector';
+import {type ModelConfig } from './components/MenuComponents/ControlsComponents/URDFSelector';
 import { SidebarMenu } from './components/Menu';
 import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './components/UrlContext';
@@ -55,7 +55,7 @@ function App() {
       <Group>
         <Panel defaultSize="20%">
           <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
-            <SocketProvider url='ws://127.0.0.1:8000/ws'>
+            <SocketProvider url='ws://127.0.0.1:8001/ws'>
               <LogContext.Provider value={logWrapper}>
                 <div className="flex flex-col h-full bg-[#202025]">
                   <SidebarMenu
