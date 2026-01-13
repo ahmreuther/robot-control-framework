@@ -1,20 +1,11 @@
-import { useEffect, useState, useCallback, useContext } from 'react';
+import { useContext } from 'react';
 import { SocketContext } from '../../../hooks/use-socket';
-import { useRobotInfoContext, RobotInfoContext } from '../../../contexts/RobotInfoContext';
+import { useRobotInfoContext} from '../../../contexts/RobotInfoContext';
 
-type AxleValues = Record<string, number>;
 
-type RobotInfo = {
-    manufacturer?: string;
-    model?: string;
-    serialNumber?: string;
-    gotoMethodNodeId?: string;
-    toggleEndEffMethodNodeId?: string | null;
-};
+
 
 export default function Live_Status() {
-    const wsHook = useContext(SocketContext);
-    
     const {robotName, setRobotName, robotStatus, setRobotStatus , robotMode, setRobotMode ,
          axleValues, setAxleValues , robotInfo, setRobotInfo, debugInfo, setDebugInfo} = useRobotInfoContext();
 
