@@ -40,7 +40,7 @@ function App() {
     setReloadKey(prev => prev + 1);
   };
 
-  const [logs, setLogs] = useState(null);
+  const [logs, setLogs] = useState('');
   const [opcuaUrl, setOpcuaUrl] = useState<string | null>(null);
   
   const [robotName, setRobotName] = useState('-');

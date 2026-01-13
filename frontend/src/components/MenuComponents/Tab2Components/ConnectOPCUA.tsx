@@ -7,9 +7,8 @@ import { useSendMessage } from "../../../hooks/send-message";
 
 // Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
 function ConnectOPCUA() {
-  const [url, setUrl] = useState("");
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
-  const { setUrl: setContextUrl } = useContext(UrlContext);
+  const {url, setUrl}  = useContext(UrlContext);
   const { sendMessage } = useSendMessage();
 
   // Load saved URL from localStorage on mount
@@ -27,13 +26,13 @@ function ConnectOPCUA() {
     // Setze URL im UrlContext wenn erfolgreich (wird durch Backend-Response aktualisiert)
     const trimmedUrl = url.trim();
     if (trimmedUrl) {
-      setContextUrl(trimmedUrl);
+      setUrl(trimmedUrl);
     }
   }
 
   function handleDisconnect(){
     sendMessage("disconnect")
-    setContextUrl(null); // URL löschen bei Disconnect
+    setUrl(null); // URL löschen bei Disconnect
   }
 
 
