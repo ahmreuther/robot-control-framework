@@ -6,14 +6,15 @@ import {URDFSelector, type ModelConfig } from './MenuComponents/ControlsComponen
 import { JointAnglesPanel } from "./MenuComponents/ControlsComponents/JointAnglesPanel";
 import Live_Status from "./MenuComponents/TwinDashboardComponents/Live_Status";
 import type { JointLimit } from "../hooks/useSceneState";
+import type { JointStateManager } from "../hooks/useJointState";
 
 interface MenuProps {
   options: ModelConfig[];
   onSelect: (robot: ModelConfig) => void;
-  jointAngles: number[];
-  setFkMode: (enabled: boolean) => void;
-  setJointAngles: (angles: number[]) => void;
+  jointManager: JointStateManager;
   jointLimits?: Array<JointLimit | null>;
+  setShowCollisionMesh?: (show: boolean) => void;
+  showCollisionMesh?: boolean;
 }
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
@@ -57,10 +58,10 @@ export function SidebarMenu(MenuProps: MenuProps) {
             onSelect={MenuProps.onSelect} 
           />
           <JointAnglesPanel
-            jointAngles={MenuProps.jointAngles}
-            setFkMode={MenuProps.setFkMode}
-            setJointAngles={MenuProps.setJointAngles}
+            jointManager={MenuProps.jointManager}
             jointLimits={MenuProps.jointLimits}
+            showCollisionMesh={MenuProps.showCollisionMesh}
+            setShowCollisionMesh={MenuProps.setShowCollisionMesh}
           />
         </div>
         }

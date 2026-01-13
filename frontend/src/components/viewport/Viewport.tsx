@@ -4,35 +4,25 @@ import { Suspense, useState, useCallback } from "react";
 import { Robot } from "./Robot";
 import { Stats } from "./Stats";
 import { SolverStatus } from "./SolverStatus";
+import type { JointStateManager } from "../../hooks/useJointState";
+import { JointManagerPanel } from "./JointManagerPanel";
 
 export interface ViewportProps {
   urdfPath: string;
-  setJointAngles: (angles: number[]) => void;
-  setFkMode: (fkMode: boolean) => void;
-  jointAngles: number[];
-  fkMode: boolean;
-  onJointLimitsLoaded?: (limits: Array<import("../../hooks/useSceneState").JointLimit | null>) => void;
+  jointManager: JointStateManager;
+  onJointLimitsLoaded: (limits: Array<import("../../hooks/useSceneState").JointLimit | null>) => void;
+  showCollisionMesh: boolean;
 }
 
 export function Viewport(props: ViewportProps) {
   const { 
-    urdfPath, 
-    setJointAngles,
-    setFkMode,
-    jointAngles, 
-    fkMode,
+    urdfPath,
+    jointManager,
     onJointLimitsLoaded
   } = props;
   
   const [drag, setDrag] = useState<boolean>(false);
   const [solveStatuses, setSolveStatusesState] = useState<number[]>([]);
-
-  const setDragandDisableFkMode = useCallback((isDragging: boolean) => {
-    setDrag(isDragging);
-    if (isDragging) {
-      setFkMode(false);
-    }
-  }, [setDrag, setFkMode]);
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
@@ -41,6 +31,9 @@ export function Viewport(props: ViewportProps) {
       <div className="absolute top-0 left-0 z-50 flex flex-col gap-11">
         <Stats/>
         <SolverStatus solveStatuses={solveStatuses} />
+      </div>
+      <div className="absolute top-0 right-0 m-4 z-50">
+        <JointManagerPanel jointManager={jointManager} />
       </div>
 
       <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>
@@ -64,12 +57,11 @@ export function Viewport(props: ViewportProps) {
           <Robot 
             urdfPath={urdfPath}
             drag={drag}
-            setJointAngles={setJointAngles}
             onSolveStatusesChange={setSolveStatusesState}
-            onDrag={setDragandDisableFkMode}
-            jointAngles={jointAngles}
-            fkMode={fkMode}
+            onDrag={setDrag}
+            jointManager={jointManager}
             onJointLimitsLoaded={onJointLimitsLoaded}
+            showCollisionMesh={props.showCollisionMesh}
           />
         </Suspense>
       </Canvas>

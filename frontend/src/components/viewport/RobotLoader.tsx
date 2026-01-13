@@ -8,9 +8,10 @@ import type { JointLimit } from "../../hooks/useSceneState";
 export interface RobotLoaderProps {
     urdfPath: string;
     onRobotReady?: (robot: URDFRobot, robotGroup: THREE.Group, jointLimits: Array<JointLimit | null>) => void;
+    showCollisionMesh: boolean;
 }
 
-const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
+const RobotLoader = ({ urdfPath, onRobotReady, showCollisionMesh}: RobotLoaderProps) => {
     const url = urdfPath;
     const { scene } = useThree();
     const robotRef = useRef<any | null>(null);
@@ -19,12 +20,14 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
     useEffect(() => {
         const manager = new THREE.LoadingManager();
         const loader = new URDFLoader(manager);
+        // Set loader to load collision or visual meshes
+        loader.parseCollision = false;
+        loader.parseVisual = true;
         let robot: URDFRobot  | null = null;
         let robotGroup: THREE.Group | null = null;
 
         loader.load(url, (loadedRobot) => {
             robot = loadedRobot;
-
             // Wrap robot in a group (no rotation needed - scene is Z-up)
             robotGroup = new THREE.Group();
             robotGroup.add(robot);
@@ -44,7 +47,6 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
                             max: limit.upper ?? Math.PI,
                         });
                     } else {
-                        // Fixed or unbounded joint; mark as non-actuated for UI filtering
                         jointLimits.push(null);
                     }
                 });
@@ -64,8 +66,8 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
             }
         };
     }, [url, scene, onRobotReady]);
-
+       
     return null;
-};
+}
 
-export default RobotLoader;
+export default RobotLoader

@@ -15,13 +15,8 @@ import { OPCUAAddressSpace } from './components/OPCUAAdressspace';
 
 
 function App() {
-
-  const {
-    jointAngles,
-    setJointsAngles,
-    fkMode,
-    setFkMode
-  } = useJointState();
+  
+  const jointManager = useJointState();
 
   const {
     selectedRobot,
@@ -29,7 +24,9 @@ function App() {
     handleRobotSelect,
     setJointLimits,
     jointLimits,
-    options
+    options,
+    showCollisionMesh,
+    setShowCollisionMesh,
   } = useSceneState();
 
   const [logs, setLogs] = useState('');
@@ -56,12 +53,12 @@ function App() {
                 <WebSocketReciever/>
                   <div className="flex flex-col h-full bg-black">
                   <SidebarMenu
-                    options={options}
-                    onSelect={(robot) => handleRobotSelect(robot, setFkMode)}
-                    jointAngles={jointAngles}
-                    setFkMode={setFkMode}
-                    setJointAngles={setJointsAngles}
+                    jointManager={jointManager}
+                    options={options} 
+                    onSelect={(robot) => handleRobotSelect(robot)} 
                     jointLimits={jointLimits}
+                    showCollisionMesh={showCollisionMesh}
+                    setShowCollisionMesh={setShowCollisionMesh}
                   />
                   <OPCUAAddressSpace />
                 </div>
@@ -75,11 +72,9 @@ function App() {
             <Viewport 
               key={reloadKey}
               urdfPath={selectedRobot.url}
-              setJointAngles={setJointsAngles}
-              setFkMode={setFkMode}
-              jointAngles={jointAngles}
-              fkMode={fkMode}
-              onJointLimitsLoaded={setJointLimits}  // Add this line
+              jointManager={jointManager}
+              onJointLimitsLoaded={setJointLimits}
+              showCollisionMesh={showCollisionMesh}
             />
           </div>
         </Panel>
