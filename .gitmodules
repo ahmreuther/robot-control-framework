@@ -1,0 +1,3 @@
+[submodule "frontend/public/urdf"]
+	path = frontend/public/urdf
+	url = ../../misc/urdf.git
