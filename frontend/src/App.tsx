@@ -8,6 +8,7 @@ import { SidebarMenu } from './components/Menu';
 import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './components/UrlContext';
 import { useJointState } from "./hooks/useJointState";
+import WebSocketReciever  from './components/WebsocketReciever';
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -57,6 +58,7 @@ function App() {
           <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
             <SocketProvider url='ws://127.0.0.1:8001/ws'>
               <LogContext.Provider value={logWrapper}>
+                <WebSocketReciever/>
                 <div className="flex flex-col h-full bg-[#202025]">
                   <SidebarMenu
                     options={ROBOT_MODELS} 

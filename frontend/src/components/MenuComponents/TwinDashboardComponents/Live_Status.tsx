@@ -29,75 +29,7 @@ export default function Live_Status() {
             : Object.entries(axleValues)
                 .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
                 .join(', ');
-
-    // Handle every incoming WebSocket message
-    const handleMessage = useCallback((msg: string) => {
-        if (!msg) return;
-        console.log('WS message:', msg);
-
-        setMessageLog(prev => [...prev, msg]); // always log
-
-        try {
-            if (msg.startsWith('x|robotinfo:')) {
-                const payload = JSON.parse(msg.slice('x|robotinfo:'.length));
-                setRobotInfo(payload);
-                if (payload.model) setRobotName(payload.model);
-                setRobotStatus('Connected');
-                setDebugInfo('✅ Robot info received');
-            } else if (msg.startsWith('x|Mode:')) {
-                const mode = msg.replace('x|Mode:', '').trim();
-                setRobotMode(mode);
-                setRobotStatus('Connected');
-                setDebugInfo('✅ Mode: ' + mode);
-            } else if (msg.startsWith('x|angles:')) {
-                const parsed = JSON.parse(msg.replace('x|angles:', '').replace(/'/g, '"'));
-                if (parsed?.angles) setAxleValues(prev => ({ ...prev, ...parsed.angles }));
-                setDebugInfo('✅ Axle values updated');
-            } else if (msg.startsWith('Robot info sent:')) {
-                const payload = JSON.parse(msg.replace('Robot info sent:', '').trim());
-                setRobotInfo(payload);
-                if (payload.model) setRobotName(payload.model);
-                setRobotStatus('Connected');
-                setDebugInfo('✅ Robot info received');
-            } else if (msg.startsWith('Axle values collected:')) {
-                const parsed = JSON.parse(msg.replace('Axle values collected:', '').replace(/'/g, '"'));
-                setAxleValues(prev => ({ ...prev, ...parsed }));
-                setDebugInfo('✅ Axle values updated');
-            } else if (msg.startsWith('stream mode|')) {
-                const modeValue = msg.split('|')[0].replace('stream mode', '').trim();
-                if (modeValue) setRobotMode(modeValue);
-                setRobotStatus('Connected');
-            } else if (msg.startsWith('✅ Connected to ')) {
-                setRobotStatus('Connected');
-            } else if (msg.startsWith('🔌 Disconnected from ')) {
-                setRobotStatus('Not Connected');
-                setRobotName('-');
-                setRobotMode('-');
-                setAxleValues({});
-                setRobotInfo({});
-                setDebugInfo('🔌 Disconnected');
-            }
-        } catch (e) {
-            setDebugInfo('❌ Failed to handle message: ' + String(e));
-        }
-    }, []);
-
-
-    // Listen to wsHook.lastMessage
-    useEffect(() => {
-        if (!wsHook?.lastMessage) return;
-
-        const { data, timeStamp } = wsHook.lastMessage;
-
-        // Log every incoming message
-        console.group('📩 WS lastMessage');
-        console.log('Timestamp:', new Date(timeStamp));
-        console.log('Raw data:', data);
-        console.groupEnd();
-
-        if (typeof data === 'string') handleMessage(data);
-    }, [wsHook?.lastMessage, handleMessage]);
-
+                
     return (
         <div className="overflow-auto rounded p-4 space-y-3 text-white bg-black bg-opacity-70 border border-white/20">
             {/* Identifier Header */}
