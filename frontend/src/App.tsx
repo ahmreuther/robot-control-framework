@@ -20,13 +20,8 @@ export const LogContext = createContext<{
 });
 
 function App() {
-
-  const {
-    jointAngles,
-    setJointsAngles,
-    fkMode,
-    setFkMode
-  } = useJointState();
+  
+  const jointManager = useJointState();
 
   const {
     selectedRobot,
@@ -51,12 +46,10 @@ function App() {
               <LogContext.Provider value={logWrapper}>
                 <div className="flex flex-col h-full bg-black">
                   <SidebarMenu
+                    jointManager={jointManager}
                     options={options} 
-                    onSelect={(robot) => handleRobotSelect(robot, setFkMode)} 
-                    jointAngles={jointAngles}
-                    setFkMode={setFkMode}
-                    setJointAngles={setJointsAngles}
-                    jointLimits={jointLimits}
+                    onSelect={(robot) => handleRobotSelect(robot)} 
+                    jointLimits={jointLimits} // Assuming you want to pass the first JointLimit
                   />
                 </div>
               </LogContext.Provider>
@@ -68,11 +61,9 @@ function App() {
             <Viewport 
               key={reloadKey}
               urdfPath={selectedRobot.url}
-              setJointAngles={setJointsAngles}
-              setFkMode={setFkMode}
-              jointAngles={jointAngles}
-              fkMode={fkMode}
-              onJointLimitsLoaded={setJointLimits}  // Add this line
+              jointManager={jointManager}
+              jointLimits={jointLimits}
+              onJointLimitsLoaded={setJointLimits}
             />
           </div>
         </Panel>

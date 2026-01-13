@@ -4,35 +4,26 @@ import { Suspense, useState, useCallback } from "react";
 import { Robot } from "./Robot";
 import { Stats } from "./Stats";
 import { SolverStatus } from "./SolverStatus";
+import type { JointStateManager } from "../../hooks/useJointState";
+import { JointLimit } from "../../hooks/useSceneState";
 
 export interface ViewportProps {
   urdfPath: string;
-  setJointAngles: (angles: number[]) => void;
-  setFkMode: (fkMode: boolean) => void;
-  jointAngles: number[];
-  fkMode: boolean;
+  jointManager: JointStateManager;
+  jointLimits: Array<JointLimit | null>;
   onJointLimitsLoaded?: (limits: Array<import("../../hooks/useSceneState").JointLimit | null>) => void;
 }
 
 export function Viewport(props: ViewportProps) {
   const { 
-    urdfPath, 
-    setJointAngles,
-    setFkMode,
-    jointAngles, 
-    fkMode,
+    urdfPath,
+    jointManager,
+    jointLimits,
     onJointLimitsLoaded
   } = props;
   
   const [drag, setDrag] = useState<boolean>(false);
   const [solveStatuses, setSolveStatusesState] = useState<number[]>([]);
-
-  const setDragandDisableFkMode = useCallback((isDragging: boolean) => {
-    setDrag(isDragging);
-    if (isDragging) {
-      setFkMode(false);
-    }
-  }, [setDrag, setFkMode]);
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
@@ -64,11 +55,9 @@ export function Viewport(props: ViewportProps) {
           <Robot 
             urdfPath={urdfPath}
             drag={drag}
-            setJointAngles={setJointAngles}
             onSolveStatusesChange={setSolveStatusesState}
-            onDrag={setDragandDisableFkMode}
-            jointAngles={jointAngles}
-            fkMode={fkMode}
+            onDrag={setDrag}
+            jointManager={jointManager}
             onJointLimitsLoaded={onJointLimitsLoaded}
           />
         </Suspense>

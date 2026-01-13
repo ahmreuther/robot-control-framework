@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ModelConfig } from "../components/MenuComponents/ControlsComponents/URDFSelector";
+import type { JointStateManager } from "./useJointState";
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -28,7 +29,7 @@ export interface SceneStateApi {
   selectedRobot: ModelConfig | null;
   setSelectedRobot: (robot: ModelConfig) => void;
   reloadKey: number;
-  handleRobotSelect: (robot: ModelConfig, onFkModeChange?: (mode: boolean) => void) => void;
+  handleRobotSelect: (robot: ModelConfig) => void;
 }
 
 export function useSceneState(): SceneStateApi {
@@ -50,8 +51,7 @@ export function useSceneState(): SceneStateApi {
     });
   }, []);
 
-  const handleRobotSelect = useCallback((robot: ModelConfig, onFkModeChange?: (mode: boolean) => void) => {
-    onFkModeChange?.(false);
+  const handleRobotSelect = useCallback((robot: ModelConfig) => {
     setSelectedRobot(robot);
     setReloadKey(prev => prev + 1);
   }, []);
