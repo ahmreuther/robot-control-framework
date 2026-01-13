@@ -1,9 +1,12 @@
 import uvicorn
-from fastapi import FastAPI, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List, TypedDict, Set
-
+from typing import Set, TypedDict
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+from asyncua import Client
+from asyncua.ua.uaerrors import UaError
 
 import opcua
 import mcp_server
@@ -13,26 +16,25 @@ class State(TypedDict):
     mcp_sockets: Set[WebSocket]
 
 
+# ---------------- Lifespan ----------------
+
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
-    # Startup
     print("Starting up the app...")
-    # Initialize database, cache, etc.
     yield
-    # Shutdown
     print("Shutting down the app...")
+
 
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
-    # Run both lifespans
     async with app_lifespan(app):
         async with mcp_server.mcp_app.lifespan(app):
-            # app.state.mcp_sockets = set()
+            # init MCP sockets
             mcp_server.mcp_app.state.mcp_sockets = set()
-            yield # {"mcp_sockets", set()}
+            yield
 
 
-# --- App Setup ---
+# ---------------- App Setup ----------------
 
 app = FastAPI(lifespan=combined_lifespan)
 
@@ -49,80 +51,129 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Keep your routers/mounts
 app.include_router(opcua.router)
 app.include_router(mcp_server.router)
 app.mount("/llm", mcp_server.mcp_app)
 
-# --- Static File Serving & Entrypoint ---
 
-# app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="root")
+# ---------------- OPC UA Browse Endpoint ----------------
+
+@app.get("/opcua/browse")
+async def browse(url: str, node_id: str = "i=84"):
+    """
+    Returns one-level children of the given node as JSON:
+    {
+      "url": "...",
+      "nodeId": "...",
+      "children": [
+        {"nodeId": "...", "browseName": "...", "displayName": "...", "nodeClass": "..."}
+      ]
+    }
+    """
+
+    # Option A: Use your existing persistent client if available
+    wrapper = None
+    try:
+        wrapper = opcua.get_client(url)  # may be None if not connected
+    except Exception:
+        wrapper = None
+
+    # helper to browse using an asyncua client instance
+    async def _browse_with_asyncua_client(client: Client):
+        node = client.get_node(node_id)
+        children = await node.get_children()
+
+        result = []
+        for ch in children:
+            browse_name = await ch.read_browse_name()
+            display_name = await ch.read_display_name()
+            node_class = await ch.read_node_class()
+
+            result.append({
+                "nodeId": ch.nodeid.to_string(),
+                "browseName": f"{browse_name.NamespaceIndex}:{browse_name.Name}",
+                "displayName": display_name.Text,
+                "nodeClass": node_class.name,  # Object/Variable/Method...
+            })
+
+        return {
+            "url": url,
+            "nodeId": node_id,
+            "children": result
+        }
+
+    try:
+        # If you already maintain a connected client in opcua.get_client(url):
+        # We try to reuse it (important for performance and consistency with your WS setup)
+        if wrapper is not None and hasattr(wrapper, "client") and wrapper.client is not None:
+            # wrapper.client should be an asyncua Client (connected)
+            return await _browse_with_asyncua_client(wrapper.client)
+
+        # Option B: fallback – connect per request (works standalone)
+        async with Client(url=url) as client:
+            return await _browse_with_asyncua_client(client)
+
+    except UaError as e:
+        raise HTTPException(status_code=400, detail=f"OPC UA error: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Server error: {e}")
+
+
+# ---------------- (Optional) Keep your JSON endpoints, but NOT duplicates ----------------
+# If you still want these, keep them ONCE. Otherwise delete them.
 
 @app.get("/device_set_json")
 async def get_device_set_json(url: str):
-    """Returns the complete DeviceSet tree as JSON."""
+    """
+    Returns the complete DeviceSet tree as JSON (your old method).
+    WARNING: can be heavy if depth is large.
+    """
     from fastapi.responses import JSONResponse
-    
     client = opcua.get_client(url)
     if not client:
-        return JSONResponse(
-            status_code=404,
-            content={"error": f"No OPC UA client connected for URL: {url}"}
-        )
+        return JSONResponse(status_code=404, content={"error": f"No OPC UA client connected for URL: {url}"})
+
     try:
         root = client.client.get_root_node()
         from modules.GetAddressSpace import collect_node_details
         detailed = await collect_node_details(root, children_depth=2)
         return JSONResponse(content=detailed)
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 
 @app.get("/node_json")
 async def get_node_json(url: str, nodeid: str):
-    """Returns details of a single node as JSON."""
     from fastapi.responses import JSONResponse
-    
     client = opcua.get_client(url)
     if not client:
-        return JSONResponse(
-            status_code=404,
-            content={"error": "No OPC UA client for this URL"}
-        )
+        return JSONResponse(status_code=404, content={"error": "No OPC UA client for this URL"})
+
     try:
         node = client.client.get_node(nodeid)
         from modules.GetAddressSpace import collect_node_details
         detail = await collect_node_details(node, children_depth=0)
         return JSONResponse(content=detail)
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 
 @app.get("/subtree_children_json")
 async def get_subtree_children_json(url: str, nodeid: str):
-    """Returns the children of a node as JSON."""
     from fastapi.responses import JSONResponse
-    
     client = opcua.get_client(url)
     if not client:
-        return JSONResponse(
-            status_code=404,
-            content={"error": f"No OPC UA client connected for URL: {url}"}
-        )
+        return JSONResponse(status_code=404, content={"error": f"No OPC UA client connected for URL: {url}"})
+
     try:
         node = client.client.get_node(nodeid)
         from modules.GetAddressSpace import collect_node_details
         detailed = await collect_node_details(node, children_depth=2)
         return JSONResponse(content=detailed)
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
-    # asyncio.run(main())

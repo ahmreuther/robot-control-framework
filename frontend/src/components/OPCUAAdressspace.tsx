@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useUrlContext } from "./UrlContext";
 import { useSocket } from "../hooks/use-socket";
 
@@ -7,18 +7,62 @@ type SelectedNodeInfo = {
   attributes: Record<string, string>;
 };
 
-const REST_BACKEND_BASE = "http://127.0.0.1:8000"; //FastApi backend base url port 8000
+type UaNode = {
+  nodeId: string;
+  displayName: string;
+  browseName?: string;
+  nodeClass: string; // e.g. "Object", "Variable", "Method"
+  children?: UaNode[];
+  loaded?: boolean;    // children were fetched at least once
+  expanded?: boolean;  // UI state
+  loading?: boolean;   // children currently loading
+};
 
+const REST_BACKEND_BASE = "http://127.0.0.1:8000";
+const INDENT_PER_LEVEL_PX = 10;
 
-const INDENT_PER_LEVEL_PX = 10; // px per tree level for indentation
+const nodeClassToNumericString = (nodeClass: string): string => {
+  // keep your existing checks working (nodeclass: "1"/"2"/"4")
+  switch ((nodeClass ?? "").toLowerCase()) {
+    case "object":
+      return "1";
+    case "variable":
+      return "2";
+    case "method":
+      return "4";
+    default:
+      return ""; // unknown/other
+  }
+};
+
+const isLikelyExpandable = (node: UaNode): boolean => {
+  // Objects/Variables often have children/properties; Methods typically not
+  const cls = (node.nodeClass ?? "").toLowerCase();
+  return cls === "object" || cls === "variable";
+};
+
+const updateNodeById = (root: UaNode, nodeId: string, updater: (n: UaNode) => UaNode): UaNode => {
+  if (root.nodeId === nodeId) return updater(root);
+
+  if (!root.children || root.children.length === 0) return root;
+
+  const newChildren = root.children.map((c) => updateNodeById(c, nodeId, updater));
+  // avoid unnecessary object churn
+  const same = newChildren.every((c, i) => c === root.children![i]);
+  return same ? root : { ...root, children: newChildren };
+};
 
 export const OPCUAAddressSpace: React.FC = () => {
-  const { url: OPC_UA_URL } = useUrlContext(); // Get URL from context
-  const socket = useSocket(); // Get WebSocket connection
-  const [isOpen, setIsOpen] = useState(true); // variable to track if the address space panel is open + function to toggle it
-  const [html, setHtml] = useState<string | null>(null); // actual HTML content of the address space
-  const [loading, setLoading] = useState(false); // loading state
-  const [error, setError] = useState<string | null>(null); // error state
+  const { url: OPC_UA_URL } = useUrlContext();
+  const socket = useSocket();
+
+  const [isOpen, setIsOpen] = useState(true);
+
+  // JSON Tree instead of HTML
+  const [root, setRoot] = useState<UaNode | null>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [selectedNode, setSelectedNode] = useState<SelectedNodeInfo | null>(null);
 
@@ -27,12 +71,12 @@ export const OPCUAAddressSpace: React.FC = () => {
     { nodeId: string; attributes: Record<string, string>; value?: string | null }[]
   >([]);
 
-  // EVENT SUBSCRIPTIONS: list of nodes subscribed to events
+  // EVENT SUBSCRIPTIONS
   const [eventSubscriptions, setEventSubscriptions] = useState<
     { nodeId: string; attributes: Record<string, string> }[]
   >([]);
 
-  // METHOD CALL DIALOG: state for method calling
+  // METHOD CALL DIALOG
   const [methodDialogOpen, setMethodDialogOpen] = useState(false);
   const [methodNode, setMethodNode] = useState<SelectedNodeInfo | null>(null);
   const [methodInputsJSON, setMethodInputsJSON] = useState("{}");
@@ -42,276 +86,179 @@ export const OPCUAAddressSpace: React.FC = () => {
   const POLL_MS = 2000;
   const pollRef = useRef<number | null>(null);
 
-  const containerRef = useRef<HTMLDivElement | null>(null); // pointer to the container in which the address space tree is rendered
-
-  // Manually update innerHTML only when html changes to prevent tree collapse
-  useEffect(() => {
-    if (containerRef.current && html) {
-      containerRef.current.innerHTML = html;
-    } else if (containerRef.current && !html) {
-      containerRef.current.innerHTML = '';
-    }
-  }, [html]);
-
-    // --- Toggle Open/Close --- with reset of the tree after closing to avoid errors on reopen
+  // Toggle Open/Close with reset
   const toggleOpen = () => {
-  setIsOpen((prev) => {
-    const next = !prev;
-    
-    if (!next) {
-      setHtml(null);      
-      setError(null);     
-      setLoading(false);  
-    }
-
-    return next;
-  });
-};
-
-
-  
-  const reindentTree = () => {
-    const container = containerRef.current; // get the container element
-    if (!container) return; 
-
-    const summaries = container.querySelectorAll("summary"); //search all summary elements in the container, where a summary element is a kind of arraylist 
-    summaries.forEach((summary) => {  // for each summary element found we calculate its depth in the tree and set the padding accordingly
-      let depth = 0;
-      let el: HTMLElement | null = summary as HTMLElement;
-
-      // traverse up the DOM tree to count how many <details> ancestors there are (= depth in the tree)
-      while (el && el !== container) {
-        el = el.parentElement as HTMLElement | null;
-        if (el && el.tagName.toLowerCase() === "details") {
-          depth++;
-        }
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        setRoot(null);
+        setSelectedNode(null);
+        setError(null);
+        setLoading(false);
       }
-
-
-    
-      //Root was on depth 1, we want it to be 0 for the ordering
-      const level = Math.max(depth - 1, 0);
-
-      // set left padding based on depth
-      const li = summary.closest("li") as HTMLElement | null;
-      if (li) {
-        li.style.paddingLeft = `${level * INDENT_PER_LEVEL_PX}px`; 
-      }
+      return next;
     });
   };
 
- 
+  // ---- Backend calls ----
+  const fetchChildren = async (nodeId: string): Promise<UaNode[]> => {
+    const encodedUrl = encodeURIComponent(OPC_UA_URL);
+    const encodedNodeId = encodeURIComponent(nodeId);
+    const res = await fetch(`${REST_BACKEND_BASE}/opcua/browse?url=${encodedUrl}&node_id=${encodedNodeId}`);
 
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "<no-body>");
+      throw new Error(`HTTP ${res.status}: ${txt}`);
+    }
+    const data = await res.json();
+    const children = (data?.children ?? []) as UaNode[];
 
+    // normalize fields to ensure displayName exists
+    return children.map((c) => ({
+      nodeId: c.nodeId,
+      displayName: c.displayName ?? c.browseName ?? c.nodeId,
+      browseName: c.browseName,
+      nodeClass: c.nodeClass ?? "Unknown",
+      children: c.children ?? undefined,
+      loaded: false,
+      expanded: false,
+      loading: false,
+    }));
+  };
 
- //this is the main logic of the component, we encode the url and fetch the html from the backend
- //Some error handling is also implemented here
-
+  // ---- Load root on open/url change ----
   useEffect(() => {
-    if (!isOpen || !OPC_UA_URL) return; // Don't load if no URL connected
+    if (!isOpen || !OPC_UA_URL) return;
 
-    const load = async () => {
+    const loadRoot = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const encodedUrl = encodeURIComponent(OPC_UA_URL);
-        const fetchUrl = `${REST_BACKEND_BASE}/device_set_rendered?url=${encodedUrl}`;
-        console.log("[OPCUAAddressSpace] Fetching from:", fetchUrl);
-        console.log("[OPCUAAddressSpace] OPC_UA_URL:", OPC_UA_URL);
-        
-        const res = await fetch(fetchUrl);
+        // RootFolder is i=84
+        const children = await fetchChildren("i=84");
 
-        console.log("[OPCUAAddressSpace] Response status:", res.status);
-        
-        if (!res.ok) {  
-          const errorText = await res.text();
-          console.error("[OPCUAAddressSpace] Error response:", errorText);
-          throw new Error(`HTTP ${res.status}: ${errorText}`);
-        }
-
-        const text = await res.text();
-        console.log("[OPCUAAddressSpace] HTML geladen");
-        setHtml(text);
+        setRoot({
+          nodeId: "i=84",
+          displayName: "Root",
+          browseName: "0:RootFolder",
+          nodeClass: "Object",
+          children,
+          loaded: true,
+          expanded: true,
+          loading: false,
+        });
       } catch (e: any) {
-        console.error("[OPCUAAddressSpace] Fehler:", e);
+        console.error("[OPCUAAddressSpace] Root load error:", e);
         setError(e?.message ?? "Unbekannter Fehler beim Laden.");
+        setRoot(null);
       } finally {
         setLoading(false);
       }
     };
 
-    load();
+    loadRoot();
   }, [isOpen, OPC_UA_URL]);
 
+  // ---- Expand/collapse with lazy-load ----
+  const toggleNode = async (nodeId: string) => {
+    if (!root) return;
 
+    // optimistic expand/collapse
+    let targetNode: UaNode | null = null;
 
-  
-  useEffect(() => {
-    if (!isOpen || !html) return;
-    setTimeout(reindentTree, 0); 
-  }, [isOpen, html]);
+    // first toggle expanded state quickly
+    setRoot((prev) => {
+      if (!prev) return prev;
 
-
-
-  useEffect(() => {
-    if (!isOpen || !html) return;
-
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleClick = async (ev: MouseEvent) => {
-      const target = ev.target as HTMLElement | null;
-      if (!target) return;
-
-      // left click: keep default expand/collapse behaviour, but load subtree if needed
-      // find nearest clickable summary/span
-      const clickable = target.closest("summary, span") as HTMLElement | null;
-      if (!clickable) return;
-
-      // robust node element lookup (ancestor with data-node-id or child)
-      let nodeEl = (target as HTMLElement).closest("[data-node-id]") as HTMLElement | null;
-      if (!nodeEl && clickable) {
-        nodeEl = clickable.querySelector("[data-node-id]") as HTMLElement | null;
-      }
-      if (!nodeEl) nodeEl = clickable;
-
-      const nodeId = nodeEl?.dataset?.nodeId;
-      if (!nodeId) return;
-
-      const details = clickable.closest("details");
-      if (!details) return;
-
-      // ensure there's a <ul> to populate (create one if absent)
-      let ul = details.querySelector("ul") as HTMLUListElement | null;
-      if (!ul) {
-        ul = document.createElement("ul");
-        details.appendChild(ul);
-      }
-
-      // do NOT setSelectedNode here — selection is on right-click now
-
-      // if subtree already loaded, skip fetch
-      const alreadyLoaded = ul.classList.contains("subtree-loaded");
-      if (alreadyLoaded) {
-        return;
-      }
-
-      // open optimistically and show loading
-      (details as HTMLDetailsElement).open = true;
-      const prevHtml = ul.innerHTML;
-      ul.innerHTML = `<li style="color:#888;font-size:12px;padding:6px 0">Lade…</li>`;
-
-      try {
-        const encodedUrl = encodeURIComponent(OPC_UA_URL);
-        const encodedNodeId = encodeURIComponent(nodeId);
-
-        const res = await fetch(
-          `${REST_BACKEND_BASE}/subtree_children?url=${encodedUrl}&nodeid=${encodedNodeId}`
-        );
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const fragmentHtml = await res.text();
-        const staging = document.createElement("div");
-        staging.innerHTML = fragmentHtml;
-
-        ul.innerHTML = staging.innerHTML;
-        ul.classList.add("subtree-loaded");
-        (details as HTMLDetailsElement).open = true;
-        reindentTree();
-      } catch (err) {
-        console.error("[OPCUAAddressSpace] Fehler beim Subtree-Load:", err);
-        ul.innerHTML = prevHtml || `<li style="color:#f66;font-size:12px;padding:6px 0">Fehler beim Laden</li>`;
-      }
-    };
-
-    // right-click handler: show Node Information without preventing normal expand/collapse on left-click
-    const handleContextMenu = (ev: MouseEvent) => {
-      ev.preventDefault(); // prevent browser menu so user sees our info panel
-      const target = ev.target as HTMLElement | null;
-      if (!target) return;
-
-      // find nearest element that carries data-node-id
-      const clickable = target.closest("summary, span") as HTMLElement | null;
-      if (!clickable) return;
-
-      
-      let nodeEl = (target as HTMLElement).closest("[data-node-id]") as HTMLElement | null;
-      if (!nodeEl && clickable) {
-        nodeEl = clickable.querySelector("[data-node-id]") as HTMLElement | null;
-      }
-      if (!nodeEl) nodeEl = clickable;
-
-      const nodeId = nodeEl?.dataset?.nodeId;
-      if (!nodeId) return;
-
-      const attrs = { ...(nodeEl.dataset as DOMStringMap) } as Record<string, string>;
-
-      setSelectedNode({
-        nodeId,
-        attributes: attrs,
+      const next = updateNodeById(prev, nodeId, (n) => {
+        targetNode = n;
+        return { ...n, expanded: !n.expanded };
       });
+
+      return next;
+    });
+
+    // If we just expanded and children not loaded yet -> fetch them
+    // We need to re-find the node state after toggle
+    const getNodeState = (n: UaNode): UaNode | null => {
+      if (n.nodeId === nodeId) return n;
+      for (const ch of n.children ?? []) {
+        const f = getNodeState(ch);
+        if (f) return f;
+      }
+      return null;
     };
 
-    container.addEventListener("click", handleClick);
-    container.addEventListener("contextmenu", handleContextMenu);
-    return () => {
-      container.removeEventListener("click", handleClick);
-      container.removeEventListener("contextmenu", handleContextMenu);
+    const current = root ? getNodeState(root) : null;
+    // The "current" might be stale due to async state updates; so re-check using a functional update below:
+    setRoot((prev) => {
+      if (!prev) return prev;
+      const now = getNodeState(prev);
+      if (!now) return prev;
+
+      // if collapsed or already loaded or already loading => nothing
+      if (!now.expanded || now.loaded || now.loading) return prev;
+
+      return updateNodeById(prev, nodeId, (n) => ({ ...n, loading: true }));
+    });
+
+    try {
+      // wait a tick to let state apply, then read children
+      const children = await fetchChildren(nodeId);
+
+      setRoot((prev) => {
+        if (!prev) return prev;
+        return updateNodeById(prev, nodeId, (n) => ({
+          ...n,
+          children,
+          loaded: true,
+          loading: false,
+          // if no children, keep expanded false-ish feel? -> leave expanded as-is
+        }));
+      });
+    } catch (e) {
+      console.error("[OPCUAAddressSpace] toggleNode load error:", e);
+      setRoot((prev) => {
+        if (!prev) return prev;
+        return updateNodeById(prev, nodeId, (n) => ({
+          ...n,
+          loading: false,
+          loaded: true, // prevent endless retry spam on every click; you can change to false if you want
+          children: n.children ?? [],
+        }));
+      });
+    }
+  };
+
+  // ---- Selection (right click) ----
+  const selectNode = (node: UaNode) => {
+    const attrs: Record<string, string> = {
+      nodeclass: nodeClassToNumericString(node.nodeClass),
+      nodeClass: node.nodeClass,
+      displayName: node.displayName,
     };
-  }, [isOpen, html]);
+    if (node.browseName) attrs.browseName = node.browseName;
 
+    setSelectedNode({
+      nodeId: node.nodeId,
+      attributes: attrs,
+    });
+  };
 
-
-  // Styling: 
-
-
-  const treeCss = `
-    
-    #info-content,
-    #info-content * {
-      text-align: left !important;
-    }
-
-    #info-content {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #f5f5f5;
-    }
-
-    #info-content summary {
-      cursor: pointer;
-    }
-
-    #info-content summary:hover {
-      background: rgba(255,255,255,0.06);
-    }
-
-    #info-content ul {
-      margin: 0;
-      padding-left: 0;
-    }
-
-    #info-content li {
-      list-style: none;
-    }
-  `;
-
-const addSubscription = (node: SelectedNodeInfo) => {
+  // ---- Subscriptions / Events / Methods (unchanged logic) ----
+  const addSubscription = (node: SelectedNodeInfo) => {
     const nodeClass = node?.attributes?.nodeclass;
     if (nodeClass !== "2") {
       console.warn("[addSubscription] Can only subscribe to Variables (NodeClass 2)");
       return;
     }
+
     setSubscriptions((prev) => {
       if (prev.find((s) => s.nodeId === node.nodeId)) return prev;
 
-      // Send subscribe message to backend via WebSocket
       if (socket && socket.readyState === WebSocket.OPEN && OPC_UA_URL) {
-        const payload = JSON.stringify({
-          url: OPC_UA_URL,
-          nodeId: node.nodeId
-        });
+        const payload = JSON.stringify({ url: OPC_UA_URL, nodeId: node.nodeId });
         const msg = `subscribe|${payload}`;
         (socket as WebSocket).send(msg);
         console.log("[OPCUAAddressSpace] Sent subscribe message:", msg);
@@ -319,21 +266,15 @@ const addSubscription = (node: SelectedNodeInfo) => {
 
       return [...prev, { nodeId: node.nodeId, attributes: node.attributes, value: null }];
     });
-
   };
 
   const removeSubscription = (nodeId: string) => {
-    // Send unsubscribe message to backend
     if (socket && socket.readyState === WebSocket.OPEN && OPC_UA_URL) {
-      const payload = JSON.stringify({
-        url: OPC_UA_URL,
-        nodeId: nodeId
-      });
+      const payload = JSON.stringify({ url: OPC_UA_URL, nodeId });
       const msg = `unsubscribe|${payload}`;
       (socket as WebSocket).send(msg);
       console.log("[OPCUAAddressSpace] Sent unsubscribe message:", msg);
     }
-
     setSubscriptions((prev) => prev.filter((s) => s.nodeId !== nodeId));
   };
 
@@ -343,15 +284,12 @@ const addSubscription = (node: SelectedNodeInfo) => {
       console.warn("[addEventSubscription] Can only subscribe to Events on Objects (NodeClass 1)");
       return;
     }
+
     setEventSubscriptions((prev) => {
       if (prev.find((s) => s.nodeId === node.nodeId)) return prev;
 
-      // Send subscribe event message to backend via WebSocket
       if (socket && socket.readyState === WebSocket.OPEN && OPC_UA_URL) {
-        const payload = JSON.stringify({
-          url: OPC_UA_URL,
-          nodeId: node.nodeId
-        });
+        const payload = JSON.stringify({ url: OPC_UA_URL, nodeId: node.nodeId });
         const msg = `subscribeEvent|${payload}`;
         (socket as WebSocket).send(msg);
         console.log("[OPCUAAddressSpace] Sent event subscribe message:", msg);
@@ -362,11 +300,8 @@ const addSubscription = (node: SelectedNodeInfo) => {
   };
 
   const removeEventSubscription = (nodeId: string) => {
-    // Send unsubscribe event message to backend
     if (socket && socket.readyState === WebSocket.OPEN && OPC_UA_URL) {
-      const payload = JSON.stringify({
-        url: OPC_UA_URL
-      });
+      const payload = JSON.stringify({ url: OPC_UA_URL });
       const msg = `unsubscribeEvent|${payload}`;
       (socket as WebSocket).send(msg);
       console.log("[OPCUAAddressSpace] Sent event unsubscribe message:", msg);
@@ -395,7 +330,7 @@ const addSubscription = (node: SelectedNodeInfo) => {
       const payload = JSON.stringify({
         url: OPC_UA_URL,
         nodeId: methodNode.nodeId,
-        inputs: inputs
+        inputs,
       });
 
       const msg = `call|${payload}`;
@@ -423,20 +358,17 @@ const addSubscription = (node: SelectedNodeInfo) => {
 
     const message = lastMessage.data;
     console.log("[OPCUAAddressSpace] Received WebSocket message:", message);
-    
+
     if (message.startsWith("Method call result:")) {
       const result = message.replace("Method call result:", "").trim();
-      console.log("[OPCUAAddressSpace] Setting method result:", result);
       setMethodResult(result);
     } else if (message.startsWith("❌") && message.toLowerCase().includes("method")) {
-      console.log("[OPCUAAddressSpace] Setting method error:", message);
       setMethodResult(message);
     }
   }, [socket, (socket as any)?.lastMessage]);
 
   // Polling effect: request latest value for all subscribed nodes periodically
   useEffect(() => {
-    // clear existing
     if (pollRef.current) {
       window.clearInterval(pollRef.current);
       pollRef.current = null;
@@ -445,7 +377,6 @@ const addSubscription = (node: SelectedNodeInfo) => {
     if (subscriptions.length === 0) return;
 
     const id = window.setInterval(async () => {
-      // fetch each subscribed node value
       const results = await Promise.all(
         subscriptions.map(async (s) => {
           try {
@@ -457,7 +388,7 @@ const addSubscription = (node: SelectedNodeInfo) => {
               console.warn(`[OPCUAAddressSpace] node_value returned ${res.status} for ${s.nodeId}:`, txt);
               return { nodeId: s.nodeId, value: `error(${res.status})` };
             }
-            // try json then text
+
             let payload: any = null;
             try {
               payload = await res.json();
@@ -473,7 +404,6 @@ const addSubscription = (node: SelectedNodeInfo) => {
         })
       );
 
-      // merge results into subscriptions state
       setSubscriptions((prev) =>
         prev.map((p) => {
           const r = results.find((x) => x.nodeId === p.nodeId);
@@ -489,9 +419,84 @@ const addSubscription = (node: SelectedNodeInfo) => {
         pollRef.current = null;
       }
     };
-  }, [subscriptions]);
+  }, [subscriptions, OPC_UA_URL]);
 
+  // ---- Styling ----
+  const treeCss = `
+    #info-content,
+    #info-content * {
+      text-align: left !important;
+    }
 
+    #info-content {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #f5f5f5;
+      user-select: none;
+    }
+
+    .ua-node-row {
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .ua-node-row:hover {
+      background: rgba(255,255,255,0.06);
+    }
+  `;
+
+  // ---- Tree render ----
+  const renderNode = (node: UaNode, level: number) => {
+    const expandable = isLikelyExpandable(node);
+    const hasRealChildren = (node.children?.length ?? 0) > 0;
+
+    const showArrow =
+      node.loading ||
+      (node.loaded ? hasRealChildren : expandable);
+
+    const arrowChar = node.loading ? "…" : node.expanded ? "▾" : "▸";
+
+    return (
+      <div key={node.nodeId}>
+        <div
+          className="ua-node-row"
+          style={{
+            paddingLeft: level * INDENT_PER_LEVEL_PX,
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+            cursor: showArrow ? "pointer" : "default",
+          }}
+          onClick={() => {
+            // left click: expand/collapse
+            if (showArrow) toggleNode(node.nodeId);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            selectNode(node);
+          }}
+          title={node.nodeId}
+        >
+          <span style={{ width: 16, color: "#aaa" }}>
+            {showArrow ? arrowChar : "•"}
+          </span>
+
+          <span style={{ color: "#fff" }}>{node.displayName}</span>
+
+          <span style={{ color: "#777" }}>
+            ({node.nodeClass})
+          </span>
+        </div>
+
+        {node.expanded && node.children?.map((c) => renderNode(c, level + 1))}
+
+        {node.expanded && node.loaded && (node.children?.length ?? 0) === 0 && (
+          <div style={{ paddingLeft: (level + 1) * INDENT_PER_LEVEL_PX, color: "#666", fontSize: 12, paddingTop: 2 }}>
+            (keine Kinder)
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -526,11 +531,9 @@ const addSubscription = (node: SelectedNodeInfo) => {
             URL: <code>{OPC_UA_URL}</code>
           </div>
         </div>
-        <button onClick={toggleOpen}>
-          {isOpen ? "×" : "Adressraum öffnen"}
-        </button>
+        <button onClick={toggleOpen}>{isOpen ? "×" : "Adressraum öffnen"}</button>
       </div>
-  
+
       {/* Inhalt */}
       {isOpen && (
         <div
@@ -564,11 +567,14 @@ const addSubscription = (node: SelectedNodeInfo) => {
             </div>
           )}
 
-          {!loading && !error && html && (
-            // layout: left = tree, right = node info panel (space reserved for future widgets)
+          {!loading && !error && root && (
             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <div id="info-content" ref={containerRef} style={{ flex: 1 }} />
+              {/* Left: Tree */}
+              <div id="info-content" style={{ flex: 1 }}>
+                {renderNode(root, 0)}
+              </div>
 
+              {/* Right: Node Info + Widgets */}
               <div
                 style={{
                   width: 300,
@@ -591,7 +597,7 @@ const addSubscription = (node: SelectedNodeInfo) => {
 
                 {!selectedNode && (
                   <div style={{ color: "#888", fontSize: 13 }}>
-                    Klick auf einen Knoten, um Informationen anzuzeigen.
+                    Rechtsklick auf einen Knoten, um Informationen anzuzeigen.
                     <div style={{ marginTop: 12, color: "#777", fontSize: 12 }}>
                       Platz für weitere Widgets (Methoden-Panel, Subscriptions, Properties).
                     </div>
@@ -606,10 +612,10 @@ const addSubscription = (node: SelectedNodeInfo) => {
                     </div>
 
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ color: "#aaa", fontSize: 12 }}>Attributes (dataset)</div>
+                      <div style={{ color: "#aaa", fontSize: 12 }}>Attributes</div>
                       <div style={{ marginTop: 6 }}>
                         {Object.keys(selectedNode.attributes).length === 0 && (
-                          <div style={{ color: "#777" }}>Keine dataset-Attribute gefunden.</div>
+                          <div style={{ color: "#777" }}>Keine Attribute gefunden.</div>
                         )}
                         {Object.entries(selectedNode.attributes).map(([k, v]) => (
                           <div key={k} style={{ display: "flex", gap: 8, marginBottom: 4 }}>
@@ -620,33 +626,17 @@ const addSubscription = (node: SelectedNodeInfo) => {
                       </div>
                     </div>
 
-                    {/* Actions / Subscribe */}
+                    {/* Actions */}
                     <div style={{ marginTop: 12, borderTop: "1px dashed #2b2b2b", paddingTop: 10 }}>
                       <div style={{ color: "#aaa", fontSize: 12, marginBottom: 6 }}>Actions / Details</div>
-                      <div style={{ color: "#777", fontSize: 12 }}>
-                        Buttons or widgets to call methods, subscribe, show properties, etc.
-                      </div>
                       <div style={{ marginTop: 10 }}>
-                        <button 
-                          style={{ padding: "6px 8px", marginRight: 8 }}
-                          onClick={() => openMethodDialog(selectedNode)}
-                        >
+                        <button style={{ padding: "6px 8px", marginRight: 8 }} onClick={() => openMethodDialog(selectedNode)}>
                           Call Method
                         </button>
-                        <button
-                          style={{ padding: "6px 8px", marginRight: 8 }}
-                          onClick={() => {
-                            addSubscription(selectedNode);
-                          }}
-                        >
+                        <button style={{ padding: "6px 8px", marginRight: 8 }} onClick={() => addSubscription(selectedNode)}>
                           Subscribe
                         </button>
-                        <button
-                          style={{ padding: "6px 8px" }}
-                          onClick={() => {
-                            addEventSubscription(selectedNode);
-                          }}
-                        >
+                        <button style={{ padding: "6px 8px" }} onClick={() => addEventSubscription(selectedNode)}>
                           Subscribe Events
                         </button>
                       </div>
@@ -654,7 +644,7 @@ const addSubscription = (node: SelectedNodeInfo) => {
                   </div>
                 )}
 
-                {/* Subscriptions panel (always visible below node info) */}
+                {/* Subscriptions panel */}
                 <div style={{ marginTop: 16, borderTop: "1px solid #2b2b2b", paddingTop: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <strong>Subscriptions</strong>
@@ -662,7 +652,9 @@ const addSubscription = (node: SelectedNodeInfo) => {
                   </div>
 
                   {subscriptions.length === 0 && (
-                    <div style={{ color: "#777", fontSize: 12 }}>Keine Abonnements. Wähle einen Knoten und klicke "Subscribe".</div>
+                    <div style={{ color: "#777", fontSize: 12 }}>
+                      Keine Abonnements. Wähle einen Knoten und klicke "Subscribe".
+                    </div>
                   )}
 
                   {subscriptions.map((s) => (
@@ -679,7 +671,10 @@ const addSubscription = (node: SelectedNodeInfo) => {
                       </div>
                       <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end", gap: 8 }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); removeSubscription(s.nodeId); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeSubscription(s.nodeId);
+                          }}
                           style={{ padding: "4px 8px" }}
                         >
                           Unsubscribe
@@ -697,7 +692,9 @@ const addSubscription = (node: SelectedNodeInfo) => {
                   </div>
 
                   {eventSubscriptions.length === 0 && (
-                    <div style={{ color: "#777", fontSize: 12 }}>Keine Event-Abonnements. Wähle einen Knoten und klicke "Subscribe Events".</div>
+                    <div style={{ color: "#777", fontSize: 12 }}>
+                      Keine Event-Abonnements. Wähle einen Knoten und klicke "Subscribe Events".
+                    </div>
                   )}
 
                   {eventSubscriptions.map((s) => (
@@ -708,7 +705,10 @@ const addSubscription = (node: SelectedNodeInfo) => {
                       </div>
                       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); removeEventSubscription(s.nodeId); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeEventSubscription(s.nodeId);
+                          }}
                           style={{ padding: "4px 8px" }}
                         >
                           Unsubscribe Events
@@ -721,11 +721,10 @@ const addSubscription = (node: SelectedNodeInfo) => {
             </div>
           )}
 
-          {!loading && !error && !html && (
-            <div style={{ color: "#888" }}>
-              Noch keine Daten geladen (oder leerer Address Space).
-            </div>
-          )}        </div>
+          {!loading && !error && !root && OPC_UA_URL && (
+            <div style={{ color: "#888" }}>Noch keine Daten geladen (oder leerer Address Space).</div>
+          )}
+        </div>
       )}
 
       {/* Method Call Dialog */}
@@ -777,12 +776,8 @@ const addSubscription = (node: SelectedNodeInfo) => {
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", color: "#ccc", fontSize: 13, marginBottom: 6 }}>
-                Input Parameters (JSON)
-              </label>
-              <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>
-                Example: {`{"paramName": "value", "count": 42}`}
-              </div>
+              <label style={{ display: "block", color: "#ccc", fontSize: 13, marginBottom: 6 }}>Input Parameters (JSON)</label>
+              <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>Example: {`{"paramName":"value","count":42}`}</div>
               <textarea
                 value={methodInputsJSON}
                 onChange={(e) => setMethodInputsJSON(e.target.value)}
@@ -804,43 +799,20 @@ const addSubscription = (node: SelectedNodeInfo) => {
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
               <button
                 onClick={callMethod}
-                style={{
-                  padding: "8px 16px",
-                  background: "#2a7fff",
-                  border: "none",
-                  borderRadius: 4,
-                  color: "#fff",
-                  cursor: "pointer",
-                }}
+                style={{ padding: "8px 16px", background: "#2a7fff", border: "none", borderRadius: 4, color: "#fff", cursor: "pointer" }}
               >
                 Call Method
               </button>
               <button
                 onClick={closeMethodDialog}
-                style={{
-                  padding: "8px 16px",
-                  background: "transparent",
-                  border: "1px solid #444",
-                  borderRadius: 4,
-                  color: "#ccc",
-                  cursor: "pointer",
-                }}
+                style={{ padding: "8px 16px", background: "transparent", border: "1px solid #444", borderRadius: 4, color: "#ccc", cursor: "pointer" }}
               >
                 Cancel
               </button>
             </div>
 
             {methodResult && (
-              <div
-                style={{
-                  padding: "12px",
-                  background: "#121212",
-                  border: "1px solid #333",
-                  borderRadius: 6,
-                  color: "#fff",
-                  fontSize: 13,
-                }}
-              >
+              <div style={{ padding: "12px", background: "#121212", border: "1px solid #333", borderRadius: 6, color: "#fff", fontSize: 13 }}>
                 <div style={{ color: "#aaa", fontSize: 12, marginBottom: 6 }}>Result</div>
                 <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{methodResult}</pre>
               </div>
@@ -851,4 +823,5 @@ const addSubscription = (node: SelectedNodeInfo) => {
     </div>
   );
 };
+
 export default OPCUAAddressSpace;
