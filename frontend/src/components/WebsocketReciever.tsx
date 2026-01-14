@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useContext } from 'react';
 import { SocketContext } from '../hooks/use-socket';
 import { useLogContext } from '../contexts/LogContext';
 import { useRobotInfoContext} from '../contexts/RobotInfoContext';
+import { JointStateManager, WRITER_ID } from '../hooks/useJointState';
 
 type AxleValues = Record<string, number>;
 
@@ -13,11 +14,24 @@ type RobotInfo = {
     toggleEndEffMethodNodeId?: string | null;
 };
 
-export default function WebSocketReciever() {
+// Helper: Convert Record<string, number> to number[]
+const recordToArray = (record: Record<string, number>): number[] => {
+    return Object.values(record).sort((a, b) => {
+        const aKey = Object.keys(record).find(k => record[k] === a) || '';
+        const bKey = Object.keys(record).find(k => record[k] === b) || '';
+        return aKey.localeCompare(bKey);
+    });
+};
+
+export interface WebSocketRecieverProps {
+    jointManager: JointStateManager
+}
+
+export default function WebSocketReciever({ jointManager }: WebSocketRecieverProps) {
     
     const socket = useContext(SocketContext);
 
-    const {setRobotName, setRobotStatus, setRobotMode, setAxleValues, setRobotInfo, setDebugInfo} = useRobotInfoContext();
+    const {axleValues, setRobotName, setRobotStatus, setRobotMode, setAxleValues, setRobotInfo, setDebugInfo} = useRobotInfoContext();
 
     const { setLogs } = useLogContext();
 
@@ -40,7 +54,7 @@ export default function WebSocketReciever() {
                 setDebugInfo('✅ Mode: ' + mode);
             } else if (msg.startsWith('x|angles:')) {
                 const parsed = JSON.parse(msg.replace('x|angles:', '').replace(/'/g, '"'));
-                if (parsed?.angles) setAxleValues(prev => ({ ...prev, ...parsed.angles }));
+                if (parsed?.angles) setAxleValues(parsed.angles);
                 setDebugInfo('✅ Axle values updated');
             } else if (msg.startsWith('Robot info sent:')) {
                 const payload = JSON.parse(msg.replace('Robot info sent:', '').trim());
@@ -50,7 +64,7 @@ export default function WebSocketReciever() {
                 setDebugInfo('✅ Robot info received');
             } else if (msg.startsWith('Axle values collected:')) {
                 const parsed = JSON.parse(msg.replace('Axle values collected:', '').replace(/'/g, '"'));
-                setAxleValues(prev => ({ ...prev, ...parsed }));
+                setAxleValues(parsed);
                 setDebugInfo('✅ Axle values updated');
             } else if (msg.startsWith('stream mode|')) {
                 const modeValue = msg.split('|')[0].replace('stream mode', '').trim();
@@ -69,20 +83,21 @@ export default function WebSocketReciever() {
         } catch (e) {
             setDebugInfo('❌ Failed to handle message: ' + String(e));
         }
-    }, []);
+    }, [setLogs, setRobotName, setRobotInfo, setRobotStatus, setRobotMode, setAxleValues, setDebugInfo]);
 
-
-    // Listen to socket.lastMessage
+    // Effect 1: Process WebSocket messages
     useEffect(() => {
         if (!socket?.lastMessage) return;
-
-        const { data, timeStamp } = socket.lastMessage;
-
-        // Log every incoming message
+        const { data } = socket.lastMessage;
         console.log('Websocket data:', data);
-
         if (typeof data === 'string') handleMessage(data);
     }, [socket?.lastMessage, handleMessage]);
+
+    // Effect 2: Update jointManager when axleValues change
+    useEffect(() => {
+        console.log('Axle Values in WebSocketReciever:', axleValues);
+        jointManager.setAngles(WRITER_ID.SYN, recordToArray(axleValues))
+    }, [axleValues, jointManager]);
 
     return (null);
 }

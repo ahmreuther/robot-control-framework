@@ -5,14 +5,23 @@ import { useLogContext } from "../../../contexts/LogContext";
 import { useState } from "react";
 import { Switch, Label } from "@heroui/react";
 import {useSendMessage} from "../../../hooks/send-message";
+import { useContext } from "react";
+import { RobotInfoContext } from "../../../contexts/RobotInfoContext";
+import { type JointStateManager } from "../../../hooks/useJointState";
+import { WRITER_ID, WRITER_PRIORITY } from "../../../hooks/useJointState";
 
+export interface SynchronizeButtonProps {
+    jointManager: JointStateManager
+}
 
-export default function Synchronize_Button() {
-
+export default function Synchronize_Button({ jointManager }: SynchronizeButtonProps) {
     const { url: connectedUrl } = useUrlContext();      //aktuelle verbundene url(oder nicht)
     const {setLogs} = useLogContext();
     const [isSyncActive, setIsSyncActive] = useState(false); // darf stream aktiv sein
-    const { sendMessage } = useSendMessage(); 
+    const { sendMessage } = useSendMessage();
+
+    const axleValues = useContext(RobotInfoContext).axleValues
+
 
     function synchronize(toggleState: boolean): boolean {
 
@@ -38,14 +47,14 @@ export default function Synchronize_Button() {
                 setLogs(prev => prev + "🔄 Synchronization activated.\n");
 
                  //liest joint array werte aus dem backend aus
+                jointManager.mountWriter(WRITER_ID.SYN, WRITER_PRIORITY.SYN)
 
         }
         else {
                 sendMessage("cancel stream joint position");
                 sendMessage("cancel stream mode");
                 setLogs(prev => prev + "⏸️ Synchronization deactivated.\n");
-
-                //liest joint array werte aus dem backend aus und schickt sie dann in einem number array an dennis
+                jointManager.unmountWriter(WRITER_ID.SYN)
         }
         return true;
 

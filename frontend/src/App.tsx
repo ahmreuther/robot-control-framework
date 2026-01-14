@@ -50,7 +50,7 @@ function App() {
                  robotStatus={robotStatus} axleValues={axleValues} debugInfo={debugInfo}
                  setAxleValues={setAxleValues} setDebugInfo={setDebugInfo} setRobotInfo={setRobotInfo} setRobotMode={setRobotMode}
                  setRobotName={setRobotName} setRobotStatus={setRobotStatus}>
-                <WebSocketReciever/>
+                <WebSocketReciever jointManager={jointManager} />
                   <div className="flex flex-col h-full bg-black">
                   <SidebarMenu
                     jointManager={jointManager}

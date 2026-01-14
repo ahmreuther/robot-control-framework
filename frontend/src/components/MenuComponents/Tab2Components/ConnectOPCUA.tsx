@@ -5,9 +5,14 @@ import { UrlContext } from "../../../contexts/UrlContext";
 import Synchronize_Button from "./SynchroniseButton";
 import { useSendMessage } from "../../../hooks/send-message";
 import {RobotInfoContext} from "../../../contexts/RobotInfoContext"; [RobotInfoContext]
+import { type JointStateManager } from "src/hooks/useJointState";
+
+export interface ConnectOPCUAProps {
+    jointManager: JointStateManager
+}
 
 // Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
-function ConnectOPCUA() {
+function ConnectOPCUA({ jointManager }: ConnectOPCUAProps) {
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
   const {url, setUrl}  = useContext(UrlContext);
   const { sendMessage } = useSendMessage();
@@ -67,7 +72,7 @@ function ConnectOPCUA() {
           Disconnect
         </Button>
       </div>
-        <Synchronize_Button />
+        <Synchronize_Button jointManager={jointManager} />
       </div>
     );
 }

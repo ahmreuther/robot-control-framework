@@ -67,7 +67,7 @@ export function SidebarMenu(MenuProps: MenuProps) {
         }
         {active === "OPC-UA" && 
         <div className="space-y-4">
-          <ConnectOPCUA /> 
+          <ConnectOPCUA jointManager={MenuProps.jointManager}/> 
           <MessageLog /> 
         </div>}
         {active === "Twin-Dashboard" &&
