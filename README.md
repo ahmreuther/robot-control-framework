@@ -35,6 +35,7 @@ flowchart TD
 ## Prerequisites
 For development, you will need:
 - **Git**
+- **Git LFS**
 - **Python 3.11+** (recommended)
 - **Node.js LTS** (e.g., 20.x) + **npm**
 - **uv** (Python package manager from Astral)
@@ -53,6 +54,11 @@ Installation:
 
 
 ## Installation & Start
+### 0. Cloning the repository
+It is important to clone the submodules along with the repository. The following command can be used:
+```bash
+git clone git@git.rwth-aachen.de:ai-in-production/project-repositories/webskillcomposition.git --recurse-submodules
+```
 ### 1. Set up the backend
 Change to the backend directory:
 ```bash
