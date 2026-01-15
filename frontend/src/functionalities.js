@@ -16,6 +16,22 @@ let hasRoboticsNamespace = null
 let gotoMethodNodeId = null;
 let toggleEndEffMethodNodeId = null;
 
+let host = `http://${window.location.host}`;
+if (process.env.NODE_ENV !== "production") {
+  host = "http://127.0.0.1:8000"
+}
+// console.log(host);
+
+function get_ws_url(subpath) {
+    var url = new URL(subpath, host);
+    
+    url.protocol = url.protocol.replace('http', 'ws');
+
+    // console.log(url.href);
+
+    return url.href; // => ws://www.example.com:9999/path/to/websocket
+}
+
 
 
 // Utils: Extract URDF joints from viewer
@@ -47,8 +63,6 @@ function urdfJointsArray() {
     }
     return arr;
 }
-
-
 
 function isRevoluteType(t) {
     t = String(t || '').toLowerCase();
@@ -304,7 +318,7 @@ function buildEndEffectorMap() {
 
 function loadDeviceSet(opcUaUrl) {
     const encodedUrl = encodeURIComponent(opcUaUrl);
-    fetch(`http://127.0.0.1:8000/device_set_rendered?url=${encodedUrl}`)
+    fetch(`${host}/device_set_rendered?url=${encodedUrl}`)
         .then(res => res.text())
         .then(html => {
             document.getElementById('info-content').innerHTML = html;
@@ -368,7 +382,8 @@ window.addEventListener('load', () => {
     // connectedUrl = getLastOpcUaUrl();      // <-- Initialize here!
     const lastNodeId = getLastOpenNodeId();
 
-    socket = new WebSocket("ws://127.0.0.1:8000/ws");
+    var url = get_ws_url("/ws");
+    socket = new WebSocket(url);
 
     socket.onopen = () => {
         console.log("WebSocket connection established.");
@@ -830,7 +845,7 @@ document.addEventListener("click", function (e) {
         if (selectedNodeId && connectedUrl) {
             const encodedUrl = encodeURIComponent(connectedUrl);
             const encodedNodeId = encodeURIComponent(selectedNodeId);
-            fetch(`http://127.0.0.1:8000/references?url=${encodedUrl}&nodeid=${encodedNodeId}`)
+            fetch(`${host}/references?url=${encodedUrl}&nodeid=${encodedNodeId}`)
                 .then(res => res.json())
                 .then(refs => {
                     if (Array.isArray(refs)) {
@@ -880,7 +895,7 @@ document.addEventListener("click", async function (e) {
 
             const encodedUrl = encodeURIComponent(connectedUrl);
             const nodeId = encodeURIComponent(summary.dataset.nodeId);
-            const resp = await fetch(`http://127.0.0.1:8000/subtree_children?url=${encodedUrl}&nodeid=${nodeId}`);
+            const resp = await fetch(`${host}/subtree_children?url=${encodedUrl}&nodeid=${nodeId}`);
             const html = await resp.text();
 
             const staging = document.createElement("div");
@@ -1474,7 +1489,7 @@ function refreshSelectedNode() {
         }
         const encodedUrl = encodeURIComponent(connectedUrl);
         const encodedNodeId = encodeURIComponent(selectedNodeId);
-        fetch(`http://127.0.0.1:8000/node_rendered?url=${encodedUrl}&nodeid=${encodedNodeId}&children_depth=1`)
+        fetch(`${host}/node_rendered?url=${encodedUrl}&nodeid=${encodedNodeId}&children_depth=1`)
             .then(res => res.text())
             .then(html => {
                 const staging = document.createElement('div');
@@ -1556,7 +1571,8 @@ if (homeIcon) {
 }
 
 function setup_mcp_socket() {
-    socket_mcp = new WebSocket("ws://127.0.0.1:8000/ws_mcp");
+    var url = get_ws_url("/ws_mcp");
+    socket_mcp = new WebSocket(url);
 
     socket_mcp.onopen = () => {
         console.log("MCP WebSocket connection established.");
