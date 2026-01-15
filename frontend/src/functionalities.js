@@ -16,6 +16,8 @@ let hasRoboticsNamespace = null
 let gotoMethodNodeId = null;
 let toggleEndEffMethodNodeId = null;
 
+// Test
+
 let host = `http://${window.location.host}`;
 if (process.env.NODE_ENV !== "production") {
   host = "http://127.0.0.1:8000"
