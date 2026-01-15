@@ -21,7 +21,7 @@ import {
     Vector3,
     Quaternion
 } from 'three';
-import { getRobot } from './robotManager.js';
+
 // Shared helper to set a sensible starting pose per robot name
 export const applyDefaultPose = (robot) => {
     if (!robot || !robot.joints) return;

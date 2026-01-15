@@ -10,6 +10,7 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 import URDFLoader from 'urdf-loader/src/URDFLoader.js';
 import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory } from './robotManager.js';
+import { spawnRobot, disposeRobotNode, renderForAFewFrames } from './sceneManager.js';
 import { applyDefaultPose } from './URDFIKManipulator.js';
 customElements.define('urdf-viewer', URDFIKManipulator);
 
@@ -74,20 +75,7 @@ const logMessage = msg => {
     logContainer.prepend(line);
 };
 
-const renderForAFewFrames = (frames = 6) => new Promise(resolve => {
-    let count = 0;
-    const tick = () => {
-        if (viewer.controls && typeof viewer.controls.update === 'function') viewer.controls.update();
-        if (viewer.redraw) {
-            viewer.redraw();
-        } else if (viewer.renderer && viewer.scene && viewer.camera) {
-            viewer.renderer.render(viewer.scene, viewer.camera);
-        }
-        if (++count >= frames) return resolve();
-        requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-});
+// renderForAFewFrames is provided by `services/sceneManager.js`
 
 function setupMiniStats(viewerEl) {
   const container = document.getElementById('stats-output');
@@ -127,15 +115,9 @@ const solverOptions = {
     rotationConvergeThreshold: 1e-5,
     restPoseFactor: 0.025,
 };
+import { robotModels } from './robotManager.js';
+
 // Multi- Robot
-const robotModels = [
-    { name: "EVA", urdf: "/urdf/eva_description/urdf/eva_description.urdf", color: "#546575" },
-    { name: "FR3", urdf: "/urdf/fr3_description/urdf/fr3.urdf", color: "#567554" },
-    { name: "FR3 + Wagon", urdf: "/urdf/fr3_description_with_wagon/urdf/fr3.urdf", color: "#567554" },
-    { name: "UR5e", urdf: "/urdf/ur5_description/urdf/ur5_robot.urdf", color: "#aaaab3" },
-];
-
-
 const addRobotSelect = document.getElementById('multi-robot-model');
 robotModels.forEach(r => {
     const option = document.createElement('option');
@@ -157,46 +139,9 @@ function setActiveRobot(id) {
 }
 
 
-async function spawnRobot({ urdfPath, offsetX = 1.5, slotIndex = null }) {
-    if (!urdfPath || !viewer) return null;
+// spawnRobot handled by `services/sceneManager.js`
 
-    // load URDF using the viewer’s loader hooks so custom mesh loading works
-    const loader = new URDFLoader();
-    if (viewer.loadMeshFunc) loader.loadMeshCb = viewer.loadMeshFunc;
-    if (viewer.fetchOptions) loader.fetchOptions = viewer.fetchOptions;
-
-    const robot = await new Promise((resolve, reject) => {
-        loader.load(urdfPath, r => resolve(r), undefined, err => reject(err));
-    });
-
-    // stagger robots in X using the requested slot index or the next available slot
-    const slot = Number.isFinite(slotIndex) ? slotIndex : getNextSlotIndex();
-    robot.position.x = offsetX * slot;
-    robot.name = robot.name || `robot_${Date.now()}`;
-
-    robot.traverse(node => {
-        if (node && node.isObject3D) node.frustumCulled = false;
-    });
-    robot.updateMatrixWorld(true);
-
-    viewer.world.add(robot);
-    viewer.world.updateMatrixWorld(true);
-    await renderForAFewFrames();
-    if (typeof viewer.redraw === 'function') viewer.redraw();
-
-    return robot;
-};
-
-function disposeRobotNode(node) {
-        if (!node) return;
-        node.traverse(child => {
-                if (child.geometry) child.geometry.dispose();
-                if (child.material) {
-                        if (Array.isArray(child.material)) child.material.forEach(m => m && m.dispose && m.dispose());
-                        else if (child.material.dispose) child.material.dispose();
-                }
-        });
-}
+// disposeRobotNode handled by `services/sceneManager.js`
 
 
 addRobotBtn.addEventListener('click', async () => {
@@ -214,7 +159,7 @@ addRobotBtn.addEventListener('click', async () => {
             sceneNode: null,
             slotIndex
         });
-        const robotNode = await spawnRobot({ urdfPath: model.urdf, slotIndex });
+        const robotNode = await spawnRobot(viewer, { urdfPath: model.urdf, slotIndex, getNextSlotIndex });
         if (robotNode) {
             record.sceneNode = robotNode;
             robotNode.updateMatrixWorld(true);
@@ -239,7 +184,7 @@ deleteRobotBtn.addEventListener('click', async () => {
         if (record.sceneNode.parent) record.sceneNode.parent.remove(record.sceneNode);
         disposeRobotNode(record.sceneNode);
     }
-    renderForAFewFrames();
+    renderForAFewFrames(viewer);
 
     await removeRobot(activeRobotId);
 
