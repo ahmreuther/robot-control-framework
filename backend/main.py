@@ -1,3 +1,6 @@
+import os
+
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,9 +56,9 @@ app.include_router(mcp_server.router)
 app.mount("/llm", mcp_server.mcp_app)
 
 # --- Static File Serving & Entrypoint ---
-
-# app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="root")
+if os.getenv("HOST"):
+    app.mount("/", StaticFiles(directory="./www", html=True), name="root")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
     # asyncio.run(main())
