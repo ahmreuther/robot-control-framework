@@ -27,9 +27,6 @@ type RobotInfoContextType = {
   robotInfo: RobotInfo | null;
   setRobotInfo: (robotInfo: RobotInfo | null) => void;
 
-  debugInfo: string | null;
-  setDebugInfo: (debugInfo: string | null) => void;
-
 };
 
 export const RobotInfoContext = createContext<RobotInfoContextType>({
@@ -47,9 +44,6 @@ export const RobotInfoContext = createContext<RobotInfoContextType>({
 
   robotInfo: {},
   setRobotInfo: () => {},
-
-  debugInfo: 'Initializing...',
-  setDebugInfo: () => {},
   
 });
 
@@ -69,8 +63,6 @@ export type RobotInfoProviderProps = PropsWithChildren<{
   readonly robotInfo: RobotInfo | null;
   readonly setRobotInfo: (robotInfo: RobotInfo | null) => void;
 
-  readonly debugInfo: string | null;
-  readonly setDebugInfo: (debugInfo: string | null) => void;
 }>;
 
 export function RobotInfoProvider(props: RobotInfoProviderProps) {
@@ -80,7 +72,6 @@ export function RobotInfoProvider(props: RobotInfoProviderProps) {
         ,robotMode: props.robotMode, setRobotMode: props.setRobotMode
         ,axleValues: props.axleValues, setAxleValues: props.setAxleValues
         ,robotInfo: props.robotInfo, setRobotInfo: props.setRobotInfo
-        ,debugInfo: props.debugInfo, setDebugInfo: props.setDebugInfo
     }}>
       {props.children}
     </RobotInfoContext.Provider>

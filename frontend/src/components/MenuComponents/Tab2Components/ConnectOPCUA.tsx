@@ -14,7 +14,8 @@ export interface ConnectOPCUAProps {
 // Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
 function ConnectOPCUA({ jointManager }: ConnectOPCUAProps) {
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
-  const {url, setUrl}  = useContext(UrlContext);
+  const [localUrl, setLocalUrl] = useState("opc.tcp://127.0.0.1:4840/freeopcua/server/")
+  const {setUrl}  = useContext(UrlContext);
   const { sendMessage } = useSendMessage();
   const isConnected = useContext(RobotInfoContext).robotStatus === "Connected";
   // Load saved URL from localStorage on mount
@@ -28,9 +29,9 @@ function ConnectOPCUA({ jointManager }: ConnectOPCUAProps) {
 
 
   function handleConnect() {
-    sendMessage("connect")
+    sendMessage("connect", localUrl)
     // Setze URL im UrlContext wenn erfolgreich (wird durch Backend-Response aktualisiert)
-    const trimmedUrl = url.trim();
+    const trimmedUrl = localUrl.trim();
     if (trimmedUrl) {
       setUrl(trimmedUrl);
     }
@@ -45,8 +46,8 @@ function ConnectOPCUA({ jointManager }: ConnectOPCUAProps) {
       <div className="flex flex-col gap-3 p-4 bg-black bg-opacity-70 rounded border border-white/20">
           <div className="font-bold text-sm uppercase tracking-wide text-white/90 pb-2 border-b border-white/20">OPC-UA Connection</div>
           <Input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            value={localUrl}
+            onChange={(e) => setLocalUrl(e.target.value)}
             aria-label="Server-Adress"
             className="w-full text-xs"
             placeholder="OPC UA Server URL"

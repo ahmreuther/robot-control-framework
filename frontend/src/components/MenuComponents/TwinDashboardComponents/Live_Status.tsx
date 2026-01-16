@@ -2,7 +2,7 @@ import { useRobotInfoContext} from '../../../contexts/RobotInfoContext';
 
 
 export default function Live_Status() {
-    const {robotName, robotStatus, robotMode, axleValues, robotInfo, debugInfo} = useRobotInfoContext();
+    const {robotName, robotStatus, robotMode, axleValues, robotInfo} = useRobotInfoContext();
 
     // Format axle values for display
     const jointsText =
@@ -18,10 +18,7 @@ export default function Live_Status() {
             <div className="text-sm font-bold uppercase tracking-wide border-b border-white/20 pb-2">
                 Live Status
             </div>
-
-            {/* Debug Info */}
-            <div className="text-xs text-gray-400 p-2 bg-black/50 rounded">{debugInfo}</div>
-
+            
             {/* Status items */}
             <div className="flex flex-col space-y-2">
                 <StatusItem label="Connected Robot" value={robotName} />
