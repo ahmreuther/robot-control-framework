@@ -299,26 +299,6 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
                     setAxleValues({});
                     setRobotInfo({});
                 }
-
-
-
-
-                if (msg.startsWith('Robot info sent:')) {
-                    const payload = JSON.parse(msg.replace('Robot info sent:', '').trim());
-                    setRobotInfo(payload);
-                    if (payload.model) setRobotName(payload.model);
-                    setRobotStatus('Connected');
-                    //setDebugInfo('✅ Robot info received');
-                } if (msg.startsWith('Axle values collected:')) {
-                    const parsed = JSON.parse(msg.replace('Axle values collected:', '').replace(/'/g, '"'));
-                    setAxleValues(parsed);
-                    //setDebugInfo('✅ Axle values updated');
-                } if (msg.startsWith('stream mode|')) {
-                    const modeValue = msg.split('|')[0].replace('stream mode', '').trim();
-                    if (modeValue) setRobotMode(modeValue);
-                    setRobotStatus('Connected');
-                }
-                
             }
         } catch (e) {
             console.warn('❌ Failed to handle message: ' + String(e));
