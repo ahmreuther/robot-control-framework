@@ -59,6 +59,7 @@ function App() {
                     jointLimits={jointLimits}
                     showCollisionMesh={showCollisionMesh}
                     setShowCollisionMesh={setShowCollisionMesh}
+                    reloadKey={reloadKey}
                   />
                   <OPCUAAddressSpace />
                 </div>

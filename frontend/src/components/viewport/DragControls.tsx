@@ -76,16 +76,6 @@ export function DragControls({
       return direction * projectedEndPoint.angleTo(projectedStartPoint);
     }
 
-    // Helper for prismatic joint dragging
-    function getPrismaticDelta(joint, startPoint, endPoint) {
-      // Get joint axis in world coordinates
-      const axisWorld = new THREE.Vector3().copy(joint.axis).transformDirection(joint.matrixWorld).normalize();
-      // Project start and end points onto axis
-      const startProj = new THREE.Vector3().copy(startPoint).sub(joint.position).dot(axisWorld);
-      const endProj = new THREE.Vector3().copy(endPoint).sub(joint.position).dot(axisWorld);
-      return endProj - startProj;
-    }
-
     function pointerMove(event: PointerEvent) {
       const pointer = getPointer(event);
       lastPointer.current = pointer;

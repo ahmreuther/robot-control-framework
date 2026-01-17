@@ -1,11 +1,12 @@
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { Environment, OrbitControls } from "@react-three/drei";
 import { Suspense, useState, useCallback } from "react";
 import { Robot } from "./Robot";
 import { Stats } from "./Stats";
 import { SolverStatus } from "./SolverStatus";
 import type { JointStateManager } from "../../hooks/useJointState";
 import { JointManagerPanel } from "./JointManagerPanel";
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 
 export interface ViewportProps {
   urdfPath: string;
@@ -38,21 +39,34 @@ export function Viewport(props: ViewportProps) {
 
       <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>
 
+        {/* Environment */}
+       <Suspense fallback={null}> 
+          <Environment 
+            files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/aristea_wreck_puresky_2k.hdr"}
+            environmentIntensity={0.6}
+            //ground={{ height: 5, radius: 40, scale: 20 }}
+            background={true}
+          />
+        </Suspense>
+
+        {/* Postprocessing Effects */}
+        <EffectComposer>
+          <Bloom luminanceThreshold={0} luminanceSmoothing={0.7} />
+          <Vignette eskil={false} offset={0.1} darkness={0.3} />
+        </EffectComposer>
+
+        <ambientLight intensity={0.4} />
+
         {/* Grid Helper */}
         <gridHelper args={[10, 10]} rotation={[Math.PI / 2, 0, 0]} />
 
         {/* Background color */}
         <color attach="background" args={["#202025"]} />
 
-        {/* Lights */}
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 5, 5]} intensity={1.2} />
-        <directionalLight position={[-5, 5, -5]} intensity={1.2} />
-
         {/* Mouse controls */}
         <OrbitControls enabled={!drag} />
 
-        {/* Robot with IK (includes GoalMarker) */}
+        {/* Robot with IK */}
         <Suspense fallback={null}>
           <Robot 
             urdfPath={urdfPath}

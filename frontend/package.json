@@ -15,6 +15,7 @@
     "@melloware/react-logviewer": "^6.3.4",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.2",
+    "@react-three/postprocessing": "^3.0.4",
     "@tailwindcss/vite": "^4.1.17",
     "closed-chain-ik": "github:gkjohnson/closed-chain-ik-js#v0.0.5",
     "react": "^19.2.0",

@@ -14,7 +14,8 @@ interface MenuProps {
   jointManager: JointStateManager;
   jointLimits?: Array<JointLimit | null>;
   setShowCollisionMesh?: (show: boolean) => void;
-  showCollisionMesh?: boolean;
+  showCollisionMesh: boolean;
+  reloadKey: number;
 }
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
@@ -62,6 +63,7 @@ export function SidebarMenu(MenuProps: MenuProps) {
             jointLimits={MenuProps.jointLimits}
             showCollisionMesh={MenuProps.showCollisionMesh}
             setShowCollisionMesh={MenuProps.setShowCollisionMesh}
+            reloadKey={MenuProps.reloadKey}
           />
         </div>
         }

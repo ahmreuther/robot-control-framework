@@ -14,6 +14,7 @@ export interface JointAnglesPanelProps {
   jointLimits?: Array<JointLimit | null>;
   showCollisionMesh: boolean;
   setShowCollisionMesh?: (show: boolean) => void;
+  reloadKey?: number;
 }
 
 const PANEL_WRITER_ID = 'joint-angles-panel';
@@ -28,10 +29,15 @@ export function JointAnglesPanel({
   jointLimits,
   showCollisionMesh = false,
   setShowCollisionMesh,
+  reloadKey
 }: JointAnglesPanelProps) {
   const [showRadians, setShowRadians] = useState(false);
   const [localAngles, setLocalAngles] = useState<number[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (setShowCollisionMesh) setShowCollisionMesh(false);
+  }, [reloadKey, setShowCollisionMesh]);
 
   // Subscribe to joint angle changes (read)
   useEffect(() => {
@@ -105,7 +111,7 @@ export function JointAnglesPanel({
           className="w-4 h-4 cursor-pointer"
         />
         <label htmlFor="show-radians" className="cursor-pointer text-white/80 flex-1">
-          {'Radians'}
+          Radians
         </label>
       </div>
 

@@ -283,11 +283,9 @@ export function Robot({
 
   // Handler: robot loaded
   const handleRobotReady = useCallback(
-    async (robot: URDFRobot, robotGroup: THREE.Group, jointLimits: Array<JointLimit | null>) => {
+    async (robot: URDFRobot, robotGroup: THREE.Group) => {
       robotRef.current = robot;
       robotGroupRef.current = robotGroup;
-
-      onJointLimitsLoaded(jointLimits);
       
       // Load home pose from configuration
       try {
@@ -332,6 +330,23 @@ export function Robot({
       
       // Ensure robot is fully updated with home pose
       robot.updateMatrixWorld(true);
+
+      const jointLimits: Array<JointLimit | null> = [];
+      if (robot.joints) {
+          Object.values(robot.joints).forEach((joint) => {
+              const limit = (joint as any).limit;
+              if (limit) {
+                  jointLimits.push({
+                      min: limit.lower ?? -Math.PI,
+                      max: limit.upper ?? Math.PI,
+                  });
+              } else {
+                  jointLimits.push(null);
+              }
+          });
+      }
+
+      onJointLimitsLoaded(jointLimits);
       
       // Initialize IK root once with home pose
       const jointNames = Object.keys(robot.joints ?? {});
@@ -473,8 +488,7 @@ export function Robot({
     <>
       <RobotLoader 
         urdfPath={urdfPath}
-        onRobotReady={handleRobotReady} 
-        showCollisionMesh={showCollisionMesh}
+        onRobotReady={handleRobotReady}
       />
       <DragControls
         robot={robotRef.current}
