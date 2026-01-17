@@ -13,7 +13,6 @@ type ASpaceBodyProps = {
 const INDENT_PER_LEVEL_PX = 20;
 const STORAGE_KEY_EXPANDED = "addressSpace_expandedNodes";
 
-// ========== EMOJI FOR NODE CLASS (moved outside component for performance) ==========
 const getNodeClassEmoji = (nodeClass: string): string => {
   switch ((nodeClass ?? "").toLowerCase()) {
     case "object":
@@ -36,7 +35,6 @@ const getNodeClassEmoji = (nodeClass: string): string => {
       return "📄";
   }
 };
-
 // ========== MEMOIZED NODE COMPONENT (prevents unnecessary re-renders) ==========
 interface TreeNodeProps {
   node: UaNode;

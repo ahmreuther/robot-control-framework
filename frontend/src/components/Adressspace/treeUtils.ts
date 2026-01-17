@@ -38,19 +38,3 @@ export const isLikelyExpandable = (node: UaNode): boolean => {
   const cls = (node.nodeClass ?? "").toLowerCase();
   return cls === "object" || cls === "variable";
 };
-
-/**
- * Converts nodeClass string to numeric string for compatibility
- */
-export const nodeClassToNumericString = (nodeClass: string): string => {
-  switch ((nodeClass ?? "").toLowerCase()) {
-    case "object":
-      return "1";
-    case "variable":
-      return "2";
-    case "method":
-      return "4";
-    default:
-      return "";
-  }
-};

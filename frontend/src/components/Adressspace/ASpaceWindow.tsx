@@ -10,7 +10,6 @@ import { SubscriptionsPanel, EventsPanel, MethodDialog } from "./panels";
 
 // LocalStorage keys
 const STORAGE_KEY_WINDOW = "addressSpace_window";
-const STORAGE_KEY_TREE = "addressSpace_treeState";
 const STORAGE_KEY_EXPANDED = "addressSpace_expandedNodes";
 
 interface WindowState {
