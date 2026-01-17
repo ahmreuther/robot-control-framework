@@ -385,13 +385,13 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
 # ================================================================================
 
 @router.get("/node_value")
-async def get_node_value(url: str, node_id: str):
+async def get_node_value(url: str, nodeid: str):
     """
     ⭐ Liest den aktuellen Wert eines Variable-Nodes
     
     Parameter:
         - url: OPC UA Server URL
-        - node_id: Node ID des Variable-Nodes
+        - nodeid: Node ID des Variable-Nodes
     
     Response:
         {"nodeId": "...", "value": ...}
@@ -402,9 +402,71 @@ async def get_node_value(url: str, node_id: str):
     if not client:
         raise HTTPException(404, "No client connected for this URL")
     
-    node = client.client.get_node(node_id)
+    node = client.client.get_node(nodeid)
     value = await node.read_value()
-    return {"nodeId": node_id, "value": value}
+    return {"nodeId": nodeid, "value": value}
+
+
+@router.get("/node_details")
+async def get_node_details(url: str, node_id: str):
+    """
+    ⭐ Liest alle Attribute eines Nodes (für Properties Panel)
+    """
+    client = get_client(url)
+    if not client:
+        raise HTTPException(404, "No client connected for this URL")
+    
+    try:
+        node = client.client.get_node(node_id)
+        
+        # Basis-Attribute die jeder Node hat
+        browse_name = await node.read_browse_name()
+        display_name = await node.read_display_name()
+        node_class = await node.read_node_class()
+        
+        result = {
+            "nodeId": node_id,
+            "browseName": f"{browse_name.NamespaceIndex}:{browse_name.Name}",
+            "displayName": display_name.Text,
+            "nodeClass": node_class.name,
+            "nodeClassValue": node_class.value,
+        }
+        
+        # Optionale Attribute (können fehlen je nach NodeClass)
+        try:
+            desc = await node.read_description()
+            result["description"] = desc.Text if desc else None
+        except:
+            result["description"] = None
+            
+        # Variable-spezifische Attribute
+        if node_class.name == "Variable":
+            try:
+                result["value"] = await node.read_value()
+            except:
+                result["value"] = None
+            try:
+                data_type = await node.read_data_type()
+                result["dataType"] = data_type.to_string()
+            except:
+                result["dataType"] = None
+            try:
+                result["accessLevel"] = await node.read_attribute(ua.AttributeIds.AccessLevel)
+            except:
+                result["accessLevel"] = None
+                
+        # Event Notifier (für Objects)
+        if node_class.name == "Object":
+            try:
+                en = await node.read_attribute(ua.AttributeIds.EventNotifier)
+                result["eventNotifier"] = en.Value.Value if en.Value else None
+            except:
+                result["eventNotifier"] = None
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(500, f"Error reading node details: {e}")
 
 
 # ================================================================================

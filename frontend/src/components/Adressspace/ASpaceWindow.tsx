@@ -6,7 +6,7 @@ import { useSocket } from "../../hooks/use-socket";
 import { ASpaceBody } from "./ASpaceBody";
 import { UaNode } from "./types";
 import { useSubscriptions, useEventSubscriptions, useMethodCall } from "./hooks";
-import { SubscriptionsPanel, EventsPanel, MethodDialog } from "./panels";
+import { SubscriptionsPanel, EventsPanel, MethodDialog, NodeDetailsPanel } from "./panels";
 
 // LocalStorage keys
 const STORAGE_KEY_WINDOW = "addressSpace_window";
@@ -372,6 +372,9 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
                         Call
                       </button>
                     </div>
+
+                    {/* Node Details Panel (Properties + References) */}
+                    <NodeDetailsPanel node={selectedNode} opcUaUrl={opcUaUrl} />
                   </div>
                 ) : (
                   <div style={{ color: "#777", fontSize: 12, marginBottom: 12 }}>

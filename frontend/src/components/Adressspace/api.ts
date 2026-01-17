@@ -65,3 +65,59 @@ export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<
   const value = payload?.value ?? (typeof payload === "string" ? payload : JSON.stringify(payload));
   return String(value);
 };
+
+// ========== NODE DETAILS (Properties Panel) ==========
+export interface NodeDetails {
+  nodeId: string;
+  browseName: string;
+  displayName: string;
+  nodeClass: string;
+  nodeClassValue: number;
+  description?: string | null;
+  value?: any;
+  dataType?: string | null;
+  accessLevel?: any;
+  eventNotifier?: number | null;
+}
+
+export const fetchNodeDetails = async (opcUaUrl: string, nodeId: string): Promise<NodeDetails> => {
+  const encodedUrl = encodeURIComponent(opcUaUrl);
+  const encodedNodeId = encodeURIComponent(nodeId);
+  
+  const res = await fetch(
+    `${REST_BACKEND_BASE}/node_details?url=${encodedUrl}&node_id=${encodedNodeId}`
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "<no-body>");
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
+
+  return await res.json();
+};
+
+// ========== REFERENCES ==========
+export interface NodeReference {
+  ReferenceType: string;
+  NodeId: string;
+  BrowseName: string;
+  TypeDefinition: string;
+}
+
+export const fetchReferences = async (opcUaUrl: string, nodeId: string): Promise<NodeReference[]> => {
+  const encodedUrl = encodeURIComponent(opcUaUrl);
+  const encodedNodeId = encodeURIComponent(nodeId);
+  
+  const res = await fetch(
+    `${REST_BACKEND_BASE}/references?url=${encodedUrl}&nodeid=${encodedNodeId}`
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "<no-body>");
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
+
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data as NodeReference[];
+};
