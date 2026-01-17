@@ -16,7 +16,7 @@ export const SOLVE_STATUS = {
   TIMEOUT: 3,
 } as const;
 
-const END_EFFECTOR_NAMES = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange"];
+const END_EFFECTOR_NAMES = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange",];
 
 interface RobotProps {
   urdfPath: string;
@@ -37,39 +37,27 @@ export function Robot({
   jointManager,
   showCollisionMesh,
 }: RobotProps) {
-  const robotRef = useRef<URDFRobot | null>(null);
-  const robotGroupRef = useRef<THREE.Group | null>(null);
-  
-    // Store original materials for restoration
-    const originalMaterialMap = useRef(new Map<THREE.Object3D, THREE.Material>());
+  const robotRef = useRef<URDFRobot>(null);
+  const robotGroupRef = useRef<THREE.Group>(null);
 
     useEffect(() => {
-      if (!robotRef.current) return;
-      if (typeof showCollisionMesh === 'undefined') return;
-      robotRef.current.traverse((obj: any) => {
-        if (obj.geometry && obj.material) {
-          if (showCollisionMesh) {
-            if (!originalMaterialMap.current.has(obj)) {
-              originalMaterialMap.current.set(obj, obj.material);
-            }
-            obj.material = new THREE.MeshPhongMaterial({
-              color: 0xff4444,
-              opacity: 0.3,
-              transparent: true,
-              wireframe: false,
-            });
-          } else {
-            const orig = originalMaterialMap.current.get(obj);
-            if (orig) {
-              obj.material = orig;
-            }
-          }
+    if (!robotRef.current) return;
+    robotRef.current.traverse((obj: any) => {
+      if (obj.isMesh && typeof obj.name === 'string') {
+        const name = obj.name.toLowerCase();
+        if (showCollisionMesh && name.startsWith('collision_')) {
+          originalMaterialMap.current.set(obj, obj.material);
+          obj.material =  collisionMaterialRef.current;
+        } else if (!showCollisionMesh && name.startsWith('collision_')) {
+          obj.material  = originalMaterialMap.current.get(obj);
         }
-      });
-      if (!showCollisionMesh) {
-        originalMaterialMap.current.clear();
       }
-    }, [showCollisionMesh]);
+    });
+    if (!showCollisionMesh) {
+      originalMaterialMap.current.clear();
+    }
+  }, [showCollisionMesh]);
+
   const ikRootRef = useRef<any>(null);
   
   const convergedRef = useRef<boolean>(false);
@@ -87,15 +75,26 @@ export function Robot({
 
   const { camera, gl } = useThree();
 
+  const originalMaterialMap = useRef(new Map<THREE.Object3D, THREE.Material>());
   const highlightMaterialRef = useRef(
     new THREE.MeshPhongMaterial({
-      shininess: 10,
-      color: 0xffffff,
-      emissive: 0xffffff,
-      emissiveIntensity: 0.25,
+      shininess: 100,
+      specular: 0x3399ff,
+      color: 0xbbeeff,
+      emissive: 0x3399ff,
+      emissiveIntensity: 4.0,
+      reflectivity: 0.7,
     })
   );
-
+  const collisionMaterialRef = useRef(
+    new THREE.MeshPhysicalMaterial({
+      color: 0x880000,
+      metalness: 0.2,
+      roughness: 0.7,
+      transparent: true,
+      opacity: 0.7,
+    })  
+  );
   // Animation state for gradual home pose transition
   const animationStartTimeRef = useRef<number | null>(null);
   const animationDuration = 2.0; // seconds
@@ -205,23 +204,6 @@ export function Robot({
     return unsubscribe;
   }, [jointManager]);
 
-  // Effects: focus and cursor
-  useEffect(() => {
-    if (!gl) return;
-    const el = gl.domElement as HTMLElement;
-    if (el.tabIndex !== 0) el.tabIndex = 0;
-    const focusHandle = requestAnimationFrame(() => el.focus());
-    return () => cancelAnimationFrame(focusHandle);
-  }, [gl]);
-
-  useEffect(() => {
-    if (!gl) return;
-    gl.domElement.style.cursor = hoveredJoint ? 'pointer' : 'default';
-    return () => {
-      if (gl && gl.domElement) gl.domElement.style.cursor = 'default';
-    };
-  }, [gl, hoveredJoint]);
-
   const runIK = useCallback(() => {
     const robot = robotRef.current;
     const robotGroup = robotGroupRef.current;
@@ -231,9 +213,16 @@ export function Robot({
 
     // Transform goal from world space to robot local space
     const worldPos = new THREE.Vector3(...goalPosition);
+    const worldQuat = new THREE.Quaternion(...goalQuaternion);
+
     const localPos = robotGroup.worldToLocal(worldPos.clone());
+
+    const robotGroupWorldQuat = robotGroup.getWorldQuaternion(new THREE.Quaternion());
+    const localQuat = worldQuat.clone().premultiply(robotGroupWorldQuat.invert());
+
+
     goal.setPosition(localPos.x, localPos.y, localPos.z);
-    goal.setQuaternion(...goalQuaternion);
+    goal.setQuaternion(localQuat.x, localQuat.y, localQuat.z, localQuat.w);
     goal.setMatrixNeedsUpdate();
     
     // Always sync IK with current robot state before solving
@@ -286,6 +275,7 @@ export function Robot({
     async (robot: URDFRobot, robotGroup: THREE.Group) => {
       robotRef.current = robot;
       robotGroupRef.current = robotGroup;
+      robotGroup.rotation.x = -Math.PI / 2;
       
       // Load home pose from configuration
       try {
@@ -329,7 +319,7 @@ export function Robot({
       }
       
       // Ensure robot is fully updated with home pose
-      robot.updateMatrixWorld(true);
+      //robot.updateMatrixWorld(true);
 
       const jointLimits: Array<JointLimit | null> = [];
       if (robot.joints) {
@@ -347,9 +337,38 @@ export function Robot({
       }
 
       onJointLimitsLoaded(jointLimits);
-      
-      // Initialize IK root once with home pose
-      const jointNames = Object.keys(robot.joints ?? {});
+
+      let robotMesh: THREE.Mesh | undefined;
+      let collisionMesh: THREE.Mesh | undefined;
+      robot.traverse((obj: any) => {
+        if (obj.isMesh && obj.material && typeof obj.name === 'string') {
+          const name = obj.name.toLowerCase();
+          if (name.startsWith('collision_')) {
+            collisionMesh = obj;
+            obj.material = new THREE.MeshPhysicalMaterial({
+              transparent: true,
+              opacity: 0,
+            });
+          } else {
+            robotMesh = obj;
+            let color = 0xffffff;
+            if (obj.material.color) color = obj.material.color.getHex();
+            const origColor = obj.material.color ? obj.material.color.getHex() : 0xffffff;
+            obj.material = new THREE.MeshPhysicalMaterial({
+              color: origColor,
+              metalness: 0.5,
+              roughness: 0.6,
+              clearcoat: 0.2,
+              clearcoatRoughness: 0.3,
+              reflectivity: 0.3,
+              envMapIntensity: 0,
+              // emissive: 0xa67c00,
+              // emissiveIntensity: 5.0,
+           });
+          }
+        }
+      });
+
       const ikRoot = urdfRobotToIKRoot(robot, false) as any;
       ikRoot.clearDoF(); // Lock the robot base
       setIKFromUrdf(ikRoot, robot);
@@ -370,56 +389,31 @@ export function Robot({
       jointManager.mountWriter(WRITER_ID.RESET, WRITER_PRIORITY.RESET);
       jointManager.setAngles(WRITER_ID.RESET, jointAnglesRef.current);
       jointManager.unmountWriter(WRITER_ID.RESET);
-
-      const robotEndEffector = findEndEffectorInRobot(robot);
-
-      //UpdateEndEffectorPosition
-      if (robotEndEffector) {
-        robotEndEffector.updateMatrixWorld(true);
-        const pos = new THREE.Vector3();
-        const quat = new THREE.Quaternion();
-        robotEndEffector.getWorldPosition(pos);
-        robotEndEffector.getWorldQuaternion(quat);
-        const newPos: [number, number, number] = [pos.x, pos.y, pos.z];
-        const newQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
-        lastValidGoalPositionRef.current = [...newPos];
-        lastValidGoalQuaternionRef.current = [...newQuat];
-        setGoalPosition(newPos);
-        setGoalQuaternion(newQuat)
-      }
     },
     [gl, camera]
   );  
 
-  // Helper: animate from zero to home pose during startup
-  const applyHomeAnimation = (robot: URDFRobot, jointNames: string[]) => {
-    if (!robot || animationStartTimeRef.current === null) return false;
-    const elapsed = (performance.now() - animationStartTimeRef.current) / 1000;
-    const t = Math.min(elapsed / animationDuration, 1.0);
-    const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-    jointNames.forEach((name, index) => {
-      if (index < homePositionRef.current.length) {
-        const startAngle = 0;
-        const targetAngle = homePositionRef.current[index];
-        const currentAngle = startAngle + (targetAngle - startAngle) * eased;
-        robot.setJointValue(name, currentAngle);
+  const homeAnimation = (jointNames) => { 
+      if (animationStartTimeRef.current === null) return false;
+      const elapsed = (performance.now() - animationStartTimeRef.current) / 1000;
+      const t = Math.min(elapsed / animationDuration, 1.0);
+      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const newAngles = jointNames.map((name, index) => {
+        if (index < homePositionRef.current.length) {
+          const startAngle = 0;
+          const targetAngle = homePositionRef.current[index];
+          return startAngle + (targetAngle - startAngle) * eased;
+        }
+        return 0;
+      });
+      jointManager.setAngles(WRITER_ID.ANIMATION, newAngles);
+      updateGoalToEndEffector();
+      if (t >= 1.0) {
+        isAnimatingRef.current = false;
+        jointManager.unmountWriter(WRITER_ID.ANIMATION);
+        animationStartTimeRef.current = null;
       }
-    });
-    robot.updateMatrixWorld(true);
-
-    jointAnglesRef.current = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
-    jointManager.setAngles(WRITER_ID.ANIMATION, jointAnglesRef.current);
-    updateGoalToEndEffector();
-
-    if (t >= 1.0) {
-      isAnimatingRef.current = false;
-      jointManager.unmountWriter(WRITER_ID.ANIMATION);
-      animationStartTimeRef.current = null;
     }
-
-    return true;
-  };
 
   // Helper: forward kinematics
   const applyForwardKinematics = (robot: URDFRobot, jointNames: string[]) => {
@@ -442,18 +436,17 @@ export function Robot({
     if (!jointNames.length) return;
 
     if (isAnimatingRef.current && animationStartTimeRef.current !== null) {
-      if (applyHomeAnimation(robot, jointNames)) return;
+      homeAnimation(jointNames)
     }
     runIK();
-    //if (drag) return;
     applyForwardKinematics(robot, jointNames);
   });
 
-  const handleDragStart = (joint: any) => {
+  const handleDragStart = () => {
     jointManager.mountWriter(WRITER_ID.DRAG, WRITER_PRIORITY.DRAG);
     onDrag?.(true);
   };
-  const handleDragEnd = (joint: any) => {
+  const handleDragEnd = () => {
     jointManager.unmountWriter(WRITER_ID.DRAG);
     onDrag?.(false);
   };
@@ -464,16 +457,17 @@ export function Robot({
     hoveredJointRef.current = joint;
     if (joint) {
       highlightJointGeometry(joint, true);
+      if (gl && gl.domElement) gl.domElement.style.cursor = 'pointer';
     }
-    setHoveredJoint(joint?.name ?? null);
   };
   const handleUnhover = (joint: any) => {
     if (joint) {
       highlightJointGeometry(joint, false);
     }
     hoveredJointRef.current = null;
-    setHoveredJoint(null);
+    if (gl && gl.domElement) gl.domElement.style.cursor = 'default';
   };
+
 
   const handleUpdateJoint = (joint: any, angle: number) => {
       const robot = robotRef.current;

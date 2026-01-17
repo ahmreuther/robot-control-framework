@@ -37,13 +37,14 @@ export function Viewport(props: ViewportProps) {
         <JointManagerPanel jointManager={jointManager} />
       </div>
 
-      <Canvas camera={{ position: [1.5, 1.5, 1.5], up: [0, 0, 1], fov: 50 }}>
+      <Canvas camera={{ position: [1.5, 1.5, -1.5], up: [0, 1, 0], fov: 50 }}>
 
         {/* Environment */}
        <Suspense fallback={null}> 
           <Environment 
-            files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/aristea_wreck_puresky_2k.hdr"}
+            files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr"}
             environmentIntensity={0.6}
+            backgroundIntensity={0.5} 
             //ground={{ height: 5, radius: 40, scale: 20 }}
             background={true}
           />
@@ -51,14 +52,14 @@ export function Viewport(props: ViewportProps) {
 
         {/* Postprocessing Effects */}
         <EffectComposer>
-          <Bloom luminanceThreshold={0} luminanceSmoothing={0.7} />
+          <Bloom />
           <Vignette eskil={false} offset={0.1} darkness={0.3} />
         </EffectComposer>
 
         <ambientLight intensity={0.4} />
 
         {/* Grid Helper */}
-        <gridHelper args={[10, 10]} rotation={[Math.PI / 2, 0, 0]} />
+        <gridHelper args={[10, 10]} rotation={[0, Math.PI / 2, 0]} />
 
         {/* Background color */}
         <color attach="background" args={["#202025"]} />
