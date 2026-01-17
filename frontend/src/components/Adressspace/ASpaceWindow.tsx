@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useUrlContext } from "../UrlContext";
+import { useSocket } from "../../hooks/use-socket";
 import { ASpaceBody } from "./ASpaceBody";
 import { UaNode } from "./types";
+import { useSubscriptions, useEventSubscriptions, useMethodCall } from "./hooks";
+import { SubscriptionsPanel, EventsPanel, MethodDialog } from "./panels";
 
 // LocalStorage keys
 const STORAGE_KEY_WINDOW = "addressSpace_window";
-const STORAGE_KEY_TREE = "addressSpace_treeState";
 
 interface WindowState {
   x: number;
@@ -32,7 +34,23 @@ const DEFAULT_WINDOW: WindowState = {
 
 export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) => {
   const { url: opcUaUrl } = useUrlContext();
+  const socket = useSocket();
   const [selectedNode, setSelectedNode] = useState<UaNode | null>(null);
+
+  // ========== HOOKS ==========
+  const { subscriptions, addSubscription, removeSubscription } = useSubscriptions(opcUaUrl, (socket as any));
+  const { eventSubscriptions, addEventSubscription, removeEventSubscription } = useEventSubscriptions(opcUaUrl, (socket as any));
+  const { 
+    isOpen: methodDialogOpen, 
+    methodNode, 
+    inputsJSON, 
+    result: methodResult,
+    isLoading: methodLoading,
+    openMethodDialog, 
+    closeMethodDialog, 
+    setInputsJSON, 
+    callMethod 
+  } = useMethodCall(opcUaUrl, (socket as any));
   
   // Window state
   const [windowState, setWindowState] = useState<WindowState>(() => {
@@ -208,13 +226,13 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
         <div
           style={{
             flex: 1,
-            overflow: "auto",
-            padding: "8px 12px",
+            overflow: "hidden",
+            display: "flex",
             background: "#1a1a1a",
           }}
         >
           {!opcUaUrl ? (
-            <div style={{ color: "#888", padding: 20, textAlign: "center" }}>
+            <div style={{ color: "#888", padding: 20, textAlign: "center", flex: 1 }}>
               <div style={{ fontSize: 24, marginBottom: 8 }}>🔌</div>
               <div>Please connect to an OPC UA server first</div>
               <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>
@@ -223,45 +241,120 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
             </div>
           ) : (
             <>
-              <ASpaceBody opcUaUrl={opcUaUrl} onNodeSelect={handleNodeSelect} />
-              
-              {/* Selected Node Info */}
-              {selectedNode && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: 10,
-                    background: "#252525",
-                    borderRadius: 6,
-                    border: "1px solid #333",
-                  }}
-                >
-                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Selected Node</div>
-                  <div style={{ color: "#fff", fontSize: 13, fontWeight: 500 }}>
-                    {selectedNode.displayName}
+              {/* Left: Tree */}
+              <div style={{ flex: 1, overflow: "auto", padding: "8px 12px", borderRight: "1px solid #333" }}>
+                <ASpaceBody opcUaUrl={opcUaUrl} onNodeSelect={handleNodeSelect} />
+              </div>
+
+              {/* Right: Panels */}
+              <div style={{ width: 260, overflow: "auto", padding: "8px 12px", color: "#ddd" }}>
+                {/* Selected Node Info */}
+                {selectedNode ? (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Selected Node</div>
+                    <div style={{ color: "#fff", fontSize: 13, fontWeight: 500 }}>
+                      {selectedNode.displayName}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#666", marginTop: 2, wordBreak: "break-all" }}>
+                      {selectedNode.nodeId}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 6,
+                        padding: "2px 6px",
+                        background: "#333",
+                        borderRadius: 3,
+                        display: "inline-block",
+                        fontSize: 10,
+                        color: "#aaa",
+                      }}
+                    >
+                      {selectedNode.nodeClass}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      <button
+                        onClick={() => addSubscription(selectedNode)}
+                        disabled={selectedNode.nodeClass.toLowerCase() !== "variable"}
+                        style={{
+                          padding: "4px 8px",
+                          fontSize: 11,
+                          background: selectedNode.nodeClass.toLowerCase() === "variable" ? "#2a5" : "#333",
+                          border: "none",
+                          borderRadius: 4,
+                          color: "#fff",
+                          cursor: selectedNode.nodeClass.toLowerCase() === "variable" ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        Subscribe
+                      </button>
+                      <button
+                        onClick={() => addEventSubscription(selectedNode)}
+                        disabled={selectedNode.nodeClass.toLowerCase() !== "object"}
+                        style={{
+                          padding: "4px 8px",
+                          fontSize: 11,
+                          background: selectedNode.nodeClass.toLowerCase() === "object" ? "#a52" : "#333",
+                          border: "none",
+                          borderRadius: 4,
+                          color: "#fff",
+                          cursor: selectedNode.nodeClass.toLowerCase() === "object" ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        Events
+                      </button>
+                      <button
+                        onClick={() => openMethodDialog(selectedNode)}
+                        disabled={selectedNode.nodeClass.toLowerCase() !== "method"}
+                        style={{
+                          padding: "4px 8px",
+                          fontSize: 11,
+                          background: selectedNode.nodeClass.toLowerCase() === "method" ? "#25a" : "#333",
+                          border: "none",
+                          borderRadius: 4,
+                          color: "#fff",
+                          cursor: selectedNode.nodeClass.toLowerCase() === "method" ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        Call
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
-                    {selectedNode.nodeId}
+                ) : (
+                  <div style={{ color: "#777", fontSize: 12, marginBottom: 12 }}>
+                    Rechtsklick auf einen Knoten zur Auswahl.
                   </div>
-                  <div
-                    style={{
-                      marginTop: 6,
-                      padding: "2px 6px",
-                      background: "#333",
-                      borderRadius: 3,
-                      display: "inline-block",
-                      fontSize: 10,
-                      color: "#aaa",
-                    }}
-                  >
-                    {selectedNode.nodeClass}
-                  </div>
-                </div>
-              )}
+                )}
+
+                {/* Subscriptions Panel */}
+                <SubscriptionsPanel
+                  subscriptions={subscriptions}
+                  onRemove={removeSubscription}
+                />
+
+                {/* Events Panel */}
+                <EventsPanel
+                  eventSubscriptions={eventSubscriptions}
+                  onRemove={removeEventSubscription}
+                />
+              </div>
             </>
           )}
         </div>
       )}
+
+      {/* Method Dialog */}
+      <MethodDialog
+        isOpen={methodDialogOpen}
+        node={methodNode}
+        inputsJSON={inputsJSON}
+        result={methodResult}
+        isLoading={methodLoading}
+        onInputsChange={setInputsJSON}
+        onCall={callMethod}
+        onClose={closeMethodDialog}
+      />
 
       {/* Resize Handle */}
       {!windowState.minimized && (
