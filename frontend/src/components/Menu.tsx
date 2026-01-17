@@ -20,24 +20,14 @@ interface MenuProps {
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
 
-// Storage key for Address Space window visibility
-const STORAGE_KEY_ASPACE_OPEN = "addressSpace_isOpen";
-
 export function SidebarMenu(MenuProps: MenuProps) {
   const [active, setActive] = useState<TabKey>("Controls");
   
-  // Address Space window state - persisted
-  const [isAddressSpaceOpen, setIsAddressSpaceOpen] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_ASPACE_OPEN);
-    return saved === "true";
-  });
+  // Address Space window state - NOT persisted (always starts closed)
+  const [isAddressSpaceOpen, setIsAddressSpaceOpen] = useState(false);
 
   const toggleAddressSpace = () => {
-    setIsAddressSpaceOpen(prev => {
-      const next = !prev;
-      localStorage.setItem(STORAGE_KEY_ASPACE_OPEN, String(next));
-      return next;
-    });
+    setIsAddressSpaceOpen(prev => !prev);
   };
 
   return (

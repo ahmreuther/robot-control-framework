@@ -1,4 +1,4 @@
-// ASpaceWindow.tsx - Resizable, draggable window with state persistence
+// ASpaceWindow.tsx - Resizable, draggable window with state persistence (Performance Optimized)
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useUrlContext } from "../UrlContext";
@@ -8,6 +8,7 @@ import { UaNode } from "./types";
 // LocalStorage keys
 const STORAGE_KEY_WINDOW = "addressSpace_window";
 const STORAGE_KEY_TREE = "addressSpace_treeState";
+const STORAGE_KEY_EXPANDED = "addressSpace_expandedNodes";
 
 interface WindowState {
   x: number;
@@ -34,6 +35,14 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
   const { url: opcUaUrl } = useUrlContext();
   const [selectedNode, setSelectedNode] = useState<UaNode | null>(null);
   
+  // Key to force ASpaceBody re-mount (for reload functionality)
+  const [bodyKey, setBodyKey] = useState(0);
+  
+  // Clear tree state on page reload (runs once on mount)
+  useEffect(() => {
+    localStorage.removeItem(STORAGE_KEY_EXPANDED);
+  }, []);
+  
   // Window state
   const [windowState, setWindowState] = useState<WindowState>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_WINDOW);
@@ -47,18 +56,18 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
     return DEFAULT_WINDOW;
   });
 
-  // Dragging state
+  // Dragging state - use refs for offset to avoid re-renders
   const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
   
   // Resizing state
   const [isResizing, setIsResizing] = useState(false);
   const windowRef = useRef<HTMLDivElement>(null);
 
-  // Save window state on change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_WINDOW, JSON.stringify(windowState));
-  }, [windowState]);
+  // Save window state ONLY on minimize toggle (not during drag/resize)
+  const saveWindowState = useCallback((state: WindowState) => {
+    localStorage.setItem(STORAGE_KEY_WINDOW, JSON.stringify(state));
+  }, []);
 
   // Handle node selection
   const handleNodeSelect = (node: UaNode) => {
@@ -69,18 +78,18 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.resize-handle')) return;
     setIsDragging(true);
-    setDragOffset({
+    dragOffsetRef.current = {
       x: e.clientX - windowState.x,
       y: e.clientY - windowState.y,
-    });
+    };
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isDragging) {
       setWindowState(prev => ({
         ...prev,
-        x: Math.max(0, Math.min(window.innerWidth - prev.width, e.clientX - dragOffset.x)),
-        y: Math.max(0, Math.min(window.innerHeight - 50, e.clientY - dragOffset.y)),
+        x: Math.max(0, Math.min(window.innerWidth - prev.width, e.clientX - dragOffsetRef.current.x)),
+        y: Math.max(0, Math.min(window.innerHeight - 50, e.clientY - dragOffsetRef.current.y)),
       }));
     }
     if (isResizing) {
@@ -90,12 +99,20 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
         height: Math.max(200, e.clientY - prev.y),
       }));
     }
-  }, [isDragging, isResizing, dragOffset]);
+  }, [isDragging, isResizing]);
 
+  // Save to localStorage only when drag/resize ENDS
   const handleMouseUp = useCallback(() => {
+    if (isDragging || isResizing) {
+      // Save final position/size to localStorage
+      setWindowState(prev => {
+        saveWindowState(prev);
+        return prev;
+      });
+    }
     setIsDragging(false);
     setIsResizing(false);
-  }, []);
+  }, [isDragging, isResizing, saveWindowState]);
 
   useEffect(() => {
     if (isDragging || isResizing) {
@@ -114,9 +131,26 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
     setIsResizing(true);
   };
 
-  // Toggle minimize
+  // Toggle minimize (also saves to localStorage)
   const toggleMinimize = () => {
-    setWindowState(prev => ({ ...prev, minimized: !prev.minimized }));
+    setWindowState(prev => {
+      const newState = { ...prev, minimized: !prev.minimized };
+      saveWindowState(newState);
+      return newState;
+    });
+  };
+
+  // Close window and RESET tree state completely
+  const handleClose = () => {
+    // Clear saved expanded nodes - tree will reset on next open
+    localStorage.removeItem(STORAGE_KEY_EXPANDED);
+    onClose();
+  };
+
+  // Reload/Reset tree (clears state and forces re-mount)
+  const handleReload = () => {
+    localStorage.removeItem(STORAGE_KEY_EXPANDED);
+    setBodyKey(prev => prev + 1); // Force ASpaceBody to re-mount
   };
 
   if (!isOpen) return null;
@@ -165,6 +199,24 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
         </div>
         
         <div style={{ display: "flex", gap: 4 }}>
+          {/* Reload (resets tree state) */}
+          <button
+            onClick={handleReload}
+            style={{
+              background: "#363",
+              border: "none",
+              color: "#fff",
+              width: 24,
+              height: 24,
+              borderRadius: 4,
+              cursor: "pointer",
+              fontSize: 12,
+            }}
+            title="Reload tree (reset)"
+          >
+            ↻
+          </button>
+          
           {/* Minimize */}
           <button
             onClick={toggleMinimize}
@@ -183,9 +235,9 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
             {windowState.minimized ? "□" : "−"}
           </button>
           
-          {/* Close */}
+          {/* Close (resets tree state) */}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               background: "#633",
               border: "none",
@@ -196,7 +248,7 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
               cursor: "pointer",
               fontSize: 12,
             }}
-            title="Close"
+            title="Close (resets tree)"
           >
             ×
           </button>
@@ -223,7 +275,7 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
             </div>
           ) : (
             <>
-              <ASpaceBody opcUaUrl={opcUaUrl} onNodeSelect={handleNodeSelect} />
+              <ASpaceBody key={bodyKey} opcUaUrl={opcUaUrl} onNodeSelect={handleNodeSelect} />
               
               {/* Selected Node Info */}
               {selectedNode && (
