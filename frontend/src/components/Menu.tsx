@@ -4,8 +4,10 @@ import Twin_Dashboard from "./MenuComponents/TwinDashboardComponents/Twin_Dashbo
 import MessageLog from "./MenuComponents/Tab2Components/MessageLog";
 import {URDFSelector, type ModelConfig } from './MenuComponents/ControlsComponents/URDFSelector';
 import { JointAnglesPanel } from "./MenuComponents/ControlsComponents/JointAnglesPanel";
+import { ASpaceWindow } from "./Adressspace";
 import Live_Status from "./MenuComponents/TwinDashboardComponents/Live_Status";
 import type { JointLimit } from "../hooks/useSceneState";
+import { Tab } from "@heroui/react";
 
 interface MenuProps {
   options: ModelConfig[];
@@ -18,10 +20,31 @@ interface MenuProps {
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
 
+// Storage key for Address Space window visibility
+const STORAGE_KEY_ASPACE_OPEN = "addressSpace_isOpen";
+
 export function SidebarMenu(MenuProps: MenuProps) {
   const [active, setActive] = useState<TabKey>("Controls");
+  
+  // Address Space window state - persisted
+  const [isAddressSpaceOpen, setIsAddressSpaceOpen] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_ASPACE_OPEN);
+    return saved === "true";
+  });
+
+  const toggleAddressSpace = () => {
+    setIsAddressSpaceOpen(prev => {
+      const next = !prev;
+      localStorage.setItem(STORAGE_KEY_ASPACE_OPEN, String(next));
+      return next;
+    });
+  };
+
   return (
     <div className="flex h-full z-10">
+      {/* Address Space Window (floating, rendered outside menu flow) */}
+      <ASpaceWindow isOpen={isAddressSpaceOpen} onClose={toggleAddressSpace} />
+      
       {/* SIDEBAR */}
       <aside className="flex flex-col border-r bg-black text-white">
         <nav className="flex flex-col">
@@ -45,6 +68,14 @@ export function SidebarMenu(MenuProps: MenuProps) {
           >
             Dashboard
           </TabButton>
+
+          <TabButton
+            active={isAddressSpaceOpen}
+            onClick={toggleAddressSpace}
+          >
+            ASpace
+          </TabButton>
+
         </nav>
       </aside>
 

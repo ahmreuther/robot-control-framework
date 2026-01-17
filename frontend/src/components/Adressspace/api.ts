@@ -1,0 +1,67 @@
+// API functions for OPC UA Address Space - JSON Sending/Receiving
+
+import { UaNode, REST_BACKEND_BASE } from "./types";
+
+/**
+ * Fetches children of a node from the backend
+ * GET /opcua/browse?url=...&node_id=...
+ * Returns JSON: { children: UaNode[] }
+ */
+export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<UaNode[]> => {
+  const encodedUrl = encodeURIComponent(opcUaUrl);
+  const encodedNodeId = encodeURIComponent(nodeId);
+  
+  const res = await fetch(
+    `${REST_BACKEND_BASE}/opcua/browse?url=${encodedUrl}&node_id=${encodedNodeId}`
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "<no-body>");
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
+
+  // JSON Response: { children: [...] }
+  const data = await res.json();
+  const children = (data?.children ?? []) as UaNode[];
+
+  // Normalize fields
+  return children.map((c) => ({
+    nodeId: c.nodeId,
+    displayName: c.displayName ?? c.browseName ?? c.nodeId,
+    browseName: c.browseName,
+    nodeClass: c.nodeClass ?? "Unknown",
+    children: c.children ?? undefined,
+    loaded: false,
+    expanded: false,
+    loading: false,
+  }));
+};
+
+/**
+ * Fetches the value of a node (for subscriptions polling)
+ * GET /node_value?url=...&nodeid=...
+ * Returns JSON: { value: ... }
+ */
+export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<string> => {
+  const encodedUrl = encodeURIComponent(opcUaUrl);
+  const encodedNodeId = encodeURIComponent(nodeId);
+  
+  const res = await fetch(
+    `${REST_BACKEND_BASE}/node_value?url=${encodedUrl}&nodeid=${encodedNodeId}`
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "<no-body>");
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
+
+  let payload: any = null;
+  try {
+    payload = await res.json();
+  } catch {
+    payload = await res.text();
+  }
+
+  const value = payload?.value ?? (typeof payload === "string" ? payload : JSON.stringify(payload));
+  return String(value);
+};
