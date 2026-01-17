@@ -1,5 +1,5 @@
 import json
-from fastapi import WebSocket, Request, Query, APIRouter
+from fastapi import WebSocket, Request, Query, APIRouter, HTTPException
 from fastapi.templating import Jinja2Templates
 from asyncua import ua
 
@@ -286,7 +286,10 @@ async def try_read_serialnumber(client: OPCUAClient):
     except Exception as e:
         return f"❌ SerialNumber read error: {e}"
 
-# --- REST API Endpoints for Node Rendering ---
+
+# ================================================================================
+# LEGACY ENDPOINTS (HTML Templates - nicht mehr aktiv genutzt)
+# ================================================================================
 
 @router.get("/device_set_rendered")
 async def get_device_set(request: Request, url: str = Query(...)):
@@ -370,3 +373,38 @@ async def get_references(url: str = Query(...), nodeid: str = Query(...)):
 
     except Exception as e:
         return {"error": str(e)}
+
+
+# ================================================================================
+# ⭐⭐⭐ RELEVANTE ENDPOINTS FÜR ADDRESS SPACE (Frontend: ASpaceBody.tsx) ⭐⭐⭐
+# ================================================================================
+#
+# Diese Endpoints werden vom Address Space Tree im Frontend verwendet.
+# Genutzt in: frontend/src/components/Adressspace/api.ts
+#
+# ================================================================================
+
+@router.get("/node_value")
+async def get_node_value(url: str, node_id: str):
+    """
+    ⭐ Liest den aktuellen Wert eines Variable-Nodes
+    
+    Parameter:
+        - url: OPC UA Server URL
+        - node_id: Node ID des Variable-Nodes
+    
+    Response:
+        {"nodeId": "...", "value": ...}
+    
+    Verwendet in: api.ts → fetchNodeValue()
+    """
+    client = get_client(url)
+    if not client:
+        raise HTTPException(404, "No client connected for this URL")
+    
+    node = client.client.get_node(node_id)
+    value = await node.read_value()
+    return {"nodeId": node_id, "value": value}
+
+
+# ================================================================================
