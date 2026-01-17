@@ -296,7 +296,7 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
             <>
               {/* Left: Tree */}
               <div style={{ flex: 1, overflow: "auto", padding: "8px 12px", borderRight: "1px solid #333" }}>
-                <ASpaceBody opcUaUrl={opcUaUrl} onNodeSelect={handleNodeSelect} />
+                <ASpaceBody key={bodyKey} opcUaUrl={opcUaUrl} onNodeSelect={handleNodeSelect} />
               </div>
 
               {/* Right: Panels */}
