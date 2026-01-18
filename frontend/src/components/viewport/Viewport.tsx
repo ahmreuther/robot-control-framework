@@ -30,7 +30,7 @@ export function Viewport(props: ViewportProps) {
         <SolverStatus solveStatuses={solveStatuses} />
       </div>
 
-      <Canvas camera={{ position: [1.5, 1.5, -1.5], up: [0, 1, 0], fov: 50 }}>
+      <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>
 
         {/* Environment */}
        <Suspense fallback={null}> 
