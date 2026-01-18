@@ -16,6 +16,7 @@ interface MenuProps {
   setShowCollisionMesh?: (show: boolean) => void;
   showCollisionMesh: boolean;
   reloadKey: number;
+  hoveredJointMesh?: number | null;
 }
 
 type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
@@ -64,6 +65,7 @@ export function SidebarMenu(MenuProps: MenuProps) {
             showCollisionMesh={MenuProps.showCollisionMesh}
             setShowCollisionMesh={MenuProps.setShowCollisionMesh}
             reloadKey={MenuProps.reloadKey}
+            hoveredJointMesh={MenuProps.hoveredJointMesh}
           />
         </div>
         }

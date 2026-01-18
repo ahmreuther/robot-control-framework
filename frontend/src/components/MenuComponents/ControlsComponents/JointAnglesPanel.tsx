@@ -13,16 +13,17 @@ export interface JointAnglesPanelProps {
   showCollisionMesh: boolean;
   setShowCollisionMesh?: (show: boolean) => void;
   reloadKey: number;
+  hoveredJointMesh?: number | null;
 }
 
 export function JointAnglesPanel({
   jointManager,
-  step = 1,
   onCollisionMeshToggle,
   jointProperties,
   showCollisionMesh = false,
   setShowCollisionMesh,
-  reloadKey
+  reloadKey,
+  hoveredJointMesh
 }: JointAnglesPanelProps) {
   const [showRadians, setShowRadians] = useState(false);
   const [localAngles, setLocalAngles] = useState<number[]>([]);
@@ -57,14 +58,6 @@ export function JointAnglesPanel({
 
   const toDisplay = (rad: number) => (showRadians ? rad : radToDeg(rad));
   const fromDisplay = (val: number) => (showRadians ? val : degToRad(val));
-
-  const handleAngleChange = (index: number, displayValue: number) => {
-    const rad = fromDisplay(displayValue);
-    const newAngles = [...localAngles];
-    newAngles[index] = rad;
-    setLocalAngles(newAngles);
-    jointManager.setAngles(WRITER_ID.FK, newAngles);
-  };
 
   const handleBeginEdit = () => setIsEditing(true);
 
@@ -130,8 +123,13 @@ export function JointAnglesPanel({
               : Math.max(range / 100, 0.1);
           }
 
+          const highlight = hoveredJointMesh === i;
           return (
-            <div key={i} className="flex items-center gap-2 px-2 py-1 rounded bg-white/5">
+            <div
+              key={i}
+              className={`flex items-center gap-2 px-2 py-1 rounded bg-white/5${highlight ? ' border border-blue-400 shadow-[0_0_6px_0_rgba(56,189,248,0.4)]' : ''}`}
+              style={highlight ? { boxShadow: '0 0 6px 0 rgba(56,189,248,0.4)', borderWidth: 1, borderColor: '#38bdf8', background: 'rgba(56,189,248,0.07)' } : {}}
+            >
               <label className="w-12 text-white/80">J{i}:</label>
               <input
                 type="range"

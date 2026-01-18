@@ -71,9 +71,19 @@ export function DragControls({
       dragPlane.current && dragPlane.current.projectPoint(endPoint, projectedEndPoint);
       projectedStartPoint.sub(pivotPoint);
       projectedEndPoint.sub(pivotPoint);
+      // // Prevent jump if either vector is too short (pointer at/near center)
+      // const minVecLen = 0.05;
+      // if (projectedStartPoint.length() < minVecLen || projectedEndPoint.length() < minVecLen) {
+      //   return 0;
+      // }
       tempVector.crossVectors(projectedStartPoint, projectedEndPoint);
       const direction = Math.sign(tempVector.dot(dragPlane.current ? dragPlane.current.normal : tempVector));
-      return direction * projectedEndPoint.angleTo(projectedStartPoint);
+      const angleDelta = direction * projectedEndPoint.angleTo(projectedStartPoint);
+      // Scale delta by distance from pivot to reduce sensitivity near center
+      const minDist = 0.15; // increased minimum effective distance
+      const dist = Math.max(projectedStartPoint.length(), projectedEndPoint.length(), minDist);
+      const scale = Math.min(0.5, dist / 0.5); // lower max scale, larger radius
+      return angleDelta * scale;
     }
 
     function pointerMove(event: PointerEvent) {

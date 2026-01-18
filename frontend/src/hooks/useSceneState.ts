@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ModelConfig } from "../components/MenuComponents/ControlsComponents/URDFSelector";
-import type { JointStateManager } from "./useJointState";
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },
@@ -33,6 +32,8 @@ export interface SceneStateApi {
   setSelectedRobot: (robot: ModelConfig) => void;
   reloadKey: number;
   handleRobotSelect: (robot: ModelConfig) => void;
+  hoveredJointMesh: number | null;
+  setHoveredJointMesh: (index: number | null) => void;
 }
 
 export function useSceneState(): SceneStateApi {
@@ -45,6 +46,7 @@ export function useSceneState(): SceneStateApi {
   const [jointLimits, setJointLimits] = useState<Array<JointProperty | null>>(initialJointLimits);
   const [selectedRobot, setSelectedRobot] = useState<ModelConfig>(ROBOT_MODELS[0]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [hoveredJointMesh, setHoveredJointMesh] = useState<number | null>(null);
 
   const updateJointLimit = useCallback((index: number, limit: JointProperty | null) => {
     setJointLimits(prev => {
@@ -71,7 +73,9 @@ export function useSceneState(): SceneStateApi {
       setSelectedRobot,
       reloadKey,
       handleRobotSelect,
+      hoveredJointMesh,
+      setHoveredJointMesh,
     }),
-    [showCollisionMesh, jointLimits, updateJointLimit, selectedRobot, reloadKey, handleRobotSelect]
+    [showCollisionMesh, jointLimits, updateJointLimit, selectedRobot, reloadKey, handleRobotSelect, hoveredJointMesh]
   );
 }

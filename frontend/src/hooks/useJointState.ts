@@ -26,17 +26,13 @@ export interface JointStateManager {
   activeWriter: JointWriter | null;
   listeners: Set<JointStateListener>;
   
-  // Mount a writer
   mountWriter(id: string, priority: number): boolean;
   unmountWriter(id: string): void;
   
-  // Update joint angles (only active writer can)
   setAngles(id: string, angles: number[]): boolean;
-  
-  // Subscribe to changes
+
   subscribe(listener: JointStateListener): () => void;
   
-  // Read current state
   getAngles(): number[];
   getActiveWriter(): JointWriter | null;
 }

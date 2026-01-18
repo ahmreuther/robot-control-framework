@@ -26,6 +26,7 @@ interface RobotProps {
   onJointLimitsLoaded: (limits: Array<JointProperty | null>) => void;
   jointManager: JointStateManager;
   showCollisionMesh: boolean;
+  setHoveredJointMesh?: (index: number | null) => void;
 }
 
 export function Robot({
@@ -36,6 +37,7 @@ export function Robot({
   onJointLimitsLoaded,
   jointManager,
   showCollisionMesh,
+  setHoveredJointMesh,
 }: RobotProps) {
   const robotRef = useRef<URDFRobot>(null);
   const robotGroupRef = useRef<THREE.Group>(null);
@@ -362,12 +364,17 @@ export function Robot({
     hoveredJointRef.current = joint;
     if (joint) {
       highlightJointGeometry(joint, true);
+      const robot = robotRef.current;
+      const jointNames = robot ? Object.keys(robot.joints ?? {}) : [];
+      const jointIndex = jointNames.indexOf(joint.name);
+      setHoveredJointMesh(jointIndex !== -1 ? jointIndex : null);
       if (gl && gl.domElement) gl.domElement.style.cursor = 'pointer';
     }
   };
   const handleUnhover = (joint: URDFJoint) => {
     if (joint) {
       highlightJointGeometry(joint, false);
+      setHoveredJointMesh(null);
     }
     hoveredJointRef.current = null;
     if (gl && gl.domElement) gl.domElement.style.cursor = 'default';

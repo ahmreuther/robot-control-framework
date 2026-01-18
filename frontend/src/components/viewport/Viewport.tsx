@@ -13,14 +13,10 @@ export interface ViewportProps {
   jointManager: JointStateManager;
   onJointLimitsLoaded: (limits: Array<JointProperty | null>) => void;
   showCollisionMesh: boolean;
+  setHoveredJointMesh?: (index: number | null) => void;
 }
 
 export function Viewport(props: ViewportProps) {
-  const { 
-    urdfPath,
-    jointManager,
-    onJointLimitsLoaded
-  } = props;
   
   const [drag, setDrag] = useState<boolean>(false);
   const [solveStatuses, setSolveStatusesState] = useState<number[]>([]);
@@ -67,13 +63,14 @@ export function Viewport(props: ViewportProps) {
         {/* Robot with IK */}
         <Suspense fallback={null}>
           <Robot 
-            urdfPath={urdfPath}
+            urdfPath={props.urdfPath}
             drag={drag}
             onSolveStatusesChange={setSolveStatusesState}
             onDrag={setDrag}
-            jointManager={jointManager}
-            onJointLimitsLoaded={onJointLimitsLoaded}
+            jointManager={props.jointManager}
+            onJointLimitsLoaded={props.onJointLimitsLoaded}
             showCollisionMesh={props.showCollisionMesh}
+            setHoveredJointMesh={props.setHoveredJointMesh}
           />
         </Suspense>
       </Canvas>

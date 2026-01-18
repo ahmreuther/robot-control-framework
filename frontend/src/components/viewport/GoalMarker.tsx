@@ -109,6 +109,7 @@ function GoalMarker({
         space={local ? "local" : "world"}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
+        size={0.7}
       />
     </>
   );

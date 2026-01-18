@@ -27,6 +27,8 @@ function App() {
     options,
     showCollisionMesh,
     setShowCollisionMesh,
+    hoveredJointMesh,
+    setHoveredJointMesh,
   } = useSceneState();
 
   const [logs, setLogs] = useState('');
@@ -42,7 +44,7 @@ function App() {
   return (
     <div className="w-screen h-screen overflow-hidden bg-black text-white">
       <Group>
-        <Panel defaultSize="20%">
+        <Panel defaultSize="21%">
           <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
             <SocketProvider url='ws://127.0.0.1:8001/ws'>
               <LogProvider logs={logs} setlogs={setLogs}>
@@ -60,6 +62,7 @@ function App() {
                     showCollisionMesh={showCollisionMesh}
                     setShowCollisionMesh={setShowCollisionMesh}
                     reloadKey={reloadKey}
+                    hoveredJointMesh={hoveredJointMesh}
                   />
                   <OPCUAAddressSpace />
                 </div>
@@ -68,7 +71,7 @@ function App() {
             </SocketProvider>
           </UrlProvider>
         </Panel>
-        <Panel defaultSize="80%">
+        <Panel defaultSize="79%">
           <div className="relative h-full">
             <Viewport 
               key={reloadKey}
@@ -76,6 +79,7 @@ function App() {
               jointManager={jointManager}
               onJointLimitsLoaded={setJointLimits}
               showCollisionMesh={showCollisionMesh}
+              setHoveredJointMesh={setHoveredJointMesh}
             />
           </div>
         </Panel>
