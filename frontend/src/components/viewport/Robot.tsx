@@ -99,90 +99,6 @@ export function Robot({
     }
   }, [showCollisionMesh]);
 
-  // Local helpers
-  const findEndEffectorInRobot = (robot: URDFRobot | null) => {
-    if (!robot) return null;
-    for (const name of END_EFFECTOR_NAMES) {
-      const candidate = robot.getObjectByName(name);
-      if (candidate) return candidate;
-    }
-    let fallback: any = null;
-    robot.traverse((obj: URDFLink) => {
-      fallback = obj;
-    });
-    return fallback;
-  };
-  
-  const findEndEffectorInIK = (ikRoot: any) => {
-    if (!ikRoot) return null;
-    for (const name of END_EFFECTOR_NAMES) {
-      const candidate = ikRoot.find((node: any) => node.name === name);
-      if (candidate) return candidate;
-    }
-    const allNodes: any[] = [];
-    const traverse = (node: any) => {
-      if (!node) return;
-      allNodes.push(node);
-      if (node.child) traverse(node.child);
-      if (node.children) node.children.forEach((c: any) => traverse(c));
-    };
-    traverse(ikRoot);
-    return allNodes[allNodes.length - 1] ?? null;
-  };
-
-  const highlightJointGeometry = (joint: URDFJoint, highlight: boolean) => {
-    if (!joint) return;
-    const traverse = (obj: any) => {
-      console.log(obj);
-      if (obj.type === 'Mesh') {
-        if (highlight) {
-          if (!originalMaterialMapRef.current.has(obj)) {
-            originalMaterialMapRef.current.set(obj, obj.material);
-          }
-          // Clone the original material and change color/emissive
-          const origMat = obj.material;
-          const highlightMat = origMat.clone();
-          if ('color' in highlightMat) highlightMat.color.set(0xbbeeff);
-          if ('emissive' in highlightMat) {
-            highlightMat.emissive.set(0x3399ff);
-            highlightMat.emissiveIntensity = 4.0;
-          }
-          obj.material = highlightMat;
-        } else {
-          const orig = originalMaterialMapRef.current.get(obj);
-          if (orig) obj.material = orig;
-        }
-      }
-      if (obj === joint || !obj.isURDFJoint ) {
-        for (const child of obj.children) {
-          if (!child.isURDFCollider) traverse(child);
-        }
-      }
-    };
-    traverse(joint);
-  };
-
-  const updateGoalToEndEffector = () => {
-    const robot = robotRef.current;
-    if (!robot) return;
-      const endEffector = findEndEffectorInRobot(robot);
-    if (endEffector) {
-      endEffector.updateMatrixWorld(true);
-      const pos = new THREE.Vector3();
-      const quat = new THREE.Quaternion();
-      endEffector.getWorldPosition(pos);
-      endEffector.getWorldQuaternion(quat);
-      const newPos: [number, number, number] = [pos.x, pos.y, pos.z];
-      const newQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
-      
-      setGoalPosition(newPos);
-      setGoalQuaternion(newQuat);
-      
-      lastValidGoalPositionRef.current = [...newPos];
-      lastValidGoalQuaternionRef.current = [...newQuat];
-    }
-  }
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'h' || e.key === 'H') {
@@ -203,6 +119,18 @@ export function Robot({
     return unsubscribe;
   }, [jointManager]);
 
+  // Main loop
+  useFrame(() => {
+    const robot = robotRef.current;
+    if (!robot) return;
+    const jointNames = Object.keys(robot.joints ?? {});
+    if (!jointNames.length) return;
+
+    homeAnimation(jointNames)
+    runIK();
+    applyJointAngles(robot, jointNames);
+  });
+
   const runIK = useCallback(() => {
     const robot = robotRef.current; // robot copy for trying solving IK
     const robotGroup = robotGroupRef.current;
@@ -210,7 +138,6 @@ export function Robot({
     const solver = solverRef.current;
     const ikRoot = ikRootRef.current;
 
-    if (!robot || !robotGroup || !goal || !solver || !ikRoot) return;
     // Transform goal from world space to robot local space
     const worldPos = new THREE.Vector3(...goalPosition);
     const worldQuat = new THREE.Quaternion(...goalQuaternion);
@@ -458,17 +385,89 @@ export function Robot({
     updateGoalToEndEffector();
   };
 
-  // Main loop
-  useFrame(() => {
+  // Local helpers
+  const findEndEffectorInRobot = (robot: URDFRobot | null) => {
+    if (!robot) return null;
+    for (const name of END_EFFECTOR_NAMES) {
+      const candidate = robot.getObjectByName(name);
+      if (candidate) return candidate;
+    }
+    let fallback: any = null;
+    robot.traverse((obj: URDFLink) => {
+      fallback = obj;
+    });
+    return fallback;
+  };
+  
+  const findEndEffectorInIK = (ikRoot: any) => {
+    if (!ikRoot) return null;
+    for (const name of END_EFFECTOR_NAMES) {
+      const candidate = ikRoot.find((node: any) => node.name === name);
+      if (candidate) return candidate;
+    }
+    const allNodes: any[] = [];
+    const traverse = (node: any) => {
+      if (!node) return;
+      allNodes.push(node);
+      if (node.child) traverse(node.child);
+      if (node.children) node.children.forEach((c: any) => traverse(c));
+    };
+    traverse(ikRoot);
+    return allNodes[allNodes.length - 1] ?? null;
+  };
+
+  const highlightJointGeometry = (joint: URDFJoint, highlight: boolean) => {
+    if (!joint) return;
+    const traverse = (obj: any) => {
+      console.log(obj);
+      if (obj.type === 'Mesh') {
+        if (highlight) {
+          if (!originalMaterialMapRef.current.has(obj)) {
+            originalMaterialMapRef.current.set(obj, obj.material);
+          }
+          // Clone the original material and change color/emissive
+          const origMat = obj.material;
+          const highlightMat = origMat.clone();
+          if ('color' in highlightMat) highlightMat.color.set(0xbbeeff);
+          if ('emissive' in highlightMat) {
+            highlightMat.emissive.set(0x3399ff);
+            highlightMat.emissiveIntensity = 4.0;
+          }
+          obj.material = highlightMat;
+        } else {
+          const orig = originalMaterialMapRef.current.get(obj);
+          if (orig) obj.material = orig;
+        }
+      }
+      if (obj === joint || !obj.isURDFJoint ) {
+        for (const child of obj.children) {
+          if (!child.isURDFCollider) traverse(child);
+        }
+      }
+    };
+    traverse(joint);
+  };
+
+  const updateGoalToEndEffector = () => {
     const robot = robotRef.current;
     if (!robot) return;
-    const jointNames = Object.keys(robot.joints ?? {});
-    if (!jointNames.length) return;
-
-    homeAnimation(jointNames)
-    runIK();
-    applyJointAngles(robot, jointNames);
-  });
+      const endEffector = findEndEffectorInRobot(robot);
+    if (endEffector) {
+      endEffector.updateMatrixWorld(true);
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      endEffector.getWorldPosition(pos);
+      endEffector.getWorldQuaternion(quat);
+      const newPos: [number, number, number] = [pos.x, pos.y, pos.z];
+      const newQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
+      
+      setGoalPosition(newPos);
+      setGoalQuaternion(newQuat);
+      
+      lastValidGoalPositionRef.current = [...newPos];
+      lastValidGoalQuaternionRef.current = [...newQuat];
+    }
+  }
 
 
   return (
