@@ -56,7 +56,7 @@ function App() {
                     jointManager={jointManager}
                     options={options} 
                     onSelect={(robot) => handleRobotSelect(robot)} 
-                    jointLimits={jointLimits}
+                    jointProperties={jointLimits}
                     showCollisionMesh={showCollisionMesh}
                     setShowCollisionMesh={setShowCollisionMesh}
                     reloadKey={reloadKey}

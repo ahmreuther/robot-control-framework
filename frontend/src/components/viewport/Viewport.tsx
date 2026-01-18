@@ -5,13 +5,13 @@ import { Robot } from "./Robot";
 import { Stats } from "./Stats";
 import { SolverStatus } from "./SolverStatus";
 import type { JointStateManager } from "../../hooks/useJointState";
-import { JointManagerPanel } from "./JointManagerPanel";
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
+import { JointProperty } from "../../hooks/useSceneState";
 
 export interface ViewportProps {
   urdfPath: string;
   jointManager: JointStateManager;
-  onJointLimitsLoaded: (limits: Array<import("../../hooks/useSceneState").JointLimit | null>) => void;
+  onJointLimitsLoaded: (limits: Array<JointProperty | null>) => void;
   showCollisionMesh: boolean;
 }
 
@@ -32,9 +32,6 @@ export function Viewport(props: ViewportProps) {
       <div className="absolute top-0 left-0 z-50 flex flex-col gap-11">
         <Stats/>
         <SolverStatus solveStatuses={solveStatuses} />
-      </div>
-      <div className="absolute top-0 right-0 m-4 z-50">
-        <JointManagerPanel jointManager={jointManager} />
       </div>
 
       <Canvas camera={{ position: [1.5, 1.5, -1.5], up: [0, 1, 0], fov: 50 }}>

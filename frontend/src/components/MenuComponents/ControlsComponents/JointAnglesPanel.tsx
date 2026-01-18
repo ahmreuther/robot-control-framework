@@ -2,31 +2,24 @@ const radToDeg = (rad: number) => (rad * 180) / Math.PI;
 const degToRad = (deg: number) => (deg * Math.PI) / 180;
 
 import { useState, useEffect } from 'react';
-import type { JointLimit } from '../../../hooks/useSceneState';
-import type { JointStateManager } from '../../../hooks/useJointState';
+import type { JointProperty } from '../../../hooks/useSceneState';
+import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
 
 export interface JointAnglesPanelProps {
   jointManager: JointStateManager;
-  minAngle?: number;
-  maxAngle?: number;
   step?: number;
   onCollisionMeshToggle?: (visible: boolean) => void;
-  jointLimits?: Array<JointLimit | null>;
+  jointProperties: JointProperty[];
   showCollisionMesh: boolean;
   setShowCollisionMesh?: (show: boolean) => void;
-  reloadKey?: number;
+  reloadKey: number;
 }
-
-const PANEL_WRITER_ID = 'joint-angles-panel';
-const PANEL_PRIORITY = 1; // Lowest; overridden by DRAG (2) and IK (3)
 
 export function JointAnglesPanel({
   jointManager,
-  minAngle,
-  maxAngle,
   step = 1,
   onCollisionMeshToggle,
-  jointLimits,
+  jointProperties,
   showCollisionMesh = false,
   setShowCollisionMesh,
   reloadKey
@@ -39,21 +32,18 @@ export function JointAnglesPanel({
     if (setShowCollisionMesh) setShowCollisionMesh(false);
   }, [reloadKey, setShowCollisionMesh]);
 
-  // Subscribe to joint angle changes (read)
   useEffect(() => {
     const unsubscribe = jointManager.subscribe((angles) => setLocalAngles(angles));
     setLocalAngles(jointManager.getAngles());
     return unsubscribe;
   }, [jointManager]);
 
-  // While editing, mount writer; unmount on release
   useEffect(() => {
     if (!isEditing) return;
-    // Try to take write control
-    jointManager.mountWriter(PANEL_WRITER_ID, PANEL_PRIORITY);
+    jointManager.mountWriter(WRITER_ID.FK, WRITER_PRIORITY.FK);
 
     const handleEnd = () => {
-      jointManager.unmountWriter(PANEL_WRITER_ID);
+      jointManager.unmountWriter(WRITER_ID.FK);
       setIsEditing(false);
     };
     window.addEventListener('mouseup', handleEnd);
@@ -61,7 +51,7 @@ export function JointAnglesPanel({
     return () => {
       window.removeEventListener('mouseup', handleEnd);
       window.removeEventListener('touchend', handleEnd);
-      jointManager.unmountWriter(PANEL_WRITER_ID);
+      jointManager.unmountWriter(WRITER_ID.FK);
     };
   }, [isEditing, jointManager]);
 
@@ -72,9 +62,8 @@ export function JointAnglesPanel({
     const rad = fromDisplay(displayValue);
     const newAngles = [...localAngles];
     newAngles[index] = rad;
-    setLocalAngles(newAngles); // Local optimistic update
-    // Write only while we have writer mounted (isEditing true)
-    jointManager.setAngles(PANEL_WRITER_ID, newAngles);
+    setLocalAngles(newAngles);
+    jointManager.setAngles(WRITER_ID.FK, newAngles);
   };
 
   const handleBeginEdit = () => setIsEditing(true);
@@ -117,17 +106,29 @@ export function JointAnglesPanel({
 
       <div className="space-y-3">
         {localAngles.map((angle, i) => {
-          const limit = jointLimits?.[i] ?? undefined;
-          if (limit === null) return null;
-          if (limit && limit.min === limit.max) return null;
+          const property = jointProperties?.[i] ?? undefined;
+          if (property === null) return null;
+          if (property && property.min === property.max) return null;
 
-          const minRad = limit ? limit.min : (minAngle !== undefined ? degToRad(minAngle) : -Math.PI);
-          const maxRad = limit ? limit.max : (maxAngle !== undefined ? degToRad(maxAngle) : Math.PI);
-
-          const minDisp = toDisplay(minRad);
-          const maxDisp = toDisplay(maxRad);
-          const valueDisp = toDisplay(angle);
-          const stepDisp = showRadians ? degToRad(step) : step;
+          let minDisp, maxDisp, valueDisp, stepDisp;
+          if (property?.jointType === 'prismatic') {
+            // Always use mm for prismatic
+            minDisp = (property.min ?? 0) * 1000;
+            maxDisp = (property.max ?? 1) * 1000;
+            valueDisp = angle * 1000;
+            const range = maxDisp - minDisp;
+            stepDisp = Math.max(range / 100, 0.01); // mm
+          } else {
+            const minRad = property ? property.min : -Math.PI;
+            const maxRad = property ? property.max : Math.PI;
+            minDisp = toDisplay(minRad);
+            maxDisp = toDisplay(maxRad);
+            valueDisp = toDisplay(angle);
+            const range = showRadians ? maxRad - minRad : radToDeg(maxRad) - radToDeg(minRad);
+            stepDisp = showRadians
+              ? Math.max(range / 100, 0.001)
+              : Math.max(range / 100, 0.1);
+          }
 
           return (
             <div key={i} className="flex items-center gap-2 px-2 py-1 rounded bg-white/5">
@@ -141,13 +142,25 @@ export function JointAnglesPanel({
                 value={valueDisp}
                 onMouseDown={handleBeginEdit}
                 onTouchStart={handleBeginEdit}
-                onChange={(e) => handleAngleChange(i, Number(e.target.value))}
+                onChange={(e) => {
+                  let v = Number(e.target.value);
+                  if (property?.jointType === 'prismatic') {
+                    v = v / 1000; // convert mm back to meters
+                  } else {
+                    v = fromDisplay(v);
+                  }
+                  const newAngles = [...localAngles];
+                  newAngles[i] = v;
+                  setLocalAngles(newAngles);
+                  jointManager.setAngles(WRITER_ID.FK, newAngles);
+                }}
               />
               <span className="w-16 text-right text-white/60">
-                {showRadians ? valueDisp.toFixed(3) : Math.round(valueDisp)}
-
+                {property?.jointType === 'prismatic'
+                  ? Math.round(valueDisp)
+                  : (showRadians ? valueDisp.toFixed(2) : Math.round(valueDisp))}
               </span>
-              {showRadians ? 'rad' : '°'}
+              {property?.jointType === 'prismatic' ? 'mm' : (showRadians ? 'rad' : '°')}
             </div>
           );
         })}

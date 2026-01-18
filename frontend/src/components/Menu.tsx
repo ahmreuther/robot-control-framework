@@ -5,14 +5,14 @@ import MessageLog from "./MenuComponents/Tab2Components/MessageLog";
 import {URDFSelector, type ModelConfig } from './MenuComponents/ControlsComponents/URDFSelector';
 import { JointAnglesPanel } from "./MenuComponents/ControlsComponents/JointAnglesPanel";
 import Live_Status from "./MenuComponents/TwinDashboardComponents/Live_Status";
-import type { JointLimit } from "../hooks/useSceneState";
+import type { JointProperty } from "../hooks/useSceneState";
 import type { JointStateManager } from "../hooks/useJointState";
 
 interface MenuProps {
   options: ModelConfig[];
   onSelect: (robot: ModelConfig) => void;
   jointManager: JointStateManager;
-  jointLimits?: Array<JointLimit | null>;
+  jointProperties?: Array<JointProperty | null>;
   setShowCollisionMesh?: (show: boolean) => void;
   showCollisionMesh: boolean;
   reloadKey: number;
@@ -60,7 +60,7 @@ export function SidebarMenu(MenuProps: MenuProps) {
           />
           <JointAnglesPanel
             jointManager={MenuProps.jointManager}
-            jointLimits={MenuProps.jointLimits}
+            jointProperties={MenuProps.jointProperties}
             showCollisionMesh={MenuProps.showCollisionMesh}
             setShowCollisionMesh={MenuProps.setShowCollisionMesh}
             reloadKey={MenuProps.reloadKey}

@@ -6,7 +6,7 @@ import { urdfRobotToIKRoot, setUrdfFromIK, setIKFromUrdf, Goal, Solver } from "c
 import GoalMarker from "./GoalMarker";
 import * as THREE from "three";
 import { DragControls } from "./DragControls";
-import type { JointLimit } from "../../hooks/useSceneState";
+import type { JointProperty } from "../../hooks/useSceneState";
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from "../../hooks/useJointState";
 
 export const SOLVE_STATUS = {
@@ -23,7 +23,7 @@ interface RobotProps {
   drag: boolean;
   onSolveStatusesChange: (statuses: number[]) => void;
   onDrag: (dragging: boolean) => void;
-  onJointLimitsLoaded: (limits: Array<JointLimit | null>) => void;
+  onJointLimitsLoaded: (limits: Array<JointProperty | null>) => void;
   jointManager: JointStateManager;
   showCollisionMesh: boolean;
 }
@@ -234,21 +234,32 @@ export function Robot({
       }
 
       // Extract joint limits and notify parent
-      const jointLimits: Array<JointLimit> = [];
-      if (robot.joints) {
+        const jointLimits: Array<JointProperty | null> = [];
+        if (robot.joints) {
           Object.values(robot.joints).forEach((joint) => {
-              const limit = joint.limit;
-              if (limit) {
-                  jointLimits.push({
-                      min: limit.lower ?? -Math.PI,
-                      max: limit.upper ?? Math.PI,
-                  });
+            const limit = joint.limit;
+            if (limit) {
+              const jointType = joint.jointType || 'revolute';
+              let min = limit.lower;
+              let max = limit.upper;
+              if (jointType === 'prismatic') {
+                min = min ?? 0;
+                max = max ?? 1;
               } else {
-                  jointLimits.push(null);
+                min = min ?? -Math.PI;
+                max = max ?? Math.PI;
               }
+              jointLimits.push({
+                min,
+                max,
+                jointType,
+              });
+            } else {
+              jointLimits.push(null);
+            }
           });
-      }
-      onJointLimitsLoaded(jointLimits);
+        }
+        onJointLimitsLoaded(jointLimits);
 
       // Process robot meshes for better appearance and hide collision meshes
       let robotMesh: THREE.Mesh | undefined;
@@ -367,7 +378,14 @@ export function Robot({
       const jointNames = Object.keys(robot.joints ?? {});
       const jointIndex = jointNames.indexOf(joint.name);
       const newAngles = [...jointAnglesRef.current];
-      newAngles[jointIndex] = angle;
+      let min = -Infinity;
+      let max = Infinity;
+      if (joint.limit) {
+        min = joint.limit.lower ?? -Infinity;
+        max = joint.limit.upper ?? Infinity;
+      }
+      const clampedAngle = Math.max(min, Math.min(max, angle));
+      newAngles[jointIndex] = clampedAngle;
       jointManager.setAngles(WRITER_ID.DRAG, newAngles);
     };
 

@@ -23,7 +23,6 @@ export function Stats() {
     }
     requestAnimationFrame(animate);
 
-    // Cleanup
     return () => {
       if (statsRef.current && stats.dom.parentNode === statsRef.current) {
         statsRef.current.removeChild(stats.dom);

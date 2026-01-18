@@ -9,23 +9,26 @@ const ROBOT_MODELS: ModelConfig[] = [
   { id: 'ur5e', label: 'UR5e', url: '/urdf/ur5_description/urdf/ur5_robot.urdf' },
 ];
 
-export interface JointLimit {
+export type JointType = 'revolute' | 'prismatic' | 'fixed' | 'continuous' | 'planar' | 'floating';
+
+export interface JointProperty {
   min: number;
   max: number;
+  jointType: JointType;
 }
 
 export interface UseSceneStateOptions {
   initialShowCollisionMesh?: boolean;
-  initialJointLimits?: Array<JointLimit | null>;
+  initialJointLimits?: Array<JointProperty | null>;
 }
 
 export interface SceneStateApi {
   options: ModelConfig[];
   showCollisionMesh: boolean;
   setShowCollisionMesh: (visible: boolean) => void;
-  jointLimits: Array<JointLimit | null>;
-  setJointLimits: (limits: Array<JointLimit | null>) => void;
-  updateJointLimit: (index: number, limit: JointLimit | null) => void;
+  jointLimits: Array<JointProperty | null>;
+  setJointLimits: (limits: Array<JointProperty | null>) => void;
+  updateJointLimit: (index: number, limit: JointProperty | null) => void;
   selectedRobot: ModelConfig | null;
   setSelectedRobot: (robot: ModelConfig) => void;
   reloadKey: number;
@@ -39,11 +42,11 @@ export function useSceneState(): SceneStateApi {
   } = {};
 
   const [showCollisionMesh, setShowCollisionMesh] = useState<boolean>(initialShowCollisionMesh);
-  const [jointLimits, setJointLimits] = useState<Array<JointLimit | null>>(initialJointLimits);
+  const [jointLimits, setJointLimits] = useState<Array<JointProperty | null>>(initialJointLimits);
   const [selectedRobot, setSelectedRobot] = useState<ModelConfig>(ROBOT_MODELS[0]);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const updateJointLimit = useCallback((index: number, limit: JointLimit | null) => {
+  const updateJointLimit = useCallback((index: number, limit: JointProperty | null) => {
     setJointLimits(prev => {
       const updated = [...prev];
       updated[index] = limit;
