@@ -60,17 +60,6 @@ export function Robot({
   
   const originalMaterialMapRef = useRef<Map<THREE.Object3D, THREE.Material>>(new Map()); // Store original materials
 
-  const highlightMaterialRef = useRef(
-    new THREE.MeshPhongMaterial({
-      shininess: 100,
-      specular: 0x3399ff,
-      color: 0xbbeeff,
-      emissive: 0x3399ff,
-      emissiveIntensity: 4.0,
-      reflectivity: 0.7,
-    })
-  );
-
   const collisionMaterialRef = useRef(
     new THREE.MeshPhysicalMaterial({
       color: 0x880000,
@@ -150,7 +139,15 @@ export function Robot({
           if (!originalMaterialMapRef.current.has(obj)) {
             originalMaterialMapRef.current.set(obj, obj.material);
           }
-          obj.material = highlightMaterialRef.current;
+          // Clone the original material and change color/emissive
+          const origMat = obj.material;
+          const highlightMat = origMat.clone();
+          if ('color' in highlightMat) highlightMat.color.set(0xbbeeff);
+          if ('emissive' in highlightMat) {
+            highlightMat.emissive.set(0x3399ff);
+            highlightMat.emissiveIntensity = 4.0;
+          }
+          obj.material = highlightMat;
         } else {
           const orig = originalMaterialMapRef.current.get(obj);
           if (orig) obj.material = orig;
@@ -329,21 +326,22 @@ export function Robot({
       // Process robot meshes for better appearance and hide collision meshes
       let robotMesh: THREE.Mesh | undefined;
       let collisionMesh: THREE.Mesh | undefined;
-      robot.traverse((obj: any) => {
-        if (obj.isMesh && obj.material && typeof obj.name === 'string') {
-          const name = obj.name.toLowerCase();
+      robot.traverse((obj: THREE.Object3D) => {
+        if (obj.type === 'Mesh' && (obj as THREE.Mesh).material && typeof obj.name === 'string') {
+          const mesh = obj as THREE.Mesh;
+          const name = mesh.name.toLowerCase();
           if (name.startsWith('collision_')) {
-            collisionMesh = obj;
-            obj.material = new THREE.MeshPhysicalMaterial({
+            collisionMesh = mesh;
+            mesh.material = new THREE.MeshPhysicalMaterial({
               transparent: true,
               opacity: 0,
             });
           } else {
-            robotMesh = obj;
+            robotMesh = mesh;
             let color = 0xffffff;
-            if (obj.material.color) color = obj.material.color.getHex();
-            const origColor = obj.material.color ? obj.material.color.getHex() : 0xffffff;
-            obj.material = new THREE.MeshPhysicalMaterial({
+            if ((mesh.material as any).color) color = (mesh.material as any).color.getHex();
+            const origColor = (mesh.material as any).color ? (mesh.material as any).color.getHex() : 0xffffff;
+            mesh.material = new THREE.MeshPhysicalMaterial({
               color: origColor,
               metalness: 0.5,
               roughness: 0.6,
@@ -354,6 +352,20 @@ export function Robot({
               // emissive: 0xa67c00,
               // emissiveIntensity: 5.0,
            });
+          }
+        }
+      });
+      // After assigning new materials, clear and rebuild the originalMaterialMapRef
+      originalMaterialMapRef.current.clear();
+      robot.traverse((obj: THREE.Object3D) => {
+        if (obj.type === 'Mesh' && (obj as THREE.Mesh).material) {
+          const material = (obj as THREE.Mesh).material;
+          if (Array.isArray(material)) {
+            if (material[0]) {
+              originalMaterialMapRef.current.set(obj, material[0]);
+            }
+          } else {
+            originalMaterialMapRef.current.set(obj, material);
           }
         }
       });
