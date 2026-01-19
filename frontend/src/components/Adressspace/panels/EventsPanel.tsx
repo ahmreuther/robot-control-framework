@@ -1,6 +1,5 @@
 // EventsPanel.tsx - UI für Event-Subscriptions
 
-import React from "react";
 import { EventSubscription } from "../hooks/useEventSubscriptions";
 
 type EventsPanelProps = {
@@ -8,10 +7,7 @@ type EventsPanelProps = {
   onRemove: (nodeId: string) => void;
 };
 
-export const EventsPanel: React.FC<EventsPanelProps> = ({
-  eventSubscriptions,
-  onRemove,
-}) => {
+export const EventsPanel = ({ eventSubscriptions, onRemove }: EventsPanelProps) => {
   return (
     <div style={{ marginTop: 16, borderTop: "1px solid #2b2b2b", paddingTop: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>

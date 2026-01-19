@@ -1,6 +1,5 @@
 // SubscriptionsPanel.tsx - UI für Variable-Subscriptions
 
-import React from "react";
 import { Subscription } from "../hooks/useSubscriptions";
 
 type SubscriptionsPanelProps = {
@@ -8,10 +7,7 @@ type SubscriptionsPanelProps = {
   onRemove: (nodeId: string) => void;
 };
 
-export const SubscriptionsPanel: React.FC<SubscriptionsPanelProps> = ({
-  subscriptions,
-  onRemove,
-}) => {
+export const SubscriptionsPanel = ({subscriptions, onRemove}:SubscriptionsPanelProps) => {
   return (
     <div style={{ marginTop: 16, borderTop: "1px solid #2b2b2b", paddingTop: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>

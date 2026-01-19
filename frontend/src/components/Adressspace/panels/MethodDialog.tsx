@@ -1,7 +1,7 @@
 // MethodDialog.tsx - Modal für Method Calls
 
-import React from "react";
 import { UaNode } from "../types";
+
 
 type MethodDialogProps = {
   isOpen: boolean;
@@ -14,16 +14,7 @@ type MethodDialogProps = {
   onClose: () => void;
 };
 
-export const MethodDialog: React.FC<MethodDialogProps> = ({
-  isOpen,
-  node,
-  inputsJSON,
-  result,
-  isLoading,
-  onInputsChange,
-  onCall,
-  onClose,
-}) => {
+export const MethodDialog = ({isOpen, node, inputsJSON, result, isLoading, onInputsChange, onCall, onClose} : MethodDialogProps ) =>{
   if (!isOpen) return null;
 
   return (

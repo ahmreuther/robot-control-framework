@@ -60,11 +60,6 @@ export function useSubscriptions(opcUaUrl: string, socket: WebSocket | null) {
 
   // ========== POLLING für Werte ==========
   useEffect(() => {
-    // Altes Interval aufräumen
-    if (pollRef.current) {
-      window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
 
     // Nichts zu pollen
     if (subscriptions.length === 0 || !opcUaUrl) return;
@@ -82,7 +77,7 @@ export function useSubscriptions(opcUaUrl: string, socket: WebSocket | null) {
             if (!res.ok) {
               return { nodeId: s.nodeId, value: `error(${res.status})` };
             }
-
+            //receives JSON or Plaintext
             let payload: any;
             try {
               payload = await res.json();
