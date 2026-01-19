@@ -11,13 +11,13 @@ export function useSendMessage() {
   const { url: contextUrl} = useUrlContext();
   const wsRef = useRef(null)
 
-  function sendMessage(type: "connect" | "disconnect" | string) {
-    if (!contextUrl) {
+  function sendMessage(type: "connect" | "disconnect" | string , url = null) {
+    if (!contextUrl && !url) {
       setLogs(prev => prev + "❌ No OPC UA Server URL set.\n");
       return;
     }
 
-    const msg = `${type}|${contextUrl}`;
+    const msg = `${type}|${url? url:contextUrl}`;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
       wsRef.current = socket
@@ -27,7 +27,7 @@ export function useSendMessage() {
       setLogs(prev => prev + `❌ WebSocket not ready (state ${socket?.readyState})\n`);
     }
 
-    localStorage.setItem("lastOpcUaUrl", contextUrl);
+    localStorage.setItem("lastOpcUaUrl", url? url:contextUrl);
   }
 
   return {

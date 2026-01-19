@@ -39,7 +39,6 @@ function App() {
   const [robotMode, setRobotMode] = useState('-');
   const [axleValues, setAxleValues] = useState<AxleValues>({});
   const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
-  const [debugInfo, setDebugInfo] = useState('Initializing...');
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-black text-white">
@@ -49,8 +48,8 @@ function App() {
             <SocketProvider url='ws://127.0.0.1:8001/ws'>
               <LogProvider logs={logs} setlogs={setLogs}>
                 <RobotInfoProvider robotName={robotName} robotInfo={robotInfo} robotMode={robotMode}
-                 robotStatus={robotStatus} axleValues={axleValues} debugInfo={debugInfo}
-                 setAxleValues={setAxleValues} setDebugInfo={setDebugInfo} setRobotInfo={setRobotInfo} setRobotMode={setRobotMode}
+                 robotStatus={robotStatus} axleValues={axleValues}
+                 setAxleValues={setAxleValues} setRobotInfo={setRobotInfo} setRobotMode={setRobotMode}
                  setRobotName={setRobotName} setRobotStatus={setRobotStatus}>
                 <WebSocketReciever jointManager={jointManager} />
                   <div className="flex flex-col h-full bg-black">
