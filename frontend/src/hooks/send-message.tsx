@@ -9,7 +9,6 @@ export function useSendMessage() {
   const socket: WebSocketLike = useSocket();
   const { setLogs} = useLogContext()
   const { url: contextUrl} = useUrlContext();
-  const wsRef = useRef(null)
 
   function sendMessage(type: "connect" | "disconnect" | string , url = null) {
     if (!contextUrl && !url) {
@@ -20,8 +19,7 @@ export function useSendMessage() {
     const msg = `${type}|${url? url:contextUrl}`;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
-      wsRef.current = socket
-      wsRef.current.send(msg);
+      (socket as WebSocket).send(msg)
       setLogs(prev => prev + `Sent: ${msg}\n`);
     } else {
       setLogs(prev => prev + `❌ WebSocket not ready (state ${socket?.readyState})\n`);
