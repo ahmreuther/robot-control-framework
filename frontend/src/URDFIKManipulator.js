@@ -114,7 +114,7 @@ export default class URDFIKManipulator extends URDFManipulator {
 
 
         // TransformControls events
-        
+
         transformControls.addEventListener('dragging-changed', e => controls.enabled = !e.value);
         transformControls.addEventListener('mouseDown', () => this.onDragStart());
         transformControls.addEventListener('change', () => {
@@ -125,7 +125,7 @@ export default class URDFIKManipulator extends URDFManipulator {
 
         // keyboard shortcuts
         window.addEventListener('keydown', e => this.onKeyDown(e));
-        
+
 
         this.addEventListener('urdf-processed', () => this.init());
 
@@ -165,7 +165,7 @@ export default class URDFIKManipulator extends URDFManipulator {
         this.labelTexture = texture;
         this.startPos = new Vector3();
     }
-    
+
     /**
      * Attach an externally provided URDF robot to this manipulator and re-init IK/gizmo state.
      */
@@ -173,11 +173,29 @@ export default class URDFIKManipulator extends URDFManipulator {
         if (!robot) return;
         this.robot = robot;
         this.robotId = robotId ?? this.robotId;
-        this.dispatchEvent(new Event('urdf-processed'));
+        console.log('before init pos', robot.position.clone());
+
+        // Preserve world transform so init() doesn't reset the robot to origin
+        let prevPos = null;
+        let prevQuat = null;
+        if (robot.position && typeof robot.position.clone === 'function') prevPos = robot.position.clone();
+        if (robot.quaternion && typeof robot.quaternion.clone === 'function') prevQuat = robot.quaternion.clone();
+
+        this.dispatchEvent(new Event('urdf-processed')); //i think here is the problem
+
+        // Restore preserved transform
+        if (prevPos && prevQuat) {
+            robot.position.copy(prevPos);
+            robot.quaternion.copy(prevQuat);
+            robot.updateMatrixWorld(true);
+        }
+
+        console.log('after init pos', robot.position.clone());
+
     }
 
     init() {
-        
+
         const robot = this.robot;
         robot.updateMatrixWorld(true);
 
@@ -187,7 +205,7 @@ export default class URDFIKManipulator extends URDFManipulator {
         setUrdfFromIK(robot, ik);
         ik.clearDoF();
         this.ikRoot = ik;
-    
+
         applyDefaultPose(robot);
         // Initialize IK with URDF pose
         setIKFromUrdf(ik, robot);
@@ -203,18 +221,7 @@ export default class URDFIKManipulator extends URDFManipulator {
         this.solver = new Solver(ik);
         this.resetGoal();
     }
-    /*
-    restoreGizmoPosition() {
-        if (!this.robotId || !this.targetObject) return;
 
-        const record = getRobot(this.robotId);
-        if (record && record.gizmoPosition && record.gizmoQuaternion) {
-            this.targetObject.position.copy(record.gizmoPosition);
-            this.targetObject.quaternion.copy(record.gizmoQuaternion);
-            this.solve(); // update robot pose
-        }
-    }
-    */
     resetGoal() {
         // Reset the goal to the tool_point of the current robot
         const ik = this.ikRoot;
@@ -247,23 +254,35 @@ export default class URDFIKManipulator extends URDFManipulator {
         const dt = performance.now() - t0;
 
         if (!statuses.includes(SOLVE_STATUS.DIVERGED)) {
+            // Preserve world transform to avoid overwriting the robot base transform
+            let prevPos = null;
+            let prevQuat = null;
+            if (robot.position && typeof robot.position.clone === 'function') prevPos = robot.position.clone();
+            if (robot.quaternion && typeof robot.quaternion.clone === 'function') prevQuat = robot.quaternion.clone();
+
             setUrdfFromIK(robot, ik);
             this.dispatchEvent(new Event('angle-change'));
+
+            if (prevPos && prevQuat) {
+                robot.position.copy(prevPos);
+                robot.quaternion.copy(prevQuat);
+                robot.updateMatrixWorld(true);
+            }
         }
 
         const el = document.getElementById('output');
-            if (el) {
-                if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
-                    const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
-                    el.innerText = `${names}\n`;
-                }
+        if (el) {
+            if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
+                const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
+                el.innerText = `${names}\n`;
             }
+        }
 
         this.redraw();
         if (this.requestRender) this.requestRender();
     }
 
-    
+
     onDragStart() {
         this.controls.enabled = false;
 
@@ -284,20 +303,11 @@ export default class URDFIKManipulator extends URDFManipulator {
 
         this.drawLabelText(delta);
         this.labelTexture.needsUpdate = true;
-
-        //this.redraw(); // Already called in solve()
     }
 
     onDragEnd() {
         this.resetGoal();
 
-        /*if (this.robotId) {
-            const record = getRobot(this.robotId);
-            if (record) {
-                record.gizmoPosition = this.targetObject.position.clone();
-                record.gizmoQuaternion = this.targetObject.quaternion.clone();
-            }
-        }*/
         this.controls.enabled = true;
         this.labelSprite.visible = false;
         this.dispatchEvent(new Event("manipulate-end"));
@@ -370,7 +380,7 @@ export default class URDFIKManipulator extends URDFManipulator {
                 }
                 break;
         }
-        
+
     }
     remove() {
         // Detach transform controls
