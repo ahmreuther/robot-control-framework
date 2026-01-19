@@ -3,6 +3,8 @@ import { TransformControls } from "@react-three/drei";
 import { useRef, useEffect, useState } from "react";
 import { Mesh } from "three";
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from "../../hooks/useJointState";
+import { URDFRobot } from "urdf-loader";
+import { URDFJoint } from "urdf-loader/src/URDFClasses";
 
 interface GoalMarkerProps {
   onPositionChange: (position: [number, number, number]) => void;
@@ -12,6 +14,8 @@ interface GoalMarkerProps {
   goalPosition?: [number, number, number];
   goalQuaternion?: [number, number, number, number];
   converged?: boolean;
+  handleUnhover: (joint: URDFJoint | null) => void;
+  robot?: URDFRobot;
 }
 
 function GoalMarker({
@@ -22,6 +26,8 @@ function GoalMarker({
   goalPosition,
   goalQuaternion,
   converged = true,
+  handleUnhover,
+  robot
 }: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
   const isDraggingRef = useRef(false);
@@ -85,6 +91,11 @@ function GoalMarker({
     isDraggingRef.current = true;
     jointManager.mountWriter(WRITER_ID.IK, WRITER_PRIORITY.IK);
     onDrag(true);
+    if (robot && robot.joints) {
+      Object.keys(robot.joints).forEach((jointName) => {
+        handleUnhover(robot.joints[jointName]);
+      });
+    } 
   };
 
   const handleMouseUp = () => {

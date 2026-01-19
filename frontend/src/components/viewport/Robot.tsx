@@ -146,10 +146,12 @@ export function Robot({
     const localPos = robotGroup.worldToLocal(worldPos.clone());
     const robotGroupWorldQuat = robotGroup.getWorldQuaternion(new THREE.Quaternion());
     const localQuat = worldQuat.clone().premultiply(robotGroupWorldQuat.invert());
-    goal.setPosition(localPos.x, localPos.y, localPos.z);
-    goal.setQuaternion(localQuat.x, localQuat.y, localQuat.z, localQuat.w);
-    //goal.setQuaternion(...goalQuaternion); // makes ik smoother but breaks some functionality
-    goal.setMatrixNeedsUpdate();
+    if(goal) {
+      goal.setPosition(localPos.x, localPos.y, localPos.z);
+      goal.setQuaternion(localQuat.x, localQuat.y, localQuat.z, localQuat.w);
+      //goal.setQuaternion(...goalQuaternion); // makes ik smoother but breaks some functionality
+      goal.setMatrixNeedsUpdate();
+    }
     
     // Always sync IK with current robot state before solving
     setIKFromUrdf(ikRoot, robot);
@@ -358,11 +360,7 @@ export function Robot({
     onDrag?.(false);
   };
   const handleHover = (joint: URDFJoint) => {
-    if (hoveredJointRef.current) {
-      highlightJointGeometry(hoveredJointRef.current, false);
-    }
-    hoveredJointRef.current = joint;
-    if (joint) {
+    if (joint && !drag) {
       highlightJointGeometry(joint, true);
       const robot = robotRef.current;
       const jointNames = robot ? Object.keys(robot.joints ?? {}) : [];
@@ -517,6 +515,8 @@ export function Robot({
           onQuaternionChange={setGoalQuaternion}
           goalQuaternion={goalQuaternion}
           onDrag={onDrag}
+          handleUnhover={handleUnhover}
+          robot={robotRef.current}
           goalPosition={goalPosition}
           converged={convergedRef.current}
           jointManager={jointManager}

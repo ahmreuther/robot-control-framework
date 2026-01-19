@@ -33,7 +33,7 @@ export function Viewport(props: ViewportProps) {
       <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>
 
         {/* Environment */}
-       <Suspense fallback={null}> 
+        <Suspense fallback={null}> 
           <Environment 
             files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr"}
             environmentIntensity={0.6}
@@ -48,8 +48,6 @@ export function Viewport(props: ViewportProps) {
           <Bloom />
           <Vignette eskil={false} offset={0.1} darkness={0.3} />
         </EffectComposer>
-
-        <ambientLight intensity={0.4} />
 
         {/* Grid Helper */}
         <gridHelper args={[10, 10]} rotation={[0, Math.PI / 2, 0]} />
