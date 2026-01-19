@@ -132,7 +132,7 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
                             setLogs(prev => prev + `✅ Robot info received\n`);
 
                         } catch (e) {
-                            console.warn("Event parse error", e);
+                            console.warn("RobotInfo parse error", e);
                         }
                         break;
 
@@ -214,8 +214,7 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
                         break;
 
                     default:
-                        console.warn(prefix)
-                        console.warn("Command not supported", msg);
+                        console.warn("Command not supported", prefix);
 
                 }
 
