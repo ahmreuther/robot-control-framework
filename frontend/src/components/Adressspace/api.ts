@@ -42,10 +42,10 @@ export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<U
  * GET /node_value?url=...&nodeid=...
  * Returns JSON: { value: ... }
  */
-export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<string> => {
+export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<any> => {
   const encodedUrl = encodeURIComponent(opcUaUrl);
   const encodedNodeId = encodeURIComponent(nodeId);
-  
+
   const res = await fetch(
     `${REST_BACKEND_BASE}/node_value?url=${encodedUrl}&nodeid=${encodedNodeId}`
   );
@@ -62,8 +62,12 @@ export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<
     payload = await res.text();
   }
 
-  const value = payload?.value ?? (typeof payload === "string" ? payload : JSON.stringify(payload));
-  return String(value);
+  // Wenn payload ein Objekt mit value-Feld ist, gib value direkt zurück (kann Array, Objekt, String, Zahl sein)
+  if (payload && typeof payload === "object" && "value" in payload) {
+    return payload.value;
+  }
+  // Fallback: gib das Payload direkt zurück
+  return payload;
 };
 
 // ========== NODE DETAILS (Properties Panel) ==========

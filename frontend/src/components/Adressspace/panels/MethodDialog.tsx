@@ -6,16 +6,18 @@ import { UaNode } from "../types";
 type MethodDialogProps = {
   isOpen: boolean;
   node: UaNode | null;
-  inputsJSON: string;
+  inputs: { [key: string]: string };
   result: string | null;
   isLoading: boolean;
-  onInputsChange: (json: string) => void;
+  onInputChange: (name: string, value: string) => void;
   onCall: () => void;
   onClose: () => void;
 };
 
-export const MethodDialog = ({isOpen, node, inputsJSON, result, isLoading, onInputsChange, onCall, onClose} : MethodDialogProps ) =>{
+export const MethodDialog = ({isOpen, node, inputs, result, isLoading, onInputChange, onCall, onClose} : MethodDialogProps ) =>{
   if (!isOpen) return null;
+
+  const inputNames = Object.keys(inputs || {});
 
   return (
     <div
@@ -77,28 +79,35 @@ export const MethodDialog = ({isOpen, node, inputsJSON, result, isLoading, onInp
         {/* Input Parameters */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: "block", color: "#ccc", fontSize: 13, marginBottom: 6 }}>
-            Input Parameters (JSON)
+            Input Parameters
           </label>
-          <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>
-            Example: {`{"paramName":"value","count":42}`}
-          </div>
-          <textarea
-            value={inputsJSON}
-            onChange={(e) => onInputsChange(e.target.value)}
-            style={{
-              width: "100%",
-              minHeight: "100px",
-              padding: "8px",
-              background: "#121212",
-              border: "1px solid #333",
-              borderRadius: 4,
-              color: "#fff",
-              fontSize: 13,
-              fontFamily: "monospace",
-              resize: "vertical",
-              boxSizing: "border-box",
-            }}
-          />
+          {inputNames.length === 0 && (
+            <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>
+              No input arguments for this method.
+            </div>
+          )}
+          {inputNames.map((name) => (
+            <div key={name} style={{ marginBottom: 10 }}>
+              <div style={{ color: "#aaa", fontSize: 12, marginBottom: 2 }}>{name}</div>
+              <textarea
+                value={inputs[name] || ""}
+                onChange={e => onInputChange(name, e.target.value)}
+                style={{
+                  width: "100%",
+                  minHeight: "40px",
+                  padding: "6px",
+                  background: "#121212",
+                  border: "1px solid #333",
+                  borderRadius: 4,
+                  color: "#fff",
+                  fontSize: 13,
+                  fontFamily: "monospace",
+                  resize: "vertical",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          ))}
         </div>
 
         {/* Buttons */}

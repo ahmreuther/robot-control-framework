@@ -52,12 +52,12 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
   const { 
     isOpen: methodDialogOpen, 
     methodNode, 
-    inputsJSON, 
+    inputs, 
     result: methodResult,
     isLoading: methodLoading,
     openMethodDialog, 
     closeMethodDialog, 
-    setInputsJSON, 
+    setInputValue, 
     callMethod 
   } = useMethodCall(opcUaUrl, (socket as any));
   
@@ -403,10 +403,10 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
       <MethodDialog
         isOpen={methodDialogOpen}
         node={methodNode}
-        inputsJSON={inputsJSON}
+        inputs={inputs}
         result={methodResult}
         isLoading={methodLoading}
-        onInputsChange={setInputsJSON}
+        onInputChange={setInputValue}
         onCall={callMethod}
         onClose={closeMethodDialog}
       />

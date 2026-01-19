@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { UaNode } from "../types";
+import { fetchReferences, fetchNodeValue } from "../api";
+
 
 export type MethodCallState = {
   isOpen: boolean;
   node: UaNode | null;
-  inputsJSON: string;
+  inputs: { [key: string]: string };
   result: string | null;
   isLoading: boolean;
 };
@@ -15,42 +17,68 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
   const [state, setState] = useState<MethodCallState>({
     isOpen: false,
     node: null,
-    inputsJSON: "{}",
+    inputs: {},
     result: null,
     isLoading: false,
   });
 
   // ========== OPEN DIALOG ==========
-  const openMethodDialog = useCallback((node: UaNode) => {
-    // Nur Methods (NodeClass 4) können aufgerufen werden
+  const openMethodDialog = useCallback(async (node: UaNode) => {
     if (node.nodeClass.toLowerCase() !== "method") {
       console.warn("[useMethodCall] Can only call Methods");
       return;
     }
-
+    let inputArgNames: string[] = [];
+    try {
+      // Hole die References und finde InputArguments-NodeId
+      const refs = await fetchReferences(opcUaUrl, node.nodeId);
+      const inputArgRef = refs.find(ref => ref.BrowseName === "0:InputArguments");
+      if (inputArgRef) {
+        try {
+          const valueRaw = await fetchNodeValue(opcUaUrl, inputArgRef.NodeId);
+          let value: any = [];
+          try {
+            value = JSON.parse(valueRaw);
+          } catch {
+            value = valueRaw;
+          }
+          // OPC UA InputArguments ist meist ein Array von Argument-Objekten mit Name
+          if (Array.isArray(value)) {
+            inputArgNames = value.map((arg: any) => arg.Name || "arg");
+          }
+        } catch (err) {
+          console.warn("[useMethodCall] Error fetching/parsing InputArguments value:", err);
+        }
+      }
+    } catch (e) {
+      console.warn("[useMethodCall] Could not fetch input arguments:", e);
+    }
+    const inputs: { [key: string]: string } = {};
+    inputArgNames.forEach(name => { inputs[name] = ""; });
     setState({
       isOpen: true,
       node,
-      inputsJSON: "{}",
+      inputs,
       result: null,
       isLoading: false,
     });
-  }, []);
+  }, [opcUaUrl]);
 
   // ========== CLOSE DIALOG ==========
   const closeMethodDialog = useCallback(() => {
     setState({
       isOpen: false,
       node: null,
-      inputsJSON: "{}",
+      inputs: {},
       result: null,
       isLoading: false,
     });
   }, []);
 
   // ========== SET INPUTS ==========
-  const setInputsJSON = useCallback((json: string) => {
-    setState(prev => ({ ...prev, inputsJSON: json }));
+  // Setze einen einzelnen Input-Wert
+  const setInputValue = useCallback((name: string, value: string) => {
+    setState(prev => ({ ...prev, inputs: { ...prev.inputs, [name]: value } }));
   }, []);
 
   // ========== CALL METHOD ==========
@@ -58,19 +86,15 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     if (!state.node || !socket || socket.readyState !== WebSocket.OPEN || !opcUaUrl) {
       return;
     }
-
     try {
-      const inputs = JSON.parse(state.inputsJSON);
       const payload = JSON.stringify({
         url: opcUaUrl,
         nodeId: state.node.nodeId,
-        inputs,
+        inputs: state.inputs,
       });
-
       const msg = `call|${payload}`;
       socket.send(msg);
       console.log("[useMethodCall] Sent method call:", msg);
-
       setState(prev => ({
         ...prev,
         isLoading: true,
@@ -82,7 +106,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
         result: `❌ Invalid JSON: ${err.message}`,
       }));
     }
-  }, [state.node, state.inputsJSON, socket, opcUaUrl]);
+  }, [state.node, state.inputs, socket, opcUaUrl]);
 
   // ========== LISTEN FOR RESULTS ==========
   useEffect(() => {
@@ -115,13 +139,13 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     // State
     isOpen: state.isOpen,
     methodNode: state.node,
-    inputsJSON: state.inputsJSON,
+    inputs: state.inputs,
     result: state.result,
     isLoading: state.isLoading,
     // Actions
     openMethodDialog,
     closeMethodDialog,
-    setInputsJSON,
+    setInputValue,
     callMethod,
   };
 }
