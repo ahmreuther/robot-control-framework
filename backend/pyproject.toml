@@ -33,7 +33,7 @@ typecheck = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-exclude = ["__pycache__", ".venv", "venv", "src_old"]
+exclude = ["__pycache__", ".venv", "venv", "src_old", "tests"]
 src = ["src"]
 
 [tool.ruff.lint]
