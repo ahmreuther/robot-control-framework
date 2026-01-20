@@ -52,7 +52,7 @@ const hideFixedToggle = document.getElementById('hide-fixed');
 const ikMove = document.getElementById('ik-move');
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 1 / DEG2RAD;
-let sliders = {};
+let controlSliders = {};
 
 // Multi-Robot
 const multiRobotModelSelect = document.getElementById('multi-robot-model');
@@ -60,10 +60,9 @@ const addRobotBtn = document.getElementById('add-robot-btn');
 const activeRobotSelect = document.getElementById('active-robot-select');
 const deleteRobotBtn = document.getElementById('delete-robot-btn');
 const robotCountValue = document.getElementById('robot-count-value');
-const robotSlidersList = document.getElementById('robot-sliders');
+
 
 let activeRobotId = null;
-let robotOffset = 0;
 let initialRobotRegistered = false;
 
 const logMessage = msg => {
@@ -173,6 +172,7 @@ addRobotBtn.addEventListener('click', async () => {
         
         addRobotOption(record.id, model.name);
         setActiveRobot(record.id);
+        ControlCenterSliders();
 
         robotCountValue.textContent = listRobots().length; // update count
     } catch (err) {
@@ -192,6 +192,7 @@ deleteRobotBtn.addEventListener('click', async () => {
     renderForAFewFrames(viewer);
 
     await removeRobot(activeRobotId);
+    ControlCenterSliders();
 
     // remove from dropdown
     const option = activeRobotSelect.querySelector(`option[value="${activeRobotId}"]`);
@@ -209,6 +210,7 @@ deleteRobotBtn.addEventListener('click', async () => {
 
 activeRobotSelect.addEventListener('change', () => {
     activeRobotId = activeRobotSelect.value;
+    ControlCenterSliders();
 });
 
 // Register the initially loaded robot (first URDF) so it counts and appears in the dropdown
@@ -249,6 +251,8 @@ viewer.addEventListener('urdf-processed', async () => {
         // This to register initial robot to make it deletable -> 
         addRobotOption(record.id, record.model || record.id);
         setActiveRobot(record.id);
+        ControlCenterSliders();
+
         robotCountValue.textContent = listRobots().length;
         initialRobotRegistered = true;
 
@@ -274,7 +278,7 @@ limitsToggle.addEventListener('click', () => {
 radiansToggle.addEventListener('click', () => {
     radiansToggle.classList.toggle('checked');
     Object
-        .values(sliders)
+    .values(controlSliders)
         .forEach(sl => sl.update());
 });
 
@@ -307,26 +311,26 @@ controlsToggle.addEventListener('click', () => controlsel.classList.toggle('hidd
 viewer.addEventListener('urdf-change', () => {
 
     Object
-        .values(sliders)
+        .values(controlSliders)
         .forEach(sl => sl.remove());
-    sliders = {};
+    controlSliders = {};
 
 });
 
 viewer.addEventListener('ignore-limits-change', () => {
 
     Object
-        .values(sliders)
+        .values(controlSliders)
         .forEach(sl => sl.update());
 
 });
 
 
 viewer.addEventListener('angle-change', e => {
-    if (e && e.detail && sliders[e.detail]) {
-        sliders[e.detail].update();
+    if (e && e.detail && controlSliders[e.detail]) {
+        controlSliders[e.detail].update();
     } else {
-        Object.values(sliders).forEach(sl => sl.update());
+        Object.values(controlSliders).forEach(sl => sl.update());
     }
 });
 
@@ -365,109 +369,9 @@ viewer.addEventListener('manipulate-end', e => {
 
 });
 
-// create the sliders
+// create the sliders for the currently active robot
 viewer.addEventListener('urdf-processed', () => {
-
-    const r = viewer.robot;
-    Object
-        .keys(r.joints)
-        .sort((a, b) => {
-
-            const da = a.split(/[^\d]+/g).filter(v => !!v).pop();
-            const db = b.split(/[^\d]+/g).filter(v => !!v).pop();
-
-            if (da !== undefined && db !== undefined) {
-                const delta = parseFloat(da) - parseFloat(db);
-                if (delta !== 0) return delta;
-            }
-
-            if (a > b) return 1;
-            if (b > a) return -1;
-            return 0;
-
-        })
-        .map(key => r.joints[key])
-        .forEach(joint => {
-
-            // --- Skip-Condition für prismatic + mimic ---
-            if (joint.jointType === 'prismatic' && Array.isArray(joint.mimicJoints) && joint.mimicJoints.length == 0) {
-                console.log(`Skip slider for mimic prismatic joint: ${joint.name}`);
-                return; // kein Slider erzeugen
-            }
-
-            const li = document.createElement('li');
-            li.innerHTML =
-                `
-        <span title="${joint.name}">${joint.name}</span>
-        <input type="range" value="0" step="0.0001"/>
-        <input type="number" step="0.0001" />
-        `;
-            li.setAttribute('joint-type', joint.jointType);
-            li.setAttribute('joint-name', joint.name);
-
-            sliderList.appendChild(li);
-
-            // update the joint display
-            const slider = li.querySelector('input[type="range"]');
-            const input = li.querySelector('input[type="number"]');
-            li.update = () => {
-                const degMultiplier = radiansToggle.classList.contains('checked') ? 1.0 : RAD2DEG;
-                let angle = joint.angle;
-
-                if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
-                    angle *= degMultiplier;
-                }
-
-                if (Math.abs(angle) > 1) {
-                    angle = angle.toFixed(1);
-                } else {
-                    angle = angle.toPrecision(2);
-                }
-
-                input.value = parseFloat(angle);
-                slider.value = joint.angle;
-
-                if (viewer.ignoreLimits || joint.jointType === 'continuous') {
-                    slider.min = -6.28;
-                    slider.max = 6.28;
-                    input.min = -6.28 * degMultiplier;
-                    input.max = 6.28 * degMultiplier;
-                } else {
-                    slider.min = joint.limit.lower;
-                    slider.max = joint.limit.upper;
-                    input.min = joint.limit.lower * degMultiplier;
-                    input.max = joint.limit.upper * degMultiplier;
-                }
-            };
-
-            switch (joint.jointType) {
-                case 'continuous':
-                case 'prismatic':
-                case 'revolute':
-                    break;
-                default:
-                    li.update = () => { };
-                    input.remove();
-                    slider.remove();
-            }
-
-            slider.addEventListener('input', () => {
-                viewer.setJointValue(joint.name, slider.value);
-                li.update();
-            });
-
-            input.addEventListener('change', () => {
-                const degMultiplier = radiansToggle.classList.contains('checked') ? 1.0 : DEG2RAD;
-                viewer.setJointValue(joint.name, input.value * degMultiplier);
-                li.update();
-            });
-
-            li.update();
-
-            sliders[joint.name] = li;
-        });
-
-
+    ControlCenterSliders();
 });
 
 document.addEventListener('WebComponentsReady', () => {
@@ -606,3 +510,134 @@ document.addEventListener('WebComponentsReady', () => {
     viewer.noAutoRecenter = true;
 
 });
+
+// ===== Robot Control Center Functions =====
+function getActiveRecord() {
+    if (!activeRobotId) return null;
+    return getRobot(activeRobotId);
+}
+
+function ControlCenterSliders() {
+    // Clear existing sliders
+    Object.values(controlSliders).forEach(li => li.remove());
+    controlSliders = {};
+
+    const record = getActiveRecord();
+    const manipulator = record?.manipulator;
+    const robot = manipulator?.robot || viewer?.robot;
+    if (!robot || !robot.joints) return;
+
+    Object.keys(robot.joints)
+        .sort((a, b) => {
+            const da = a.split(/[^\d]+/g).filter(v => !!v).pop();
+            const db = b.split(/[^\d]+/g).filter(v => !!v).pop();
+            if (da !== undefined && db !== undefined) {
+                const delta = parseFloat(da) - parseFloat(db);
+                if (delta !== 0) return delta;
+            }
+            if (a > b) return 1;
+            if (b > a) return -1;
+            return 0;
+        })
+        .forEach(jointName => {
+            const joint = robot.joints[jointName];
+
+            if (joint.jointType === 'fixed') return;
+            if (joint.jointType === 'prismatic' && Array.isArray(joint.mimicJoints) && joint.mimicJoints.length === 0) return;
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span title="${jointName}">${jointName}</span>
+                <input type="range" value="0" step="0.0001"/>
+                <input type="number" step="0.0001" />
+            `;
+            li.setAttribute('joint-type', joint.jointType);
+            li.setAttribute('joint-name', jointName);
+
+            sliderList.appendChild(li);
+
+            const slider = li.querySelector('input[type="range"]');
+            const input = li.querySelector('input[type="number"]');
+
+            li.update = () => {
+                const current = (manipulator?.robot || viewer?.robot)?.joints?.[jointName];
+                if (!current) return;
+
+                const degMultiplier = radiansToggle.classList.contains('checked') ? 1.0 : RAD2DEG;
+                let angle = current.angle;
+
+                if (current.jointType === 'revolute' || current.jointType === 'continuous') {
+                    angle *= degMultiplier;
+                }
+
+                if (Math.abs(angle) > 1) {
+                    angle = angle.toFixed(1);
+                } else {
+                    angle = angle.toPrecision(2);
+                }
+
+                input.value = parseFloat(angle);
+                slider.value = current.angle;
+
+                if (viewer.ignoreLimits || current.jointType === 'continuous') {
+                    slider.min = -6.28;
+                    slider.max = 6.28;
+                    input.min = -6.28 * degMultiplier;
+                    input.max = 6.28 * degMultiplier;
+                } else if (current.limit) {
+                    slider.min = current.limit.lower;
+                    slider.max = current.limit.upper;
+                    input.min = current.limit.lower * degMultiplier;
+                    input.max = current.limit.upper * degMultiplier;
+                }
+            };
+
+            switch (joint.jointType) {
+                case 'continuous':
+                case 'prismatic':
+                case 'revolute':
+                    break;
+                default:
+                    li.update = () => { };
+                    input.remove();
+                    slider.remove();
+            }
+
+            slider.addEventListener('input', () => {
+                const value = parseFloat(slider.value);
+                if (manipulator?.setJointValue) {
+                    manipulator.setJointValue(jointName, value);
+                } else if (viewer?.setJointValue) {
+                    viewer.setJointValue(jointName, value);
+                }
+                li.update();
+            });
+
+            input.addEventListener('change', () => {
+                const degMultiplier = radiansToggle.classList.contains('checked') ? 1.0 : DEG2RAD;
+                const value = parseFloat(input.value) * degMultiplier;
+                if (manipulator?.setJointValue) {
+                    manipulator.setJointValue(jointName, value);
+                } else if (viewer?.setJointValue) {
+                    viewer.setJointValue(jointName, value);
+                }
+                li.update();
+            });
+
+            li.update();
+            controlSliders[jointName] = li;
+        });
+
+    // Attach a single angle-change listener per manipulator to keep sliders in sync
+    if (manipulator && !record?._controlCenterListenerAttached) {
+        manipulator.addEventListener('angle-change', (e) => {
+            const j = e?.detail;
+            if (j && controlSliders[j]) {
+                controlSliders[j].update();
+            } else {
+                Object.values(controlSliders).forEach(li => li.update());
+            }
+        });
+        if (record) record._controlCenterListenerAttached = true;
+    }
+}

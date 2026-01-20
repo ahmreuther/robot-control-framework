@@ -241,6 +241,32 @@ export default class URDFIKManipulator extends URDFManipulator {
         if (this.requestRender) this.requestRender();
     }
 
+    /**
+     * Set a joint value on this manipulator's robot
+     */
+    setJointValue(jointName, value) {
+        if (!this.robot || !this.robot.joints || !this.robot.joints[jointName]) {
+            console.warn(`Joint ${jointName} not found on robot`);
+            return;
+        }
+        
+        this.robot.setJointValue(jointName, value);
+        
+        // Update IK state
+        if (this.ikRoot) {
+            setIKFromUrdf(this.ikRoot, this.robot);
+        }
+        
+        // Reset goal to new position
+        this.resetGoal();
+        
+        // Trigger angle change event
+        this.dispatchEvent(new CustomEvent('angle-change', { detail: jointName }));
+        
+        this.redraw();
+        if (this.requestRender) this.requestRender();
+    }
+
     solve() {
         if (!this.robot || !this.ikRoot || !this.goal) return;
         const goal = this.goal;
