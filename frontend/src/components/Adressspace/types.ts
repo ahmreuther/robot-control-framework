@@ -47,4 +47,4 @@ export const typeMap: Record<number, string> = {
 };
 
 // Backend configuration
-export const REST_BACKEND_BASE = "http://127.0.0.1:8000";
+export const REST_BACKEND_BASE = "http://127.0.0.1:8001";

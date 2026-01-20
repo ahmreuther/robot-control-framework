@@ -1,7 +1,7 @@
 // ASpaceWindow.tsx - Resizable, draggable window with state persistence (Performance Optimized)
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useUrlContext } from "../UrlContext";
+import { useUrlContext } from "../../contexts/UrlContext";
 import { useSocket } from "../../hooks/use-socket";
 import { ASpaceBody } from "./ASpaceBody";
 import { UaNode } from "./types";

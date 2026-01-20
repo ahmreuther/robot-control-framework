@@ -11,8 +11,6 @@ import { useJointState } from "./hooks/useJointState";
 import WebSocketReciever  from './components/WebsocketReciever';
 import { LogProvider} from './contexts/LogContext';
 import { RobotInfoProvider, AxleValues, RobotInfo } from './contexts/RobotInfoContext';
-import { OPCUAAddressSpace } from './components/OPCUAAdressspace';
-
 
 function App() {
   
@@ -63,7 +61,6 @@ function App() {
                     reloadKey={reloadKey}
                     hoveredJointMesh={hoveredJointMesh}
                   />
-                  <OPCUAAddressSpace />
                 </div>
                 </RobotInfoProvider>
               </LogProvider>
