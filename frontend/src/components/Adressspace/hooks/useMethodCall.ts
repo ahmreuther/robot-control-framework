@@ -5,10 +5,11 @@ import { UaNode } from "../types";
 import { fetchReferences, fetchNodeValue } from "../api";
 
 
+export type InputArgTuple = [name: string, type: number];
 export type MethodCallState = {
   isOpen: boolean;
   node: UaNode | null;
-  inputs: { [key: string]: string };
+  inputs: InputArgTuple[];
   result: string | null;
   isLoading: boolean;
 };
@@ -17,7 +18,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
   const [state, setState] = useState<MethodCallState>({
     isOpen: false,
     node: null,
-    inputs: {},
+    inputs: [],
     result: null,
     isLoading: false,
   });
@@ -28,7 +29,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       console.warn("[useMethodCall] Can only call Methods");
       return;
     }
-    let inputArgNames: string[] = [];
+    let inputArgTuples: InputArgTuple[] = [];
     try {
       // Hole die References und finde InputArguments-NodeId
       const refs = await fetchReferences(opcUaUrl, node.nodeId);
@@ -42,9 +43,12 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
           } catch {
             value = valueRaw;
           }
-          // OPC UA InputArguments ist meist ein Array von Argument-Objekten mit Name
+          // OPC UA InputArguments ist meist ein Array von Argument-Objekten mit Name und DataType
           if (Array.isArray(value)) {
-            inputArgNames = value.map((arg: any) => arg.Name || "arg");
+            inputArgTuples = value.map((arg: any) => [
+              arg.Name || "arg",
+              arg.DataType && typeof arg.DataType === "object" && "Identifier" in arg.DataType ? arg.DataType.Identifier : arg.DataType
+            ]);
           }
         } catch (err) {
           console.warn("[useMethodCall] Error fetching/parsing InputArguments value:", err);
@@ -53,12 +57,10 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     } catch (e) {
       console.warn("[useMethodCall] Could not fetch input arguments:", e);
     }
-    const inputs: { [key: string]: string } = {};
-    inputArgNames.forEach(name => { inputs[name] = ""; });
     setState({
       isOpen: true,
       node,
-      inputs,
+      inputs: inputArgTuples,
       result: null,
       isLoading: false,
     });
@@ -69,7 +71,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     setState({
       isOpen: false,
       node: null,
-      inputs: {},
+      inputs: [],
       result: null,
       isLoading: false,
     });

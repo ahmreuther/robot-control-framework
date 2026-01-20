@@ -1,12 +1,12 @@
 // MethodDialog.tsx - Modal für Method Calls
 
-import { UaNode } from "../types";
+import { UaNode, typeMap } from "../types";
 
-
+type InputArgTuple = [name: string, type: number, valueRank?: number];
 type MethodDialogProps = {
   isOpen: boolean;
   node: UaNode | null;
-  inputs: { [key: string]: string };
+  inputs: InputArgTuple[];
   result: string | null;
   isLoading: boolean;
   onInputChange: (name: string, value: string) => void;
@@ -16,8 +16,6 @@ type MethodDialogProps = {
 
 export const MethodDialog = ({isOpen, node, inputs, result, isLoading, onInputChange, onCall, onClose} : MethodDialogProps ) =>{
   if (!isOpen) return null;
-
-  const inputNames = Object.keys(inputs || {});
 
   return (
     <div
@@ -81,33 +79,37 @@ export const MethodDialog = ({isOpen, node, inputs, result, isLoading, onInputCh
           <label style={{ display: "block", color: "#ccc", fontSize: 13, marginBottom: 6 }}>
             Input Parameters
           </label>
-          {inputNames.length === 0 && (
+          {inputs.length === 0 && (
             <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>
               No input arguments for this method.
             </div>
           )}
-          {inputNames.map((name) => (
-            <div key={name} style={{ marginBottom: 10 }}>
-              <div style={{ color: "#aaa", fontSize: 12, marginBottom: 2 }}>{name}</div>
-              <textarea
-                value={inputs[name] || ""}
-                onChange={e => onInputChange(name, e.target.value)}
-                style={{
-                  width: "100%",
-                  minHeight: "40px",
-                  padding: "6px",
-                  background: "#121212",
-                  border: "1px solid #333",
-                  borderRadius: 4,
-                  color: "#fff",
-                  fontSize: 13,
-                  fontFamily: "monospace",
-                  resize: "vertical",
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-          ))}
+          {inputs.map(([name, type, valueRank]) => {
+            const typeStr = typeMap[type] || `TypeId:${type}`;
+            const arrayStr = valueRank === 1 ? "[]" : "";
+            return (
+              <div key={name} style={{ marginBottom: 10 }}>
+                <div style={{ color: "#aaa", fontSize: 12, marginBottom: 2 }}>{name} ({typeStr}{arrayStr})</div>
+                <textarea
+                  value={""}
+                  onChange={e => onInputChange(name, e.target.value)}
+                  style={{
+                    width: "100%",
+                    minHeight: "40px",
+                    padding: "6px",
+                    background: "#121212",
+                    border: "1px solid #333",
+                    borderRadius: 4,
+                    color: "#fff",
+                    fontSize: 13,
+                    fontFamily: "monospace",
+                    resize: "vertical",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
 
         {/* Buttons */}
