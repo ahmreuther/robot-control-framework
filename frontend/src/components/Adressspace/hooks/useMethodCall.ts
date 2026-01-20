@@ -10,6 +10,7 @@ export type MethodCallState = {
   isOpen: boolean;
   node: UaNode | null;
   inputs: InputArgTuple[];
+  inputValues: Record<string, string>;
   result: string | null;
   isLoading: boolean;
 };
@@ -19,6 +20,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     isOpen: false,
     node: null,
     inputs: [],
+    inputValues: {},
     result: null,
     isLoading: false,
   });
@@ -61,6 +63,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       isOpen: true,
       node,
       inputs: inputArgTuples,
+      inputValues: {},
       result: null,
       isLoading: false,
     });
@@ -72,6 +75,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       isOpen: false,
       node: null,
       inputs: [],
+      inputValues: {},
       result: null,
       isLoading: false,
     });
@@ -80,7 +84,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
   // ========== SET INPUTS ==========
   // Setze einen einzelnen Input-Wert
   const setInputValue = useCallback((name: string, value: string) => {
-    setState(prev => ({ ...prev, inputs: { ...prev.inputs, [name]: value } }));
+    setState(prev => ({ ...prev, inputValues: { ...prev.inputValues, [name]: value } }));
   }, []);
 
   // ========== CALL METHOD ==========
@@ -92,7 +96,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       const payload = JSON.stringify({
         url: opcUaUrl,
         nodeId: state.node.nodeId,
-        inputs: state.inputs,
+        inputs: state.inputValues,
       });
       const msg = `call|${payload}`;
       socket.send(msg);
@@ -108,7 +112,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
         result: `❌ Invalid JSON: ${err.message}`,
       }));
     }
-  }, [state.node, state.inputs, socket, opcUaUrl]);
+  }, [state.node, state.inputValues, socket, opcUaUrl]);
 
   // ========== LISTEN FOR RESULTS ==========
   useEffect(() => {
@@ -142,6 +146,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     isOpen: state.isOpen,
     methodNode: state.node,
     inputs: state.inputs,
+    inputValues: state.inputValues,
     result: state.result,
     isLoading: state.isLoading,
     // Actions

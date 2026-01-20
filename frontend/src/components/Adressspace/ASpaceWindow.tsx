@@ -53,6 +53,7 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
     isOpen: methodDialogOpen, 
     methodNode, 
     inputs, 
+    inputValues,
     result: methodResult,
     isLoading: methodLoading,
     openMethodDialog, 
@@ -404,6 +405,7 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
         isOpen={methodDialogOpen}
         node={methodNode}
         inputs={inputs}
+        inputValues={inputValues}
         result={methodResult}
         isLoading={methodLoading}
         onInputChange={setInputValue}

@@ -7,6 +7,7 @@ type MethodDialogProps = {
   isOpen: boolean;
   node: UaNode | null;
   inputs: InputArgTuple[];
+  inputValues: Record<string, string>;
   result: string | null;
   isLoading: boolean;
   onInputChange: (name: string, value: string) => void;
@@ -14,7 +15,7 @@ type MethodDialogProps = {
   onClose: () => void;
 };
 
-export const MethodDialog = ({isOpen, node, inputs, result, isLoading, onInputChange, onCall, onClose} : MethodDialogProps ) =>{
+export const MethodDialog = ({isOpen, node, inputs, inputValues, result, isLoading, onInputChange, onCall, onClose} : MethodDialogProps ) =>{
   if (!isOpen) return null;
 
   return (
@@ -91,7 +92,7 @@ export const MethodDialog = ({isOpen, node, inputs, result, isLoading, onInputCh
               <div key={name} style={{ marginBottom: 10 }}>
                 <div style={{ color: "#aaa", fontSize: 12, marginBottom: 2 }}>{name} ({typeStr}{arrayStr})</div>
                 <textarea
-                  value={""}
+                  value={inputValues[name] ?? ""}
                   onChange={e => onInputChange(name, e.target.value)}
                   style={{
                     width: "100%",
