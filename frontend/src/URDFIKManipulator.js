@@ -173,29 +173,25 @@ export default class URDFIKManipulator extends URDFManipulator {
         if (!robot) return;
         this.robot = robot;
         this.robotId = robotId ?? this.robotId;
-        console.log('before init pos', robot.position.clone());
 
-        // Preserve world transform so init() doesn't reset the robot to origin
-        let prevPos = null;
-        let prevQuat = null;
-        if (robot.position && typeof robot.position.clone === 'function') prevPos = robot.position.clone();
-        if (robot.quaternion && typeof robot.quaternion.clone === 'function') prevQuat = robot.quaternion.clone();
-
-        this.dispatchEvent(new Event('urdf-processed')); //i think here is the problem
-
+        
+        // Preserve the robot's current world transform
+        const prevPos = robot.position.clone();
+        const prevQuat = robot.quaternion.clone();
+        robot.updateMatrixWorld(true);
+        
+        this.dispatchEvent(new Event('urdf-processed')); // ->calls init()
         // Restore preserved transform
-        if (prevPos && prevQuat) {
-            robot.position.copy(prevPos);
-            robot.quaternion.copy(prevQuat);
-            robot.updateMatrixWorld(true);
-        }
-
-        console.log('after init pos', robot.position.clone());
-
+        robot.position.copy(prevPos);
+        robot.quaternion.copy(prevQuat);
+        robot.updateMatrixWorld(true);
+        
+        //TODO robot is now restored correctly, but ikRoot is not in the right place and the gizmo is at the tool point in 0,0,0
+        this.resetGoal();
     }
 
     init() {
-
+        //https://gkjohnson.github.io/closed-chain-ik-js/
         const robot = this.robot;
         robot.updateMatrixWorld(true);
 

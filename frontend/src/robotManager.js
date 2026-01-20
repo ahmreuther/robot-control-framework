@@ -1,7 +1,3 @@
-// Convert module-level robot manager into an explicit class so it can be instantiated
-// and injected. We keep the original named exports by binding instance methods
-// to preserve compatibility with existing code.
-
 // Dummy OPC UA API -> replace with real backend calls later!! TODO
 // We create a fake session, with a unique sessionId per robot model. This is just for testing. Then we close it.
 const DEFAULT_OPCUA_API = {
@@ -96,6 +92,7 @@ class RobotManager {
       status: 'connecting',
     };
     this.robots.set(id, record);
+    // create manipulator
     if (createManipulator) {
       const factory = this.manipulatorFactory;
       if (typeof factory !== 'function') {

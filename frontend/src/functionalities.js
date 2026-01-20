@@ -1294,7 +1294,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         function updateRevoluteJointStatus() {
             const r = viewer.robot;
-            console.log(r);
+            //console.log(r);
 
 
             const radiansToggle = document.getElementById('radians-toggle');
