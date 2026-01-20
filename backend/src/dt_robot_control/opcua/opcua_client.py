@@ -38,8 +38,8 @@ class OPCUAClient:
     is_robotics_server:bool
     namespaces: list[str]
 
-    goto_method_nodeid: str | None            # wtf is this shit
-    toggle_endeff_method_nodeid: str | None    # this too
+    goto_method_nodeid: str | None           
+    toggle_endeff_method_nodeid: str | None   
 
     # managers
     subscription_manager: SubscriptionManager
@@ -57,7 +57,7 @@ class OPCUAClient:
         self.name = name
         self.url = url
         # asyncua.Client instance
-        self.client = Client(url) # todo: error if renamed when connected to evo demo server
+        self.client = Client(url)
         self.websocket = websocket
 
         self.goto_method_nodeid: str | None = None
@@ -223,6 +223,7 @@ class OPCUAClient:
             print(f"[CALL] ❌ Fehler: {e}")
             return {"status": None, "output_arguments": [], "error": f"Error when calling method: {e}"}
 
+    # previously: check_robotics_support
     async def has_robotics_namespace(self) -> bool:
         """Checks whether ‘http://opcfoundation.org/UA/Robotics/’ is contained in the NamespaceArray."""
         try:
