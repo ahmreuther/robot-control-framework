@@ -4,6 +4,7 @@ import Twin_Dashboard from "./MenuComponents/TwinDashboardComponents/Twin_Dashbo
 import MessageLog from "./MenuComponents/Tab2Components/MessageLog";
 import {URDFSelector, type ModelConfig } from './MenuComponents/ControlsComponents/URDFSelector';
 import { JointAnglesPanel } from "./MenuComponents/ControlsComponents/JointAnglesPanel";
+import { ASpaceWindow } from "./Adressspace";
 import Live_Status from "./MenuComponents/TwinDashboardComponents/Live_Status";
 import type { JointProperty } from "../hooks/useSceneState";
 import type { JointStateManager } from "../hooks/useJointState";
@@ -23,8 +24,19 @@ type TabKey = "Controls" | "OPC-UA" | "Twin-Dashboard";
 
 export function SidebarMenu(MenuProps: MenuProps) {
   const [active, setActive] = useState<TabKey>("Controls");
+  
+  // Address Space window state - NOT persisted (always starts closed)
+  const [isAddressSpaceOpen, setIsAddressSpaceOpen] = useState(false);
+
+  const toggleAddressSpace = () => {
+    setIsAddressSpaceOpen(prev => !prev);
+  };
+
   return (
     <div className="flex h-full z-10">
+      {/* Address Space Window (floating, rendered outside menu flow) */}
+      <ASpaceWindow isOpen={isAddressSpaceOpen} onClose={toggleAddressSpace} />
+      
       {/* SIDEBAR */}
       <aside className="flex flex-col border-r bg-black text-white">
         <nav className="flex flex-col">
@@ -48,6 +60,14 @@ export function SidebarMenu(MenuProps: MenuProps) {
           >
             Dashboard
           </TabButton>
+
+          <TabButton
+            active={isAddressSpaceOpen}
+            onClick={toggleAddressSpace}
+          >
+            ASpace
+          </TabButton>
+
         </nav>
       </aside>
 
