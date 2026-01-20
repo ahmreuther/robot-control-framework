@@ -138,7 +138,6 @@ function setActiveRobot(id) {
     activeRobotId = id;
 }
 
-
 // spawnRobot handled by `services/sceneManager.js`
 
 // disposeRobotNode handled by `services/sceneManager.js`
@@ -159,13 +158,19 @@ addRobotBtn.addEventListener('click', async () => {
             sceneNode: null,
             slotIndex
         });
-        const robotNode = await spawnRobot(viewer, { urdfPath: model.urdf, slotIndex, getNextSlotIndex });
-        if (robotNode) {
-            record.sceneNode = robotNode;
-            robotNode.updateMatrixWorld(true);
-            record.manipulator.setRobot(robotNode, record.id);
-        }
+        // fixed v1.1
+        const spawned = await spawnRobot(viewer, {urdfPath: model.urdf, slotIndex, getNextSlotIndex});
+        if (spawned) {
+            const {rig, robot} = spawned;
 
+            // store rig (so delete removes the whole robot space)
+            record.sceneNode = rig;
+            rig.updateMatrixWorld(true);
+
+            // pass robot for IK and rig so gizmo is parented correctly
+            record.manipulator.setRobot(robot, record.id, rig);
+        }
+        
         addRobotOption(record.id, model.name);
         setActiveRobot(record.id);
 
@@ -178,7 +183,7 @@ addRobotBtn.addEventListener('click', async () => {
 
 deleteRobotBtn.addEventListener('click', async () => {
     if (!activeRobotId) return;
-
+    
     const record = getRobot(activeRobotId);
     if (record && record.sceneNode) {
         if (record.sceneNode.parent) record.sceneNode.parent.remove(record.sceneNode);
@@ -211,21 +216,42 @@ viewer.addEventListener('urdf-processed', async () => {
     if (initialRobotRegistered || !viewer.robot) return;
     try {
         const slotIndex = getNextSlotIndex();
-        if (viewer.robot.position) {
-            viewer.robot.position.x = 1.5 * slotIndex;
-            viewer.robot.updateMatrixWorld(true);
+
+        // Create rig for the initial robot
+        const rig = new THREE.Group();
+        rig.name = `rig_initial_${slotIndex}`;
+        rig.position.x = 1.5 * slotIndex;
+
+        // Add rig to scene and reparent the already-loaded robot into it
+        viewer.world.add(rig);
+        rig.add(viewer.robot);
+
+        // Robot base stays local identity inside rig
+        viewer.robot.position.set(0, 0, 0);
+        viewer.robot.quaternion.identity();
+
+        viewer.robot.updateMatrixWorld(true);
+        rig.updateMatrixWorld(true);
+
+        // Make the viewers own gizmo target follow the rig
+        if (typeof viewer.setBaseGroup === 'function'){
+            viewer.setBaseGroup(rig);
         }
+
         const record = await addRobot({
-            model: viewer.urdf || 'initial',
+            model: viewer.urdf || 'inital',
             urdfPath: viewer.urdf,
-            sceneNode: viewer.robot,
+            sceneNode: rig,         // store rig, not robot
             slotIndex,
             createManipulator: false,
         });
+
+        // This to register initial robot to make it deletable -> 
         addRobotOption(record.id, record.model || record.id);
         setActiveRobot(record.id);
         robotCountValue.textContent = listRobots().length;
         initialRobotRegistered = true;
+
     } catch (err) {
         console.warn('Failed to register initial robot', err);
     }

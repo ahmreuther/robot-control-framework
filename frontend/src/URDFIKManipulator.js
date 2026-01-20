@@ -98,7 +98,10 @@ export default class URDFIKManipulator extends URDFManipulator {
         const sphere = new Mesh(geometry, material);
         targetObject.add(sphere);
 
-        this.world.add(targetObject);
+        // change v1.1
+        this.baseGroup = this.world;        // default until a righ is provided
+        this.baseGroup.add(targetObject)    // target lives under baseGroup (rig later)
+        //this.world.add(targetObject);
         transformControls.attach(targetObject);
 
         // Members
@@ -169,25 +172,30 @@ export default class URDFIKManipulator extends URDFManipulator {
     /**
      * Attach an externally provided URDF robot to this manipulator and re-init IK/gizmo state.
      */
-    setRobot(robot, robotId = null) {
+    setRobot(robot, robotId = null, baseGroup = null){
         if (!robot) return;
-        this.robot = robot;
-        this.robotId = robotId ?? this.robotId;
 
-        
-        // Preserve the robot's current world transform
-        const prevPos = robot.position.clone();
-        const prevQuat = robot.quaternion.clone();
-        robot.updateMatrixWorld(true);
-        
-        this.dispatchEvent(new Event('urdf-processed')); // ->calls init()
-        // Restore preserved transform
-        robot.position.copy(prevPos);
-        robot.quaternion.copy(prevQuat);
-        robot.updateMatrixWorld(true);
-        
-        //TODO robot is now restored correctly, but ikRoot is not in the right place and the gizmo is at the tool point in 0,0,0
+        // IMPORTANT NOTE: rig becomes the manipulators base group (so gizmo inherits the offset correctly)
+        this.setBaseGroup(baseGroup);
+
+        this.robot = robot;
+        this.robotId = robotId == this.robotId;
+
+        // Re-init IK/gizmo state (in robot-local space)
+        this.dispatchEvent(new Event('urdf-processed'));
         this.resetGoal();
+    }
+
+    setBaseGroup(group) {
+        const next = group || this.world;
+        if (!next || !this.targetObject) return;
+
+        if (this.targetObject.parent !== next) {
+            if (this.targetObject.parent) this.targetObject.parent.remove(this.targetObject);
+            next.add(this.targetObject);
+        }
+
+        this.baseGroup = next;
     }
 
     init() {
@@ -249,21 +257,15 @@ export default class URDFIKManipulator extends URDFManipulator {
 
         const dt = performance.now() - t0;
 
-        if (!statuses.includes(SOLVE_STATUS.DIVERGED)) {
-            // Preserve world transform to avoid overwriting the robot base transform
-            let prevPos = null;
-            let prevQuat = null;
-            if (robot.position && typeof robot.position.clone === 'function') prevPos = robot.position.clone();
-            if (robot.quaternion && typeof robot.quaternion.clone === 'function') prevQuat = robot.quaternion.clone();
-
+        if (!statuses.includes(SOLVE_STATUS.DIVERGED)){
             setUrdfFromIK(robot, ik);
             this.dispatchEvent(new Event('angle-change'));
 
-            if (prevPos && prevQuat) {
-                robot.position.copy(prevPos);
-                robot.quaternion.copy(prevQuat);
-                robot.updateMatrixWorld(true);
-            }
+            // With righs, keep robot base local identity under the rig
+            robot.position.set(0, 0, 0);
+            robot.quaternion.identity();
+            robot.updateMatrixWorld(true);
+
         }
 
         const el = document.getElementById('output');
