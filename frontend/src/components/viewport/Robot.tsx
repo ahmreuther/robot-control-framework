@@ -27,6 +27,7 @@ interface RobotProps {
   jointManager: JointStateManager;
   showCollisionMesh: boolean;
   setHoveredJointMesh?: (index: number | null) => void;
+  setMovedDistance?: (distance: number) => void;
 }
 
 export function Robot({
@@ -38,6 +39,7 @@ export function Robot({
   jointManager,
   showCollisionMesh,
   setHoveredJointMesh,
+  setMovedDistance
 }: RobotProps) {
   const robotRef = useRef<URDFRobot>(null);
   const robotGroupRef = useRef<THREE.Group>(null);
@@ -520,6 +522,7 @@ export function Robot({
           goalPosition={goalPosition}
           converged={convergedRef.current}
           jointManager={jointManager}
+          setMovedDistance={setMovedDistance}
         />
       )}
     </>

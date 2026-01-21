@@ -17,17 +17,17 @@ export interface ViewportProps {
 }
 
 export function Viewport(props: ViewportProps) {
-  
   const [drag, setDrag] = useState<boolean>(false);
   const [solveStatuses, setSolveStatusesState] = useState<number[]>([]);
+  const [movedDistance, setMovedDistance] = useState<number>(0);
 
   return (
     <div className="absolute inset-0 h-full w-full z-0 block">
 
       {/* Viewport Stats */}
-      <div className="absolute top-0 left-0 z-50 flex flex-col gap-11">
+      <div className="absolute top-0 left-0 z-50 flex flex-col gap-15">
         <Stats/>
-        <SolverStatus solveStatuses={solveStatuses} />
+        <SolverStatus solveStatuses={solveStatuses} movedDistance={movedDistance}/>
       </div>
 
       <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>
@@ -69,6 +69,7 @@ export function Viewport(props: ViewportProps) {
             onJointLimitsLoaded={props.onJointLimitsLoaded}
             showCollisionMesh={props.showCollisionMesh}
             setHoveredJointMesh={props.setHoveredJointMesh}
+            setMovedDistance={setMovedDistance}
           />
         </Suspense>
       </Canvas>

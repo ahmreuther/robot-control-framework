@@ -1,5 +1,5 @@
 import { useFrame } from "@react-three/fiber";
-import { TransformControls } from "@react-three/drei";
+import { TransformControls, Html } from "@react-three/drei";
 import { useRef, useEffect, useState } from "react";
 import { Mesh } from "three";
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from "../../hooks/useJointState";
@@ -16,6 +16,7 @@ interface GoalMarkerProps {
   converged?: boolean;
   handleUnhover: (joint: URDFJoint | null) => void;
   robot?: URDFRobot;
+  setMovedDistance?: (distance: number) => void;
 }
 
 function GoalMarker({
@@ -27,12 +28,14 @@ function GoalMarker({
   goalQuaternion,
   converged = true,
   handleUnhover,
+  setMovedDistance,
   robot
 }: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
   const isDraggingRef = useRef(false);
   const lastPosRef = useRef<[number, number, number] | null>(null);
   const lastQuatRef = useRef<[number, number, number, number] | null>(null);
+  const dragStartPosRef = useRef<[number, number, number] | null>(null);
   const [mode, setMode] = useState<"translate" | "rotate">("translate");
   const [local, setLocal] = useState<boolean>(false);
 
@@ -81,6 +84,15 @@ function GoalMarker({
       mesh.quaternion.w,
     ];
 
+    // Calculate moved distance from drag start
+    if (dragStartPosRef.current) {
+      const dx = currentPos[0] - dragStartPosRef.current[0];
+      const dy = currentPos[1] - dragStartPosRef.current[1];
+      const dz = currentPos[2] - dragStartPosRef.current[2];
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      setMovedDistance(dist);
+    }
+
     onPositionChange(currentPos);
     lastPosRef.current = currentPos;
     onQuaternionChange(currentQuat);
@@ -91,6 +103,14 @@ function GoalMarker({
     isDraggingRef.current = true;
     jointManager.mountWriter(WRITER_ID.IK, WRITER_PRIORITY.IK);
     onDrag(true);
+    if (meshRef.current) {
+      dragStartPosRef.current = [
+        meshRef.current.position.x,
+        meshRef.current.position.y,
+        meshRef.current.position.z,
+      ];
+    }
+    setMovedDistance(0);
     if (robot && robot.joints) {
       Object.keys(robot.joints).forEach((jointName) => {
         handleUnhover(robot.joints[jointName]);
@@ -102,6 +122,8 @@ function GoalMarker({
     isDraggingRef.current = false;
     jointManager.unmountWriter(WRITER_ID.IK);
     onDrag(false);
+    dragStartPosRef.current = null;
+    setMovedDistance(0);
   };
 
   return (
