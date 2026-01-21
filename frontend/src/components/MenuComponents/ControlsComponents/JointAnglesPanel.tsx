@@ -4,6 +4,9 @@ const degToRad = (deg: number) => (deg * Math.PI) / 180;
 import { useState, useEffect } from 'react';
 import type { JointProperty } from '../../../hooks/useSceneState';
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
+import { useMethodCall } from 'src/components/Adressspace/hooks/useMethodCall';
+import { UaNode } from 'src/components/Adressspace';
+import { useSocket } from '../../../hooks/use-socket';
 
 export interface JointAnglesPanelProps {
   jointManager: JointStateManager;
@@ -29,6 +32,21 @@ export function JointAnglesPanel({
   const [localAngles, setLocalAngles] = useState<number[]>([]);
   const [isEditing, setIsEditing] = useState(false);
 
+  const socket = useSocket();
+
+  const { 
+      isOpen: methodDialogOpen, 
+      methodNode, 
+      inputs, 
+      inputValues,
+      result: methodResult,
+      isLoading: methodLoading,
+      openMethodDialog, 
+      closeMethodDialog, 
+      setInputValue, 
+      callMethod 
+    } = useMethodCall("opc.tcp://10.10.38.26:4840/freeopcua/server/", (socket as any));
+
   useEffect(() => {
     if (setShowCollisionMesh) setShowCollisionMesh(false);
   }, [reloadKey, setShowCollisionMesh]);
@@ -43,9 +61,18 @@ export function JointAnglesPanel({
     if (!isEditing) return;
     jointManager.mountWriter(WRITER_ID.FK, WRITER_PRIORITY.FK);
 
-    const handleEnd = () => {
+    const handleEnd = () => { 
       jointManager.unmountWriter(WRITER_ID.FK);
       setIsEditing(false);
+      const tmpNode: UaNode = {
+        nodeId: "ns=4;s=Go To",
+        displayName: "Go To Node",
+        nodeClass: "Method"
+    };
+      openMethodDialog(tmpNode);
+      setInputValue('automatic', `[${[...localAngles].join(', ')}]`);
+      callMethod();
+      closeMethodDialog();
     };
     window.addEventListener('mouseup', handleEnd);
     window.addEventListener('touchend', handleEnd);
