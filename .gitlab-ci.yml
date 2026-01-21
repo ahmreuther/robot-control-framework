@@ -63,7 +63,7 @@ deploy-prod:
     - docker stop demo || true && docker rm demo || true
     - docker system prune -a -f
     - docker pull "$DOCKER_IMAGE_NAME"
-    - docker run --name demo -d -p 80:8000 "$DOCKER_IMAGE_NAME"
+    - docker run --name demo -d --restart unless-stopped -p 80:8000 "$DOCKER_IMAGE_NAME"
   tags:
     - deploy
   rules:
