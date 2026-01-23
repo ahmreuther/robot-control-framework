@@ -16,7 +16,6 @@ let hasRoboticsNamespace = null
 let gotoMethodNodeId = null;
 let toggleEndEffMethodNodeId = null;
 
-// Test
 
 let host = `http://${window.location.host}`;
 if (process.env.NODE_ENV !== "production") {
@@ -1311,7 +1310,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         function updateRevoluteJointStatus() {
             const r = viewer.robot;
-            console.log(r);
+            // console.log(r);
 
 
             const radiansToggle = document.getElementById('radians-toggle');
