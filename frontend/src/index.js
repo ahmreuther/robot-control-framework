@@ -9,15 +9,12 @@ import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
 import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
-// Wir brauchen die Mathe-Klasse für die Berechnung der Zwischenschritte
 import { ConvexHull } from 'three/examples/jsm/math/ConvexHull.js';
 
 
 customElements.define('urdf-viewer', URDFIKManipulator);
 
-// declare these globally for the sake of the example.
-// Hack to make the build work with webpack for now.
-// TODO: Remove this once modules or parcel is being used
+
 const viewer = document.querySelector('urdf-viewer');
 setupMiniStats(viewer);
 
@@ -60,15 +57,12 @@ function setupMiniStats(viewerEl) {
 export function checkRevoluteParallelism(robot) {
     if (!robot) return;
 
-    // 1. Wichtig: Welt-Transformationen aktualisieren
     robot.updateMatrixWorld(true);
 
     const revoluteJoints = [];
     
-    // 2. Nur REVOLUTE Joints sammeln
     robot.traverse(child => {
         if (child.isURDFJoint && child.jointType === 'revolute') {
-            // Achse in Welt-Koordinaten umrechnen
             const axisWorld = child.axis.clone().transformDirection(child.matrixWorld).normalize();
             
             revoluteJoints.push({ 
@@ -78,33 +72,27 @@ export function checkRevoluteParallelism(robot) {
         }
     });
 
-    // Wir brauchen mindestens 2 Revolute Joints (einen als Referenz, einen zum Vergleichen)
-    // Da wir Index 1 (den zweiten) als Referenz nehmen, brauchen wir mind. 2 Einträge.
     if (revoluteJoints.length < 2) {
         console.warn("Weniger als 2 Revolute-Joints gefunden.");
         return;
     }
 
-    // 3. REFERENZ: Das ZWEITE Revolute-Gelenk (Index 1)
     const ref = revoluteJoints[1];
-    console.log(`%c 🎯 Referenz (2. Revolute Joint): ${ref.name}`, 'font-weight:bold; color:#00ffff;');
+    console.log(`%c Referenz (2. Revolute Joint): ${ref.name}`, 'font-weight:bold; color:#00ffff;');
 
     const results = [];
-    const epsilon = 0.005; // Toleranz
+    const epsilon = 0.005; 
 
-    // 4. Loop ab dem DRITTEN Revolute-Gelenk (Index 2)
-    // Falls es nur 2 gibt, läuft der Loop gar nicht erst los (korrekt).
     for (let i = 2; i < revoluteJoints.length; i++) {
         const target = revoluteJoints[i];
 
-        // Skalarprodukt: |1| = Parallel
         const dot = Math.abs(ref.axis.dot(target.axis));
         const isParallel = dot > (1.0 - epsilon);
 
         results.push({
             'Joint Name': target.name,
             'Typ': 'Revolute',
-            'Parallel zu Ref?': isParallel ? '✅ JA' : '❌ NEIN',
+            'Parallel zu Ref?': isParallel ? ' JA' : ' NEIN',
             'Info': isParallel ? 'Gleiche Bewegungsebene' : 'Anderer Winkel'
         });
     }
@@ -117,14 +105,10 @@ export function checkRevoluteParallelism(robot) {
 }
 
 
-// /////---------------------------------
 
 
 
 
-import * as THREE from 'three';
-import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
-import { ConvexHull } from 'three/examples/jsm/math/ConvexHull.js'; 
 
 let hullGroup = null;
 let cachedHullGroup = null;
@@ -142,15 +126,13 @@ export function visualizeRefinedConvexHull(viewer, options = {}) {
         opacity: 0,
         wireframe: false,
         
-        // NEU: Punktewolke anzeigen?
         showPointCloud: false, 
         pointSize: 0.02,
-        pointColor: 0xffff00, // Gelbe Punkte standardmäßig
+        pointColor: 0xffff00, 
         
         ...options
     };
 
-    // --- AUFRÄUMEN ---
     if (hullGroup) {
         viewer.scene.remove(hullGroup);
         hullGroup.traverse(c => {
@@ -163,7 +145,6 @@ export function visualizeRefinedConvexHull(viewer, options = {}) {
     const robot = viewer.robot;
     robot.updateMatrixWorld(true);
 
-    // --- SETUP ---
     let toolPoint = null;
     robot.traverse(c => { if (c.name === 'tool_point') toolPoint = c; });
     if (!toolPoint) robot.traverse(c => { if (c.isURDFLink && c.children.length === 0) toolPoint = c; });
@@ -181,7 +162,6 @@ export function visualizeRefinedConvexHull(viewer, options = {}) {
         }
     });
 
-    // --- ALGORITHMUS ---
     let population = []; 
 
     console.time("Hull Refinement");
@@ -195,7 +175,6 @@ export function visualizeRefinedConvexHull(viewer, options = {}) {
         population.push(pos);
     };
 
-    // 1. Initialisierung (Random + Limit + Zero Bias)
     for (let i = 0; i < config.initialSamples; i++) {
         const angles = [];
         const strategy = Math.random();
@@ -217,7 +196,6 @@ export function visualizeRefinedConvexHull(viewer, options = {}) {
         addPose(angles);
     }
 
-    // 2. Iterative Verfeinerung
     const hullMath = new ConvexHull();
 
     for (let iter = 0; iter < config.iterations; iter++) {
@@ -262,17 +240,13 @@ export function visualizeRefinedConvexHull(viewer, options = {}) {
     }
     console.timeEnd("Hull Refinement");
 
-    // Reset Roboter
     movableJoints.forEach(j => j.obj.setJointValue(j.initial));
     robot.updateMatrixWorld(true);
 
 
-    // --- VISUALISIERUNG ---
     hullGroup = new THREE.Group();
 
-    // A) Punktewolke (Optional)
     if (config.showPointCloud) {
-        // Wir nehmen alle Punkte der Population
         const positions = new Float32Array(population.length * 3);
         for(let i=0; i<population.length; i++) {
             positions[i*3] = population[i].x;
@@ -293,10 +267,8 @@ export function visualizeRefinedConvexHull(viewer, options = {}) {
         hullGroup.add(cloud);
     }
 
-    // B) Hülle (Mesh)
     let renderPoints = population;
     if (population.length > 0) {
-        // Filterung auf Hüll-Vertices für sauberes Mesh
         hullMath.setFromPoints(population);
         const finalVertices = [];
         const fFaces = hullMath.faces;
@@ -322,183 +294,29 @@ export function visualizeRefinedConvexHull(viewer, options = {}) {
         metalness: 0,
         side: THREE.DoubleSide,
         wireframe: config.wireframe,
-        depthWrite: false // <--- WICHTIG: Verhindert, dass die Hülle den Tiefenpuffer blockiert
+        depthWrite: false 
     });
 
     const mesh = new THREE.Mesh(geometry, material);
     
-    // --- NEU: Raycast und Render-Order anpassen ---
     
-    // 1. Raycast deaktivieren: Damit geht der Mauszeiger einfach durch die Hülle durch
     mesh.raycast = () => {}; 
     
-    // 2. Visuell nach hinten schieben: Roboter wird über der Hülle gezeichnet (optional)
     mesh.renderOrder = -1; 
     
-    // ----------------------------------------------
 
     hullGroup.add(mesh);
-
-    if (!config.wireframe) {
-        const wireGeo = new THREE.WireframeGeometry(geometry);
-        const wireMat = new THREE.LineBasicMaterial({ color: 0xac2828, transparent: true, opacity: 0 }); // opacity 0 macht es unsichtbar, falls gewünscht
-        const wires = new THREE.LineSegments(wireGeo, wireMat);
-        
-        // --- NEU: Auch für das Drahtgitter Raycast deaktivieren ---
-        wires.raycast = () => {};
-        // ----------------------------------------------------------
-        
-        hullGroup.add(wires);
-    }
 
     viewer.scene.add(hullGroup);
     viewer.redraw();
 }
 
-// Hilfsvektoren, um GC zu schonen
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _v3 = new THREE.Vector3();
 const _pIntersect = new THREE.Vector3();
 
-function visualizeCrossSection(viewer, hullGroup) {
-    if (!viewer.robot || !hullGroup) return;
 
-    // 1. Den passenden Joint finden (Logik analog zu checkRevoluteParallelism)
-    const revoluteJoints = [];
-    viewer.robot.traverse(child => {
-        if (child.isURDFJoint && child.jointType === 'revolute') {
-            const axisWorld = child.axis.clone().transformDirection(child.matrixWorld).normalize();
-            revoluteJoints.push({ obj: child, axis: axisWorld });
-        }
-    });
-
-    if (revoluteJoints.length < 3) return; // Brauchen Ref(1) und Target(2+)
-
-    const ref = revoluteJoints[1]; // Referenz ist der 2. Joint
-    let targetJoint = null;
-
-    // Suche den ersten Joint, der parallel ist
-    for (let i = 2; i < revoluteJoints.length; i++) {
-        const target = revoluteJoints[i];
-        if (Math.abs(ref.axis.dot(target.axis)) > 0.99) {
-            targetJoint = target.obj;
-            break; 
-        }
-    }
-
-    if (!targetJoint) {
-        console.warn("Kein paralleler Joint für den Schnitt gefunden.");
-        return;
-    }
-
-    console.log(`%c ✂️ Schneide Ebene an Joint: ${targetJoint.name}`, 'color: #ff0055; font-weight: bold;');
-
-    // 2. Ebene Definieren
-    // Normale = Rotationsachse (denn der Arm bewegt sich senkrecht dazu, 
-    // wir wollen aber die Bewegungsebene sehen, also ist die Normale die Achse selbst)
-    const planeNormal = targetJoint.axis.clone().transformDirection(targetJoint.matrixWorld).normalize();
-    const planePoint = new THREE.Vector3();
-    targetJoint.getWorldPosition(planePoint);
-
-    const plane = new THREE.Plane();
-    plane.setFromNormalAndCoplanarPoint(planeNormal, planePoint);
-
-    // Visualisiere die Ebene (Optional, halbtransparent)
-    const planeHelper = new THREE.PlaneHelper(plane, 1.5, 0xff0055);
-    planeHelper.material.opacity = 0.1;
-    planeHelper.material.transparent = true;
-    // hullGroup.add(planeHelper);
-
-    // 3. Schnittberechnung mit der Hülle
-    const mesh = hullGroup.children.find(c => c.isMesh);
-    if (!mesh) return;
-
-    const geometry = mesh.geometry;
-    const posAttr = geometry.attributes.position;
-    const lines = [];
-
-    // Iteriere über alle Dreiecke der Hülle
-    // Wir nehmen an, es ist eine ConvexGeometry (Non-Indexed oder Indexed)
-    // Zur Sicherheit wandeln wir Indizes manuell um, falls vorhanden.
-    
-    const getPoint = (idx, target) => {
-        target.fromBufferAttribute(posAttr, idx);
-        // Da die Hülle im Local Space der Group sein könnte, aber World Positionen nutzt:
-        // Bei ConvexHull aus WorldPoints sind die Vertices meist schon World. 
-        // Falls hullGroup transformiert wurde, müssten wir hier aufpassen.
-        // Im Standard ConvexHull Code sind Punkte WorldSpace.
-    };
-
-    let indexCount = geometry.index ? geometry.index.count : posAttr.count;
-
-    for (let i = 0; i < indexCount; i += 3) {
-        let a, b, c;
-        if (geometry.index) {
-            a = geometry.index.getX(i);
-            b = geometry.index.getX(i+1);
-            c = geometry.index.getX(i+2);
-        } else {
-            a = i; b = i+1; c = i+2;
-        }
-
-        getPoint(a, _v1);
-        getPoint(b, _v2);
-        getPoint(c, _v3);
-
-        // Distanzen zur Ebene
-        const d1 = plane.distanceToPoint(_v1);
-        const d2 = plane.distanceToPoint(_v2);
-        const d3 = plane.distanceToPoint(_v3);
-
-        // Prüfen, ob das Dreieck die Ebene schneidet (Vorzeichenwechsel)
-        // Einfacher Test: Wenn alle d > 0 oder alle d < 0, kein Schnitt.
-        if ((d1 > 0 && d2 > 0 && d3 > 0) || (d1 < 0 && d2 < 0 && d3 < 0)) {
-            continue;
-        }
-
-        // Schnittpunkte finden
-        const intersections = [];
-        
-        // Helfer für Kanten-Schnitt
-        const intersectEdge = (pA, pB, dA, dB) => {
-            // Wenn Vorzeichen unterschiedlich
-            if ((dA > 0 && dB < 0) || (dA < 0 && dB > 0)) {
-                const t = dA / (dA - dB); // Interpolationsfaktor
-                const p = new THREE.Vector3().copy(pA).lerp(pB, t);
-                intersections.push(p.x, p.y, p.z);
-            } else if (dA === 0) {
-                 intersections.push(pA.x, pA.y, pA.z); // Punkt liegt exakt drauf
-            }
-        };
-
-        intersectEdge(_v1, _v2, d1, d2);
-        intersectEdge(_v2, _v3, d2, d3);
-        intersectEdge(_v3, _v1, d3, d1);
-
-        // Wir erwarten in der Regel 2 Schnittpunkte pro Dreieck für eine Linie
-        if (intersections.length >= 6) {
-            lines.push(intersections[0], intersections[1], intersections[2]);
-            lines.push(intersections[3], intersections[4], intersections[5]);
-        }
-    }
-
-    if (lines.length === 0) return;
-
-    // 4. Linie Erzeugen
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
-    
-    const lineMat = new THREE.LineBasicMaterial({ 
-        color: 0xff0055, // Auffälliges Pink/Rot
-        linewidth: 2,    // Funktioniert nur in manchen Browsern/WebGL Implementierungen
-        depthTest: false // Damit man die Linie immer sieht (Optional)
-    });
-
-    const crossSection = new THREE.LineSegments(lineGeo, lineMat);
-    crossSection.renderOrder = 999; // Ganz oben zeichnen
-    hullGroup.add(crossSection);
-}
 
 const params = {
     solve: true,
@@ -553,39 +371,32 @@ collisionToggle.addEventListener('click', () => {
 envelopeToggle.addEventListener('click', () => {
     envelopeToggle.classList.toggle('checked');
     
-    // 1. Parallelismus checken (nur Log-Ausgabe)
     checkRevoluteParallelism(viewer.robot);
 
     if (envelopeToggle.classList.contains('checked')) {
         
-        // --- NEU: Prüfen ob Cache vorhanden ist ---
         if (cachedHullGroup) {
             console.log("Lade gespeicherte Work Envelope...");
             hullGroup = cachedHullGroup;
             viewer.scene.add(hullGroup);
             viewer.redraw();
         } else {
-            // Keine Cache vorhanden -> Neu berechnen
             console.log("Generiere neue Work Envelope...");
             visualizeRefinedConvexHull(viewer, {
                 initialSamples: 100000, 
                 iterations: 5,
-                color: 0xffffff,
-                opacity: 0.25,
+                color: 0x123423,
+                opacity: 0.15,
                 showPointCloud: false
             });
 
-            // Speichern für das nächste Mal
             cachedHullGroup = hullGroup;
         }
 
     } else {
-        // Aufräumen, wenn Toggle aus
         if (hullGroup) {
             viewer.scene.remove(hullGroup);
             
-            // WICHTIG: Wir setzen hullGroup hier NICHT auf null und disposen nicht,
-            // damit cachedHullGroup die Referenz behält.
             
             viewer.redraw();
         }
@@ -618,18 +429,15 @@ controlsToggle.addEventListener('click', () => controlsel.classList.toggle('hidd
 viewer.addEventListener('urdf-change', () => {
     if (hullGroup) {
         viewer.scene.remove(hullGroup);
-        // Optional: Geometrie und Material aufräumen, um Speicher freizugeben
         hullGroup.traverse(c => {
             if (c.geometry) c.geometry.dispose();
             if (c.material) c.material.dispose();
         });
     }
 
-    // 2. Cache und Referenzen leeren (damit beim neuen Roboter neu berechnet wird)
     cachedHullGroup = null;
     hullGroup = null;
 
-    // 3. Den Button "Show Work Envelope" visuell ausschalten (Häkchen weg)
     envelopeToggle.classList.remove('checked');
     Object
         .values(sliders)
@@ -690,7 +498,6 @@ viewer.addEventListener('manipulate-end', e => {
 
 });
 
-// create the sliders
 viewer.addEventListener('urdf-processed', () => {
 
     const r = viewer.robot;
@@ -714,10 +521,9 @@ viewer.addEventListener('urdf-processed', () => {
         .map(key => r.joints[key])
         .forEach(joint => {
 
-            // --- Skip-Condition für prismatic + mimic ---
             if (joint.jointType === 'prismatic' && Array.isArray(joint.mimicJoints) && joint.mimicJoints.length == 0) {
                 console.log(`Skip slider for mimic prismatic joint: ${joint.name}`);
-                return; // kein Slider erzeugen
+                return; 
             }
 
             const li = document.createElement('li');
@@ -922,7 +728,6 @@ document.addEventListener('WebComponentsReady', () => {
 
     animToggle.addEventListener('click', () => animToggle.classList.toggle('checked'));
 
-    // stop the animation if user tried to manipulate the model
     viewer.addEventListener('manipulate-start', e => animToggle.classList.remove('checked'));
     viewer.addEventListener('urdf-processed', e => updateAngles());
     updateLoop();
