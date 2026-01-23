@@ -19,4 +19,24 @@ body {
   margin: 0;
   min-height: 100vh;
   background: #111827;
+
+  /* Chrome, Safari, Edge, Opera */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  /* Firefox */
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
+
+  /* Remove default appearance for sliders (range inputs) */
+  /* input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  } */
+
 }

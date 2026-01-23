@@ -4,11 +4,7 @@ const degToRad = (deg: number) => (deg * Math.PI) / 180;
 import { useState, useEffect } from 'react';
 import type { JointProperty } from '../../../hooks/useSceneState';
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
-import { Slider } from './Slider';
-
-import { useMethodCall } from '../../Adressspace/hooks/useMethodCall';
-import { UaNode } from 'src/components/Adressspace';
-import { useSocket } from '../../../hooks/use-socket';
+import { SliderInput } from './SliderInput';
 
 export interface JointAnglesPanelProps {
   jointManager: JointStateManager;
@@ -31,23 +27,7 @@ export function JointAnglesPanel({
   hoveredJointMesh
 }: JointAnglesPanelProps) {
   const [showRadians, setShowRadians] = useState(false);
-  const [localAngles, setLocalAngles] = useState<number[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-
-  const socket = useSocket();
-
-  const { 
-      isOpen: methodDialogOpen, 
-      methodNode, 
-      inputs, 
-      inputValues,
-      result: methodResult,
-      isLoading: methodLoading,
-      openMethodDialog, 
-      closeMethodDialog, 
-      setInputValue, 
-      callMethod 
-    } = useMethodCall("opc.tcp://10.10.38.26:4840/freeopcua/server/", (socket as any));
+  const [localAngles, setLocalAngles] = useState<number[]>([]);;
 
   useEffect(() => {
     if (setShowCollisionMesh) setShowCollisionMesh(false);
@@ -59,35 +39,6 @@ export function JointAnglesPanel({
     return unsubscribe;
   }, [jointManager]);
 
-  useEffect(() => {
-    if (!isEditing) return;
-    jointManager.mountWriter(WRITER_ID.FK, WRITER_PRIORITY.FK);
-
-    const handleEnd = () => { 
-      jointManager.unmountWriter(WRITER_ID.FK);
-      setIsEditing(false);
-      const tmpNode: UaNode = {
-        nodeId: "ns=4;s=Go To",
-        displayName: "Go To Node",
-        nodeClass: "Method"
-    };
-      openMethodDialog(tmpNode);
-      setInputValue('automatic', `[${[...localAngles].join(', ')}]`);
-      callMethod();
-      closeMethodDialog();
-    };
-    window.addEventListener('mouseup', handleEnd);
-    window.addEventListener('touchend', handleEnd);
-    return () => {
-      window.removeEventListener('mouseup', handleEnd);
-      window.removeEventListener('touchend', handleEnd);
-      jointManager.unmountWriter(WRITER_ID.FK);
-    };
-  }, [isEditing, jointManager]);
-
-
-  const handleBeginEdit = () => setIsEditing(true);
-
   const handleCollisionMeshChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const visible = e.target.checked;
     setShowCollisionMesh(visible);
@@ -95,7 +46,7 @@ export function JointAnglesPanel({
   };
 
   return (
-    <div className="text-white text-xs space-y-2 max-h-[70vh] overflow-y-auto bg-black p-4 rounded border border-white/20 pointer-events-auto">
+    <div className="text-white text-xs space-y-2 overflow-y-auto bg-black p-4 rounded border border-white/20 pointer-events-auto">
       <div className="font-bold mb-3 text-sm uppercase tracking-wide text-white/90">Joint Angles</div>
 
       <div className="flex items-center gap-2 px-2 py-2 rounded bg-white/5 mb-3">
@@ -139,10 +90,10 @@ export function JointAnglesPanel({
           return (
             <div
               key={i}
-              className={`flex items-center gap-2 px-2 py-1 rounded bg-white/5${highlight ? ' border border-blue-400 shadow-[0_0_6px_0_rgba(56,189,248,0.4)]' : ''}`}
+              className={`flex items-center gap-2 px-2 py-1 bg-white/5 border${highlight ? ' border-blue-400 shadow-[0_0_6px_0_rgba(56,189,248,0.4)]' : ' border-transparent'} w-full`}
               style={highlight ? { boxShadow: '0 0 6px 0 rgba(56,189,248,0.4)', borderWidth: 1, borderColor: '#38bdf8', background: 'rgba(56,189,248,0.07)' } : {}}
             >
-              <Slider
+              <SliderInput
                 minDisp={minDisp}
                 maxDisp={maxDisp}
                 valueDisp={valueDisp}
@@ -151,7 +102,6 @@ export function JointAnglesPanel({
                 localAngles={localAngles}
                 setLocalAngles={setLocalAngles}
                 i={i}
-                handleBeginEdit={handleBeginEdit}
                 jointManager={jointManager}
                 radToDeg={radToDeg}
                 degToRad={degToRad}
