@@ -5,11 +5,13 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js'
 import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
-
+import URDFLoader from 'urdf-loader/src/URDFLoader.js';
+import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory } from './robotManager.js';
+import { spawnRobot, disposeRobotNode, renderForAFewFrames } from './sceneManager.js';
+import { applyDefaultPose } from './URDFIKManipulator.js';
 customElements.define('urdf-viewer', URDFIKManipulator);
 
 // declare these globally for the sake of the example.
@@ -17,6 +19,25 @@ customElements.define('urdf-viewer', URDFIKManipulator);
 // TODO: Remove this once modules or parcel is being used
 const viewer = document.querySelector('urdf-viewer');
 setupMiniStats(viewer);
+
+// Provide a global manipulator factory once so addRobot can reuse it.
+setManipulatorFactory(() => {
+    if (!viewer) return null;
+    return new URDFIKManipulator({
+        scene: viewer.scene,
+        world: viewer.world,
+        camera: viewer.camera,
+        renderer: viewer.renderer,
+        controls: viewer.controls,
+        requestRender: () => {
+            if (typeof viewer.redraw === 'function') {
+                viewer.redraw();
+            } else if (viewer.renderer && viewer.scene && viewer.camera) {
+                viewer.renderer.render(viewer.scene, viewer.camera);
+            }
+        }
+    });
+});
 
 const limitsToggle = document.getElementById('ignore-joint-limits');
 const collisionToggle = document.getElementById('collision-toggle');
@@ -33,7 +54,28 @@ const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 1 / DEG2RAD;
 let sliders = {};
 
-import Stats from 'three/examples/jsm/libs/stats.module.js';
+// Multi-Robot
+const multiRobotModelSelect = document.getElementById('multi-robot-model');
+const addRobotBtn = document.getElementById('add-robot-btn');
+const activeRobotSelect = document.getElementById('active-robot-select');
+const deleteRobotBtn = document.getElementById('delete-robot-btn');
+const robotCountValue = document.getElementById('robot-count-value');
+const robotSlidersList = document.getElementById('robot-sliders');
+
+let activeRobotId = null;
+let robotOffset = 0;
+let initialRobotRegistered = false;
+
+const logMessage = msg => {
+    const logContainer = document.getElementById('message-log');
+    if (!logContainer) return;
+    const line = document.createElement('div');
+    line.classList.add('log-entry');
+    line.textContent = msg;
+    logContainer.prepend(line);
+};
+
+// renderForAFewFrames is provided by `services/sceneManager.js`
 
 function setupMiniStats(viewerEl) {
   const container = document.getElementById('stats-output');
@@ -51,8 +93,6 @@ function setupMiniStats(viewerEl) {
     requestAnimationFrame(loop);
   })();
 }
-
-
 
 const params = {
     solve: true,
@@ -75,6 +115,147 @@ const solverOptions = {
     rotationConvergeThreshold: 1e-5,
     restPoseFactor: 0.025,
 };
+import { robotModels } from './robotManager.js';
+
+// Multi- Robot
+const addRobotSelect = document.getElementById('multi-robot-model');
+robotModels.forEach(r => {
+    const option = document.createElement('option');
+    option.value = r.name;
+    option.textContent = r.name;
+    multiRobotModelSelect.appendChild(option);
+});
+
+function addRobotOption(id, name) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = `${name} (${id})`;
+    activeRobotSelect.appendChild(opt);
+}
+
+function setActiveRobot(id) {
+    activeRobotSelect.value = id;
+    activeRobotId = id;
+}
+
+// spawnRobot handled by `services/sceneManager.js`
+
+// disposeRobotNode handled by `services/sceneManager.js`
+
+
+addRobotBtn.addEventListener('click', async () => {
+    try {
+        const selectedName = addRobotSelect.value;
+        if (!selectedName) return;
+        
+        const model = robotModels.find(m => m.name === selectedName);
+        if (!model) return;
+
+        const slotIndex = getNextSlotIndex();
+        const record = await addRobot({
+            model: model.name,
+            urdfPath: model.urdf,
+            sceneNode: null,
+            slotIndex
+        });
+        // fixed v1.1
+        const spawned = await spawnRobot(viewer, {urdfPath: model.urdf, slotIndex, getNextSlotIndex});
+        if (spawned) {
+            const {rig, robot} = spawned;
+
+            // store rig (so delete removes the whole robot space)
+            record.sceneNode = rig;
+            rig.updateMatrixWorld(true);
+
+            // pass robot for IK and rig so gizmo is parented correctly
+            record.manipulator.setRobot(robot, record.id, rig);
+        }
+        
+        addRobotOption(record.id, model.name);
+        setActiveRobot(record.id);
+
+        robotCountValue.textContent = listRobots().length; // update count
+    } catch (err) {
+        console.error('Failed to add robot', err);
+        logMessage('Failed to add robot: ' + (err?.message || err));
+    }
+});
+
+deleteRobotBtn.addEventListener('click', async () => {
+    if (!activeRobotId) return;
+    
+    const record = getRobot(activeRobotId);
+    if (record && record.sceneNode) {
+        if (record.sceneNode.parent) record.sceneNode.parent.remove(record.sceneNode);
+        disposeRobotNode(record.sceneNode);
+    }
+    renderForAFewFrames(viewer);
+
+    await removeRobot(activeRobotId);
+
+    // remove from dropdown
+    const option = activeRobotSelect.querySelector(`option[value="${activeRobotId}"]`);
+    if (option) option.remove();
+
+    // select new robot if available
+    if (activeRobotSelect.options.length > 0) {
+        activeRobotId = activeRobotSelect.options[0].value;
+        activeRobotSelect.value = activeRobotId;
+    } else {
+        activeRobotId = null;
+    }
+    robotCountValue.textContent = listRobots().length;
+});
+
+activeRobotSelect.addEventListener('change', () => {
+    activeRobotId = activeRobotSelect.value;
+});
+
+// Register the initially loaded robot (first URDF) so it counts and appears in the dropdown
+viewer.addEventListener('urdf-processed', async () => {
+    if (initialRobotRegistered || !viewer.robot) return;
+    try {
+        const slotIndex = getNextSlotIndex();
+
+        // Create rig for the initial robot
+        const rig = new THREE.Group();
+        rig.name = `rig_initial_${slotIndex}`;
+        rig.position.x = 1.5 * slotIndex;
+
+        // Add rig to scene and reparent the already-loaded robot into it
+        viewer.world.add(rig);
+        rig.add(viewer.robot);
+
+        // Robot base stays local identity inside rig
+        viewer.robot.position.set(0, 0, 0);
+        viewer.robot.quaternion.identity();
+
+        viewer.robot.updateMatrixWorld(true);
+        rig.updateMatrixWorld(true);
+
+        // Make the viewers own gizmo target follow the rig
+        if (typeof viewer.setBaseGroup === 'function'){
+            viewer.setBaseGroup(rig);
+        }
+
+        const record = await addRobot({
+            model: viewer.urdf || 'inital',
+            urdfPath: viewer.urdf,
+            sceneNode: rig,         // store rig, not robot
+            slotIndex,
+            createManipulator: false,
+        });
+
+        // This to register initial robot to make it deletable -> 
+        addRobotOption(record.id, record.model || record.id);
+        setActiveRobot(record.id);
+        robotCountValue.textContent = listRobots().length;
+        initialRobotRegistered = true;
+
+    } catch (err) {
+        console.warn('Failed to register initial robot', err);
+    }
+});
 
 // Global Functions
 const setColor = color => {

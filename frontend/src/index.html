@@ -99,6 +99,29 @@
             <li urdf="/urdf/fr3_description_with_wagon/urdf/fr3.urdf" color="#567554">Franka Research 3 & Wagon</li>
             <li urdf="/urdf/ur5_description/urdf/ur5_robot.urdf" color="#aaaab3">UR5e</li>
         </ul>
+        
+        <div id="multi-robot-controls" 
+            style="padding:8px; background: rgba(40,40,40,0.85); border-radius:8px; color:#f2f2f2; font-family:sans-serif; width:100%; max-width:320px; margin-top:12px; box-sizing:border-box;">
+    
+    <!-- Multi Robot UI Changes -->
+            <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
+                <span style="font-size: 13px;">Add Robot:</span>
+                <select id="multi-robot-model" style="flex:1;"></select>
+                <button id="add-robot-btn" class="ds-btn ds-btn-primary">Add</button>
+                <span style="font-size: 12px;">Total: <span id="robot-count-value">0</span></span>
+            </div>
+
+            <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
+                <span style="font-size: 13px;">Active Robot:</span>
+                <select id="active-robot-select" style="flex:1;"></select>
+                <button id="delete-robot-btn" style="padding:2px 6px;">Delete</button>
+            </div>
+
+            <ul id="robot-sliders" style="list-style:none; padding:0; margin:0; max-height:200px; overflow-y:auto;"></ul>
+        </div>
+    <!-- Multi Robot UI Changes -->
+
+        
         <div id="controls" class="hidden">
             <div id="toggle-controls"></div>
             <div id="ignore-joint-limits" class="toggle">Ignore Joint Limits</div>

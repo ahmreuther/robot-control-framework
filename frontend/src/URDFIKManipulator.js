@@ -22,15 +22,70 @@ import {
     Quaternion
 } from 'three';
 
-export default
-    class URDFIKManipulator extends URDFManipulator {
-    constructor(...args) {
-        super(...args);
+// Shared helper to set a sensible starting pose per robot name
+export const applyDefaultPose = (robot) => {
+    if (!robot || !robot.joints) return;
+
+    const degToRad = deg => deg * Math.PI / 180;
+    const jointNames = Object.keys(robot.joints);
+    if (jointNames.length === 0) return;
+
+    const set = (idx, value) => {
+        const name = jointNames[idx];
+        if (name !== undefined) {
+            robot.setJointValue(name, value);
+        }
+    };
+
+    const urdfName = (robot.robotName || robot.name || '').toLowerCase();
+
+    if (urdfName.includes('eva_description')) {
+        set(1, 0);
+        set(2, degToRad(-90));
+        set(3, 0);
+        set(4, degToRad(-90));
+        set(5, 0);
+    } else if (urdfName.includes('ur5')) {
+        set(1, -1.57);
+        set(2, 1.57);
+        set(3, 0);
+        set(4, 0);
+        set(5, 0);
+    } else if (urdfName.includes('fr3')) {
+        set(0, 0);
+        set(1, 0);
+        set(2, 0);
+        set(3, 0);
+        set(4, degToRad(-90));
+        set(5, 0);
+        set(6, degToRad(90));
+        set(7, degToRad(-45));
+        set(8, 0);
+    } else {
+        for (let i = 1; i < jointNames.length; ++i) {
+            robot.setJointValue(jointNames[i], 0.0);
+        }
+    }
+};
+
+export default class URDFIKManipulator extends URDFManipulator {
+    constructor(context = {}) {
+        // context is optional; when provided, it lets us share an existing scene/camera/renderer
+        super();
+        this.robotId = null; // set by robotManager
+        this.requestRender = context.requestRender || null;
+
+        // Prefer injected context from caller (e.g., viewer) so TransformControls bind to the right DOM element
+        this.scene = context.scene || this.scene;
+        this.world = context.world || this.world;
+        this.camera = context.camera || this.camera;
+        this.renderer = context.renderer || this.renderer;
+        this.controls = context.controls || this.controls;
 
         const controls = this.controls;
 
         // Transform controls
-        const transformControls = new TransformControls(this.camera, this.renderer.domElement);
+        const transformControls = new TransformControls(this.camera, this.renderer?.domElement);
         transformControls.setSpace('world');
         transformControls.addEventListener('change', () => this.redraw());
         transformControls.setSpace('local');
@@ -43,8 +98,10 @@ export default
         const sphere = new Mesh(geometry, material);
         targetObject.add(sphere);
 
-        this.world.add(targetObject);
-        let transformControlsEnabled = true;
+        // change v1.1
+        this.baseGroup = this.world;        // default until a righ is provided
+        this.baseGroup.add(targetObject)    // target lives under baseGroup (rig later)
+        //this.world.add(targetObject);
         transformControls.attach(targetObject);
 
         // Members
@@ -52,56 +109,26 @@ export default
         this.targetObject = targetObject;
         this.ikRoot = null;
         this.goal = null;
-        this.helper = null;
         this.solver = null;
 
-        this.solveAvgMs = 0;
-        this.solveCount = 0;
+        //this.solveAvgMs = 0;
+        //this.solveCount = 0;
 
 
-        // Events
-        transformControls.addEventListener('dragging-changed', function (event) {
-            controls.enabled = !event.value;
+
+        // TransformControls events
+
+        transformControls.addEventListener('dragging-changed', e => controls.enabled = !e.value);
+        transformControls.addEventListener('mouseDown', () => this.onDragStart());
+        transformControls.addEventListener('change', () => {
+            this.onDragChange();
+            if (this.requestRender) this.requestRender();
         });
+        transformControls.addEventListener('mouseUp', () => this.onDragEnd());
 
-        transformControls.addEventListener('change', () => this.solve());
-        transformControls.addEventListener('mouseUp', () => this.resetGoal());
+        // keyboard shortcuts
+        window.addEventListener('keydown', e => this.onKeyDown(e));
 
-        transformControls.addEventListener('mouseDown', () => {
-            controls.enabled = false;
-            this.dispatchEvent(new Event("manipulate-start"));
-        });
-
-        transformControls.addEventListener('mouseUp', () => {
-            controls.enabled = true;
-            this.dispatchEvent(new Event("manipulate-end"));
-        });
-
-        // Keyboard shortcuts for transform controls
-        window.addEventListener('keydown', e => {
-            switch (e.key) {
-                case 'w':
-                    transformControls.setMode('translate');
-                    break;
-                case 'e':
-                    transformControls.setMode('rotate');
-                    break;
-                case 'q':
-                    transformControls.setSpace(transformControls.space === 'local' ? 'world' : 'local');
-                    break;
-                case 't':
-                    if (transformControlsEnabled) {
-                        transformControls.detach();
-                        transformControlsEnabled = false;
-                        this.scene.remove(transformControls.getHelper());
-                    } else {
-                        transformControls.attach(this.targetObject);
-                        transformControlsEnabled = true;
-                        this.scene.add(transformControls.getHelper());
-                    }
-                    break;
-            }
-        });
 
         this.addEventListener('urdf-processed', () => this.init());
 
@@ -109,38 +136,7 @@ export default
             const robot = this.robot;
             if (!robot) return;
 
-            const deg_to_rad = deg => deg * Math.PI / 180;
-            const jointNames = Object.keys(robot.joints);
-            const urdfName = (robot.robotName || robot.name || '').toLowerCase();
-
-            if (urdfName.includes('eva_description')) {
-                robot.setJointValue(jointNames[1], 0);
-                robot.setJointValue(jointNames[2], deg_to_rad(-90));
-                robot.setJointValue(jointNames[3], 0);
-                robot.setJointValue(jointNames[4], deg_to_rad(-90));
-                robot.setJointValue(jointNames[5], 0);
-            } else if (urdfName.includes('ur5')) {
-                robot.setJointValue(jointNames[1], -1.57);
-                robot.setJointValue(jointNames[2], 1.57);
-                robot.setJointValue(jointNames[3], 0);
-                robot.setJointValue(jointNames[4], 0);
-                robot.setJointValue(jointNames[5], 0);
-            } else if (urdfName.includes('fr3')) {
-                robot.setJointValue(jointNames[0], 0);
-                robot.setJointValue(jointNames[1], 0);
-                robot.setJointValue(jointNames[2], 0);
-                robot.setJointValue(jointNames[3], 0);
-                robot.setJointValue(jointNames[4], deg_to_rad(-90));
-                robot.setJointValue(jointNames[5], 0);
-                robot.setJointValue(jointNames[6], deg_to_rad(90));
-                robot.setJointValue(jointNames[7], deg_to_rad(-45));
-                robot.setJointValue(jointNames[8], 0);
-            } else {
-                // Default: all to 0
-                for (let i = 1; i < jointNames.length; ++i) {
-                    robot.setJointValue(jointNames[i], 0.0);
-                }
-            }
+            applyDefaultPose(robot);
 
             // Apply pose and synchronize IK/Goal
             robot.updateMatrixWorld(true);
@@ -157,59 +153,6 @@ export default
         canvas.height = 94;
         const ctx = canvas.getContext('2d');
 
-        this.drawLabelText = (delta) => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const radius = 20;
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.beginPath();
-            ctx.moveTo(radius, 0);
-            ctx.lineTo(canvas.width - radius, 0);
-            ctx.quadraticCurveTo(canvas.width, 0, canvas.width, radius);
-            ctx.lineTo(canvas.width, canvas.height - radius);
-            ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height);
-            ctx.lineTo(radius, canvas.height);
-            ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius);
-            ctx.lineTo(0, radius);
-            ctx.quadraticCurveTo(0, 0, radius, 0);
-            ctx.closePath();
-            ctx.fill();
-
-            if (!delta || typeof delta.x !== "number") {
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 42px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(`Δ: 0.0 mm`, canvas.width / 2, canvas.height / 2);
-                return;
-            }
-
-            const dx = delta.x * 1000;
-            const dy = delta.y * 1000;
-            const dz = delta.z * 1000;
-
-            const abs = { x: Math.abs(dx), y: Math.abs(dy), z: Math.abs(dz) };
-            let axis = 'x', value = dx;
-            if (abs.y > abs.x && abs.y >= abs.z) { axis = 'y'; value = dy; }
-            if (abs.z > abs.x && abs.z > abs.y) { axis = 'z'; value = dz; }
-
-            if (isNaN(value)) value = 0.0;
-
-            const labelText = `Δ${axis.toUpperCase()}: ${value.toFixed(1)} mm`;
-
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 42px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 6;
-            ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
-
-
-        };
-
-
-        this.drawLabelText();
         const texture = new CanvasTexture(canvas);
         const spriteMaterial = new SpriteMaterial({ map: texture, depthTest: false });
         const sprite = new Sprite(spriteMaterial);
@@ -224,46 +167,39 @@ export default
         this.labelCtx = ctx;
         this.labelTexture = texture;
         this.startPos = new Vector3();
-
-        transformControls.addEventListener('mouseDown', () => {
-            controls.enabled = false;
-            this.dispatchEvent(new Event("manipulate-start"));
-
-            this.targetObject.getWorldPosition(this.startPos);
-            this.labelSprite.visible = true;
-            this.drawLabelText(new Vector3());
-            this.labelTexture.needsUpdate = true;
-        });
-
-        transformControls.addEventListener('change', () => {
-            this.solve();
-            if (!this.labelSprite.visible) return;
-
-            const currentPos = new Vector3();
-            this.targetObject.getWorldPosition(currentPos);
-            const delta = currentPos.clone().sub(this.startPos);
-
-            this.drawLabelText(delta);
-            this.labelTexture.needsUpdate = true;
-        });
-
-        transformControls.addEventListener('mouseUp', () => {
-            controls.enabled = true;
-            this.dispatchEvent(new Event("manipulate-end"));
-
-            this.labelSprite.visible = false;
-        });
     }
 
-    _loadUrdf(pkg, urdf) {
-        super._loadUrdf(pkg, urdf);
+    /**
+     * Attach an externally provided URDF robot to this manipulator and re-init IK/gizmo state.
+     */
+    setRobot(robot, robotId = null, baseGroup = null){
+        if (!robot) return;
+
+        // IMPORTANT NOTE: rig becomes the manipulators base group (so gizmo inherits the offset correctly)
+        this.setBaseGroup(baseGroup);
+
+        this.robot = robot;
+        this.robotId = robotId == this.robotId;
+
+        // Re-init IK/gizmo state (in robot-local space)
+        this.dispatchEvent(new Event('urdf-processed'));
+        this.resetGoal();
+    }
+
+    setBaseGroup(group) {
+        const next = group || this.world;
+        if (!next || !this.targetObject) return;
+
+        if (this.targetObject.parent !== next) {
+            if (this.targetObject.parent) this.targetObject.parent.remove(this.targetObject);
+            next.add(this.targetObject);
+        }
+
+        this.baseGroup = next;
     }
 
     init() {
-        function deg_to_rad(deg) {
-            var pi = Math.PI;
-            return deg * (pi / 180);
-        }
+        //https://gkjohnson.github.io/closed-chain-ik-js/
         const robot = this.robot;
         robot.updateMatrixWorld(true);
 
@@ -274,38 +210,7 @@ export default
         ik.clearDoF();
         this.ikRoot = ik;
 
-        // Set the joint angles for typical start poses according to URDF
-        const jointNames = Object.keys(robot.joints);
-        const urdfName = robot.name ? robot.robotName.toLowerCase() : '';
-        if (urdfName.includes('eva_description')) {
-            robot.setJointValue(jointNames[1], 0);
-            robot.setJointValue(jointNames[2], deg_to_rad(-90));
-            robot.setJointValue(jointNames[3], 0);
-            robot.setJointValue(jointNames[4], deg_to_rad(-90));
-            robot.setJointValue(jointNames[5], 0);
-        } else if (urdfName.includes('ur5')) {
-            robot.setJointValue(jointNames[1], -1.57);
-            robot.setJointValue(jointNames[2], 1.57);
-            robot.setJointValue(jointNames[3], 0);
-            robot.setJointValue(jointNames[4], 0);
-            robot.setJointValue(jointNames[5], 0);
-        } else if (urdfName.includes('fr3')) {
-            robot.setJointValue(jointNames[0], 0);
-            robot.setJointValue(jointNames[1], 0);
-            robot.setJointValue(jointNames[2], 0);
-            robot.setJointValue(jointNames[3], 0);
-            robot.setJointValue(jointNames[4], deg_to_rad(-90));
-            robot.setJointValue(jointNames[5], 0);
-            robot.setJointValue(jointNames[6], deg_to_rad(90));
-            robot.setJointValue(jointNames[7], deg_to_rad(-45));
-            robot.setJointValue(jointNames[8], 0);
-        } else {
-            // Default: all to 0
-            for (let i = 1; i < jointNames.length; ++i) {
-                robot.setJointValue(jointNames[i], 0.0);
-            }
-        }
-
+        applyDefaultPose(robot);
         // Initialize IK with URDF pose
         setIKFromUrdf(ik, robot);
 
@@ -322,7 +227,7 @@ export default
     }
 
     resetGoal() {
-        // Reset the goal
+        // Reset the goal to the tool_point of the current robot
         const ik = this.ikRoot;
         const goal = this.goal;
         const tool_point = ik.find(c => c.name === 'tool_point');
@@ -333,37 +238,171 @@ export default
         targetObject.position.set(...goal.position);
         targetObject.quaternion.set(...goal.quaternion);
         this.redraw();
+        if (this.requestRender) this.requestRender();
     }
+
     solve() {
-  const goal = this.goal;
-  const ik = this.ikRoot;
-  const robot = this.robot;
+        if (!this.robot || !this.ikRoot || !this.goal) return;
+        const goal = this.goal;
+        const ik = this.ikRoot;
+        const robot = this.robot;
 
-  goal.setPosition(...this.targetObject.position);
-  goal.setQuaternion(...this.targetObject.quaternion);
-  setIKFromUrdf(ik, robot);
+        goal.setPosition(...this.targetObject.position);
+        goal.setQuaternion(...this.targetObject.quaternion);
+        setIKFromUrdf(ik, robot);
 
-  const t0 = performance.now();
+        const t0 = performance.now();
 
-  const statuses = this.solver.solve();
+        const statuses = this.solver.solve();
 
-  const dt = performance.now() - t0;
+        const dt = performance.now() - t0;
 
-  if (!statuses.includes(SOLVE_STATUS.DIVERGED)) {
-    setUrdfFromIK(robot, ik);
-    this.dispatchEvent(new Event('angle-change'));
-  }
+        if (!statuses.includes(SOLVE_STATUS.DIVERGED)){
+            setUrdfFromIK(robot, ik);
+            this.dispatchEvent(new Event('angle-change'));
 
-  const el = document.getElementById('output');
-    if (el) {
-        if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
-            const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
-            el.innerText = `${names}\n`;
+            // With righs, keep robot base local identity under the rig
+            robot.position.set(0, 0, 0);
+            robot.quaternion.identity();
+            robot.updateMatrixWorld(true);
+
         }
+
+        const el = document.getElementById('output');
+        if (el) {
+            if (Array.isArray(statuses) && typeof SOLVE_STATUS_NAMES !== 'undefined') {
+                const names = statuses.map(s => SOLVE_STATUS_NAMES[s]).join('\n');
+                el.innerText = `${names}\n`;
+            }
+        }
+
+        this.redraw();
+        if (this.requestRender) this.requestRender();
     }
 
-  this.redraw();
-}
 
+    onDragStart() {
+        this.controls.enabled = false;
+
+        this.targetObject.getWorldPosition(this.startPos);
+        this.labelSprite.visible = true;
+        this.drawLabelText(new Vector3());
+        this.labelTexture.needsUpdate = true;
+
+        this.dispatchEvent(new Event("manipulate-start"));
+    }
+
+    onDragChange() {
+        this.solve();
+        if (!this.labelSprite.visible) return;
+
+        const delta = new Vector3();
+        this.targetObject.getWorldPosition(delta).sub(this.startPos);
+
+        this.drawLabelText(delta);
+        this.labelTexture.needsUpdate = true;
+    }
+
+    onDragEnd() {
+        this.resetGoal();
+
+        this.controls.enabled = true;
+        this.labelSprite.visible = false;
+        this.dispatchEvent(new Event("manipulate-end"));
+
+    }
+
+    drawLabelText(delta) {
+        const ctx = this.labelCtx;
+        const canvas = this.labelCanvas;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const radius = 20;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(canvas.width - radius, 0);
+        ctx.quadraticCurveTo(canvas.width, 0, canvas.width, radius);
+        ctx.lineTo(canvas.width, canvas.height - radius);
+        ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height);
+        ctx.lineTo(radius, canvas.height);
+        ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        let labelText = 'Δ: 0.0 mm';
+        if (delta && typeof delta.x === "number") {
+            const dx = delta.x * 1000;
+            const dy = delta.y * 1000;
+            const dz = delta.z * 1000;
+
+            const abs = { x: Math.abs(dx), y: Math.abs(dy), z: Math.abs(dz) };
+            let axis = 'x', value = dx;
+            if (abs.y > abs.x && abs.y >= abs.z) { axis = 'y'; value = dy; }
+            if (abs.z > abs.x && abs.z > abs.y) { axis = 'z'; value = dz; }
+            if (isNaN(value)) value = 0.0;
+
+            labelText = `Δ${axis.toUpperCase()}: ${value.toFixed(1)} mm`;
+        }
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 42px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 6;
+        ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
+    }
+
+    onKeyDown(e) {
+        if (!this.transformControls) return;
+        switch (e.key) {
+            case 'w':
+                this.transformControls.setMode('translate');
+                break;
+            case 'e':
+                this.transformControls.setMode('rotate');
+                break;
+            case 'q':
+                this.transformControls.setSpace(this.transformControls.space === 'local' ? 'world' : 'local');
+                break;
+            case 't':
+                if (this.transformControls.object) { //is null if not attached
+                    this.transformControls.detach();
+                    this.scene.remove(this.transformControls.getHelper());
+                } else {
+                    this.transformControls.attach(this.targetObject);
+                    this.scene.add(this.transformControls.getHelper());
+                }
+                break;
+        }
+
+    }
+    remove() {
+        // Detach transform controls
+        if (this.transformControls) {
+            this.transformControls.detach();
+
+            const helper = this.transformControls.getHelper();
+            if (helper && helper.parent) {
+                helper.parent.remove(helper);
+            }
+
+            this.transformControls.dispose?.();
+            this.transformControls = null;
+        }
+
+        // Remove gizmo target object
+        if (this.targetObject && this.targetObject.parent) {
+            this.targetObject.parent.remove(this.targetObject);
+        }
+
+        this.targetObject = null;
+        this.goal = null;
+        this.ikRoot = null;
+        this.solver = null;
+    }
 
 }
