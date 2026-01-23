@@ -4,7 +4,9 @@ const degToRad = (deg: number) => (deg * Math.PI) / 180;
 import { useState, useEffect } from 'react';
 import type { JointProperty } from '../../../hooks/useSceneState';
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
-import { useMethodCall } from 'src/components/Adressspace/hooks/useMethodCall';
+import { Slider } from './Slider';
+
+import { useMethodCall } from '../../Adressspace/hooks/useMethodCall';
 import { UaNode } from 'src/components/Adressspace';
 import { useSocket } from '../../../hooks/use-socket';
 
@@ -83,8 +85,6 @@ export function JointAnglesPanel({
     };
   }, [isEditing, jointManager]);
 
-  const toDisplay = (rad: number) => (showRadians ? rad : radToDeg(rad));
-  const fromDisplay = (val: number) => (showRadians ? val : degToRad(val));
 
   const handleBeginEdit = () => setIsEditing(true);
 
@@ -131,24 +131,9 @@ export function JointAnglesPanel({
           if (property && property.min === property.max) return null;
 
           let minDisp, maxDisp, valueDisp, stepDisp;
-          if (property?.jointType === 'prismatic') {
-            // Always use mm for prismatic
-            minDisp = (property.min ?? 0) * 1000;
-            maxDisp = (property.max ?? 1) * 1000;
-            valueDisp = angle * 1000;
-            const range = maxDisp - minDisp;
-            stepDisp = Math.max(range / 100, 0.01); // mm
-          } else {
-            const minRad = property ? property.min : -Math.PI;
-            const maxRad = property ? property.max : Math.PI;
-            minDisp = toDisplay(minRad);
-            maxDisp = toDisplay(maxRad);
-            valueDisp = toDisplay(angle);
-            const range = showRadians ? maxRad - minRad : radToDeg(maxRad) - radToDeg(minRad);
-            stepDisp = showRadians
-              ? Math.max(range / 100, 0.001)
-              : Math.max(range / 100, 0.1);
-          }
+          minDisp = property.min
+          maxDisp = property.max
+          valueDisp = angle
 
           const highlight = hoveredJointMesh === i;
           return (
@@ -157,35 +142,20 @@ export function JointAnglesPanel({
               className={`flex items-center gap-2 px-2 py-1 rounded bg-white/5${highlight ? ' border border-blue-400 shadow-[0_0_6px_0_rgba(56,189,248,0.4)]' : ''}`}
               style={highlight ? { boxShadow: '0 0 6px 0 rgba(56,189,248,0.4)', borderWidth: 1, borderColor: '#38bdf8', background: 'rgba(56,189,248,0.07)' } : {}}
             >
-              <label className="w-12 text-white/80">J{i}:</label>
-              <input
-                type="range"
-                className="flex-1"
-                min={minDisp}
-                max={maxDisp}
-                step={stepDisp}
-                value={valueDisp}
-                onMouseDown={handleBeginEdit}
-                onTouchStart={handleBeginEdit}
-                onChange={(e) => {
-                  let v = Number(e.target.value);
-                  if (property?.jointType === 'prismatic') {
-                    v = v / 1000; // convert mm back to meters
-                  } else {
-                    v = fromDisplay(v);
-                  }
-                  const newAngles = [...localAngles];
-                  newAngles[i] = v;
-                  setLocalAngles(newAngles);
-                  jointManager.setAngles(WRITER_ID.FK, newAngles);
-                }}
+              <Slider
+                minDisp={minDisp}
+                maxDisp={maxDisp}
+                valueDisp={valueDisp}
+                property={property}
+                showRadians={showRadians}
+                localAngles={localAngles}
+                setLocalAngles={setLocalAngles}
+                i={i}
+                handleBeginEdit={handleBeginEdit}
+                jointManager={jointManager}
+                radToDeg={radToDeg}
+                degToRad={degToRad}
               />
-              <span className="w-16 text-right text-white/60">
-                {property?.jointType === 'prismatic'
-                  ? Math.round(valueDisp)
-                  : (showRadians ? valueDisp.toFixed(2) : Math.round(valueDisp))}
-              </span>
-              {property?.jointType === 'prismatic' ? 'mm' : (showRadians ? 'rad' : '°')}
             </div>
           );
         })}
