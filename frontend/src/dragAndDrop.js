@@ -93,7 +93,7 @@ function dataTransferToFiles(dataTransfer) {
         }
     });
 }
-export function registerDragEvents(viewer, callback) {
+export function registerDragEvents(viewer, callback, removeVisualization) {
 
     document.addEventListener('dragover', e => e.preventDefault());
     document.addEventListener('dragenter', e => e.preventDefault());
@@ -178,6 +178,8 @@ export function registerDragEvents(viewer, callback) {
                     filesNames
                         .filter(n => /urdf$/i.test(n))
                         .shift();
+
+                if (removeVisualization) removeVisualization();
 
             }).then(() => callback());
 

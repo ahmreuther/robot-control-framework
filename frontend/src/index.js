@@ -38,6 +38,10 @@ const RAD2DEG = 1 / DEG2RAD;
 
 let sliders = {};
 
+// Sampling control flags
+let isSampling = false;
+let samplingAborted = false;
+
 // ============================================================
 // Minimal Progress UI (DOM) – keine externen CSS-Abhängigkeiten
 // ============================================================
@@ -88,6 +92,7 @@ function ensureProgressUI() {
 function showProgress() {
   const ui = ensureProgressUI();
   if (!ui) return null;
+  progressHost.style.display = 'block';
   ui.wrap.style.display = 'block';
   setProgress(0, 'Initialisiere…');
   return ui;
@@ -96,6 +101,7 @@ function showProgress() {
 function hideProgress() {
   const ui = ensureProgressUI();
   if (!ui) return;
+  progressHost.style.display = 'none';
   ui.wrap.style.display = 'none';
 }
 
@@ -181,7 +187,12 @@ export function checkRevoluteParallelism(robot) {
 }
 
 // ============================================================
-// Workspace: Punkte + Outer/Inner Shell (togglebar)
+// Workspace: Punkte + Outer/Inner Shell + Freeze
+// Anforderungen:
+// 1) Roboter aktualisiert NICHT visuell während Sampling
+// 2) Endpose = Pose beim Klick auf Work Envelope
+// 4) Inner Shell korrekt für Donut/Hohlräume: NICHT min(r), sondern
+//    inner = "Rand der ersten großen radialen Lücke" pro Richtung
 // ============================================================
 let hullGroup = null;
 let cachedHullGroup = null;
@@ -189,6 +200,9 @@ let cachedHullGroup = null;
 let outerShellObject = null;
 let innerShellObject = null;
 let innerNormalsObject = null;
+
+// Cache für Shell-Daten
+let cachedShellData = null; // { outerPoints: Vector3[], innerPoints: Vector3[] }
 
 function disposeGroup(g) {
   if (!g) return;
@@ -221,6 +235,20 @@ function collectMovableJoints(robot) {
     }
   });
   return movable;
+}
+
+// Pose Snapshot/Restore (für Freeze + Endpose)
+function snapshotJointPose(movableJoints) {
+  const snap = new Map();
+  for (const mj of movableJoints) snap.set(mj.obj.name, mj.obj.angle);
+  return snap;
+}
+
+function applyJointPose(movableJoints, snap) {
+  for (const mj of movableJoints) {
+    const a = snap.get(mj.obj.name);
+    if (a !== undefined) mj.obj.setJointValue(a);
+  }
 }
 
 function getFirstJointWorldOrigin(robot) {
@@ -259,27 +287,77 @@ function dirBinIndex(n, thetaBins, phiBins) {
   return ti + thetaBins * pi;
 }
 
+// ---------------------
+// Robust inner radius per ray (Donut/Hohlraum korrekt)
+// ---------------------
+function median(values) {
+  if (!values.length) return NaN;
+  const a = values.slice().sort((x, y) => x - y);
+  const m = a.length >> 1;
+  return (a.length % 2) ? a[m] : 0.5 * (a[m - 1] + a[m]);
+}
+
+/**
+ * Korrekte "Inner-Surface" Definition:
+ * - radii sortieren
+ * - typische Abstände bestimmen (median delta)
+ * - erste große Lücke (gapFactor * medianDelta) markiert Hohlraum
+ * - innerRadius = r direkt VOR dieser Lücke (innerer Rand des äußeren Segments)
+ * - wenn keine Lücke: kein Hohlraum => NaN
+ */
+function computeInnerRadiusFromRay(radii, {
+  gapFactor = 2.0,     // eher konservativ; 1.5 aggressiver
+  minSamples = 12
+} = {}) {
+  if (!radii || radii.length < minSamples) return NaN;
+
+  radii.sort((a, b) => a - b);
+
+  const deltas = [];
+  for (let i = 1; i < radii.length; i++) {
+    const d = radii[i] - radii[i - 1];
+    if (d > 0) deltas.push(d);
+  }
+
+  const medDelta = median(deltas);
+  if (!Number.isFinite(medDelta) || medDelta <= 0) return NaN;
+
+  const gap = gapFactor * medDelta;
+
+  // Suche die erste "echte" Lücke nach einem zusammenhängenden Segment
+  for (let i = 1; i < radii.length; i++) {
+    if (radii[i] - radii[i - 1] > gap) {
+      return radii[i - 1];
+    }
+  }
+
+  // Keine Lücke => kein Hohlraum
+  return NaN;
+}
+
 function extractOuterInnerShell(pts, origin, options = {}) {
   const cfg = {
     thetaBins: 180,
     phiBins: 90,
     innerMinRadius: 0.08,
+    // NEW: Donut/Inner-Detection Parameter
+    innerGapFactor: 2.0,
+    innerMinSamples: 12,
     ...options
   };
 
   const binCount = cfg.thetaBins * cfg.phiBins;
 
   const outerR = new Float32Array(binCount);
-  const innerR = new Float32Array(binCount);
   const outerIdx = new Int32Array(binCount);
-  const innerIdx = new Int32Array(binCount);
 
   for (let i = 0; i < binCount; i++) {
     outerR[i] = -Infinity;
-    innerR[i] = +Infinity;
     outerIdx[i] = -1;
-    innerIdx[i] = -1;
   }
+
+  // NEW: Sammle alle Radien pro Bin (für korrekte Hohlraum-Erkennung)
+  const binRadii = Array.from({ length: binCount }, () => []);
 
   const v = new THREE.Vector3();
   const n = new THREE.Vector3();
@@ -292,17 +370,40 @@ function extractOuterInnerShell(pts, origin, options = {}) {
     n.copy(v).multiplyScalar(1 / r);
     const b = dirBinIndex(n, cfg.thetaBins, cfg.phiBins);
 
+    // Outer bleibt max(r)
     if (r > outerR[b]) {
       outerR[b] = r;
       outerIdx[b] = i;
     }
 
-    if (r > cfg.innerMinRadius && r < innerR[b]) {
-      innerR[b] = r;
-      innerIdx[b] = i;
+    // Für Inner-Surface: alle Radien sammeln, aber erst ab Mindest-Radius
+    if (r > cfg.innerMinRadius) {
+      binRadii[b].push(r);
     }
   }
 
+  // Inner pro Bin robust bestimmen
+  const innerR = new Float32Array(binCount);
+  const innerIdx = new Int32Array(binCount);
+  for (let b = 0; b < binCount; b++) {
+    innerR[b] = NaN;
+    innerIdx[b] = -1;
+
+    const rInner = computeInnerRadiusFromRay(binRadii[b], {
+      gapFactor: cfg.innerGapFactor,
+      minSamples: cfg.innerMinSamples
+    });
+
+    if (Number.isFinite(rInner)) {
+      innerR[b] = rInner;
+      // optional: innerIdx = nächster pts-index in der Nähe von rInner (nur für "inner points")
+      // wir nehmen hier den Radius-Nächsten aus binRadii -> aber ohne direkten Index.
+      // Für Visualisierung reicht innerR; wenn du Punkt-Indices willst, müsstest du statt radii nur r,
+      // auch {r, idx} speichern.
+    }
+  }
+
+  // Outer/Inner Point-Listen erzeugen (für Punktwolke)
   const outer = [];
   const inner = [];
 
@@ -314,15 +415,31 @@ function extractOuterInnerShell(pts, origin, options = {}) {
       outer.push({ p, n: nn });
     }
 
-    const ii = innerIdx[b];
-    if (ii >= 0 && innerR[b] < +Infinity) {
-      const p = pts[ii];
-      const nn = new THREE.Vector3().subVectors(p, origin).normalize().multiplyScalar(-1);
+    // Inner: synthetischer Punkt aus origin + dir*innerR
+    const rIn = innerR[b];
+    if (Number.isFinite(rIn)) {
+      // Richtung aus Bin-Index rekonstruieren:
+      const ti = b % cfg.thetaBins;
+      const pi = Math.floor(b / cfg.thetaBins);
+
+      const theta = -Math.PI + (ti + 0.5) / cfg.thetaBins * (2 * Math.PI);
+      const phi = (pi + 0.5) / cfg.phiBins * Math.PI;
+
+      const sinPhi = Math.sin(phi);
+      const dir = new THREE.Vector3(
+        Math.cos(theta) * sinPhi,
+        Math.cos(phi),
+        Math.sin(theta) * sinPhi
+      ).normalize();
+
+      const p = new THREE.Vector3().copy(origin).addScaledVector(dir, rIn);
+      const nn = dir.clone().multiplyScalar(-1); // normals "von innen nach außen" (invertiert)
       inner.push({ p, n: nn });
     }
   }
 
-  return { outer, inner, cfg };
+  // outerIdx behalten, innerIdx ist hier nur placeholder (nicht zwingend benötigt)
+  return { outer, inner, cfg, outerIdx, innerIdx };
 }
 
 function voxelDownsample(points, voxelSize = 0.01) {
@@ -336,6 +453,14 @@ function voxelDownsample(points, voxelSize = 0.01) {
     if (!map.has(key)) map.set(key, p);
   }
   return Array.from(map.values());
+}
+
+function makeGroupNonPickable(group) {
+  if (!group) return;
+  group.traverse(obj => {
+    // Raycast komplett deaktivieren (nimmt dem Viewer die "Klick-Hindernisse")
+    obj.raycast = () => null;
+  });
 }
 
 function buildPointCloud(points, { color = 0xffff00, size = 0.01, opacity = 0.9 } = {}) {
@@ -390,19 +515,24 @@ function setInnerVisibility(visible) {
 
 // ============================================================
 // Hauptfunktion (ASYNC): Sampling + Shell-Extract mit Progress
+// - Freeze: Pose vor jedem Yield wiederherstellen
+// - Endpose: Pose bei Button-Press wiederherstellen
 // ============================================================
 export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
-  if (!viewerEl.robot) return;
+  if (!viewerEl.robot) return null;
+
+  isSampling = true;
+  samplingAborted = false;
 
   const config = {
     samples: 140000,
     sampleChunk: 2000, // UI-Update-Chunk
 
     // Punktwolke (optional)
-    showRawPointCloud: false,
-    rawPointColor: 0xaaaaaa,
+    showRawPointCloud: true,
+    rawPointColor: 0xff0000,
     rawPointSize: 0.008,
-    rawPointOpacity: 0.15,
+    rawPointOpacity: 0.25,
     rawVoxelDownsample: true,
     rawVoxelSize: 0.015,
 
@@ -411,6 +541,10 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
     phiBins: 100,
     innerMinRadius: 0.08,
 
+    // NEW: inner-hole detection parameters
+    innerGapFactor: 2.0,
+    innerMinSamples: 12,
+
     // Shell-Punkte
     shellPointSize: 0.012,
     outerPointColor: 0x00ff00,
@@ -418,7 +552,7 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
     shellPointOpacity: 0.95,
 
     // Normalen
-    showNormals: true,
+    showNormals: false,
     normalLength: 0.06,
     outerNormalColor: 0x00ff00,
     innerNormalColor: 0xff8800,
@@ -429,7 +563,6 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
     ...options
   };
 
-  // progress ui
   showProgress();
   await nextFrame();
 
@@ -450,15 +583,18 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
   if (!toolPoint) {
     console.warn('Kein tool_point / Endeffektor-Link gefunden.');
     hideProgress();
-    return;
+    return null;
   }
 
   const movableJoints = collectMovableJoints(robot);
   if (!movableJoints.length) {
     console.warn('Keine beweglichen Joints gefunden.');
     hideProgress();
-    return;
+    return null;
   }
+
+  // Pose beim Klick sichern (Endpose)
+  const poseAtButtonPress = snapshotJointPose(movableJoints);
 
   // -------------------------
   // 1) Sampling
@@ -473,6 +609,12 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
   const chunk = Math.max(200, config.sampleChunk | 0);
 
   for (let i = 0; i < total; i++) {
+    if (samplingAborted) {
+      isSampling = false;
+      hideProgress();
+      return null;
+    }
+
     for (let j = 0; j < movableJoints.length; j++) {
       const mj = movableJoints[j];
       mj.obj.setJointValue(mj.min + Math.random() * (mj.range || 1));
@@ -482,20 +624,24 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
     pts.push(pos.clone());
 
     if ((i + 1) % chunk === 0) {
-      const pct = (i + 1) / total * 75; // Sampling bis 75%
+      // Freeze: vor Yield zurück auf Klick-Pose
+      applyJointPose(movableJoints, poseAtButtonPress);
+      robot.updateMatrixWorld(true);
+
+      const pct = (i + 1) / total * 75;
       setProgress(pct, 'Sampling');
       await nextFrame();
     }
   }
 
-  // restore joints
-  movableJoints.forEach(j => j.obj.setJointValue(j.initial));
+  // Endpose = Klickpose
+  applyJointPose(movableJoints, poseAtButtonPress);
   robot.updateMatrixWorld(true);
 
   console.timeEnd('Workspace: Sampling');
 
   // -------------------------
-  // 2) Shell Extract
+  // 2) Shell Extract (Outer ok, Inner jetzt korrekt)
   // -------------------------
   setProgress(78, 'Shell-Extraktion');
   await nextFrame();
@@ -506,7 +652,9 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
   const { outer, inner } = extractOuterInnerShell(pts, origin, {
     thetaBins: config.thetaBins,
     phiBins: config.phiBins,
-    innerMinRadius: config.innerMinRadius
+    innerMinRadius: config.innerMinRadius,
+    innerGapFactor: config.innerGapFactor,
+    innerMinSamples: config.innerMinSamples
   });
   console.timeEnd('Workspace: Shell Extract');
 
@@ -518,7 +666,7 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
   // -------------------------
   hullGroup = new THREE.Group();
 
-  // optional raw cloud
+  // raw cloud
   if (config.showRawPointCloud) {
     let rawPts = pts;
     if (config.rawVoxelDownsample) rawPts = voxelDownsample(pts, config.rawVoxelSize);
@@ -538,9 +686,9 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
     size: config.shellPointSize,
     opacity: config.shellPointOpacity
   });
-//   hullGroup.add(outerShellObject);
+  // hullGroup.add(outerShellObject);
 
-  // inner points (togglebar)
+  // inner points (nur wo Hohlraum existiert!)
   const innerPoints = inner.map(o => o.p);
   innerShellObject = buildPointCloud(innerPoints, {
     color: config.innerPointColor,
@@ -548,7 +696,7 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
     opacity: config.shellPointOpacity
   });
   innerShellObject.visible = !!config.innerVisible;
-//   hullGroup.add(innerShellObject);
+  // hullGroup.add(innerShellObject);
 
   // normals
   if (config.showNormals) {
@@ -561,9 +709,9 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
   }
 
   viewerEl.scene.add(hullGroup);
+  makeGroupNonPickable(hullGroup);
   viewerEl.redraw();
 
-  // sync UI toggle state if exists
   if (innerShellToggle) {
     if (config.innerVisible) innerShellToggle.classList.add('checked');
     else innerShellToggle.classList.remove('checked');
@@ -573,8 +721,13 @@ export async function visualizeWorkspaceOuterInner(viewerEl, options = {}) {
 
   setProgress(100, 'Fertig');
   await nextFrame();
-  // optional: hide after short delay
   setTimeout(() => hideProgress(), 300);
+
+  if (innerShellToggle) innerShellToggle.style.display = 'block';
+
+  isSampling = false;
+
+  return { outerPoints, innerPoints };
 }
 
 // ============================================================
@@ -605,6 +758,10 @@ collisionToggle.addEventListener('click', () => {
 envelopeToggle.addEventListener('click', async () => {
   envelopeToggle.classList.toggle('checked');
 
+  // Animation aus, damit Pose nicht überschrieben wird (Endpose stabil halten)
+  const animWasOn = animToggle.classList.contains('checked');
+  animToggle.classList.remove('checked');
+
   checkRevoluteParallelism(viewer.robot);
 
   if (envelopeToggle.classList.contains('checked')) {
@@ -613,35 +770,51 @@ envelopeToggle.addEventListener('click', async () => {
       hullGroup = cachedHullGroup;
       viewer.scene.add(hullGroup);
       viewer.redraw();
+
       if (innerShellToggle) {
         const visible = innerShellToggle.classList.contains('checked');
         setInnerVisibility(visible);
       }
+
+      // Cached data available, just update visibility
     } else {
       console.log('Generiere neue Work Envelope (Outer/Inner)...');
 
       const innerVisibleDefault = innerShellToggle ? innerShellToggle.classList.contains('checked') : true;
 
-      await visualizeWorkspaceOuterInner(viewer, {
-        samples: 2000000,
+      const result = await visualizeWorkspaceOuterInner(viewer, {
+        samples: 4000000,
         sampleChunk: 2000,
         thetaBins: 200,
         phiBins: 100,
         innerMinRadius: 0.08,
+
+        // ggf. feinjustieren:
+        innerGapFactor: 4.0,
+        innerMinSamples: 120,
+
         showRawPointCloud: false,
         showNormals: true,
         normalLength: 0.003,
         innerVisible: innerVisibleDefault
+
       });
 
       cachedHullGroup = hullGroup;
+      cachedShellData = result;
     }
   } else {
+    if (isSampling) {
+      samplingAborted = true;
+    }
     if (hullGroup) {
       viewer.scene.remove(hullGroup);
       viewer.redraw();
     }
+    if (innerShellToggle) innerShellToggle.style.display = 'none';
   }
+
+  // if (animWasOn) animToggle.classList.add('checked');
 });
 
 // inner points on/off
@@ -675,6 +848,7 @@ viewer.addEventListener('urdf-change', () => {
   }
 
   cachedHullGroup = null;
+  cachedShellData = null;
   hullGroup = null;
   outerShellObject = null;
   innerShellObject = null;
@@ -854,6 +1028,17 @@ document.addEventListener('WebComponentsReady', () => {
     setColor('#263238');
     animToggle.classList.remove('checked');
     updateList();
+  }, () => {
+    // Remove existing workspace visualization
+    if (hullGroup) {
+      viewer.scene.remove(hullGroup);
+      disposeGroup(hullGroup);
+      hullGroup = null;
+    }
+    cachedHullGroup = null;
+    cachedShellData = null;
+    if (innerShellToggle) innerShellToggle.style.display = 'none';
+    envelopeToggle.classList.remove('checked');
   });
 });
 
@@ -886,6 +1071,18 @@ const updateList = () => {
     el.addEventListener('click', e => {
       const urdf = e.target.getAttribute('urdf');
       const color = e.target.getAttribute('color');
+
+      // Remove existing workspace visualization
+      if (hullGroup) {
+        viewer.scene.remove(hullGroup);
+        disposeGroup(hullGroup);
+        hullGroup = null;
+      }
+      cachedHullGroup = null;
+      cachedShellData = null;
+      if (innerShellToggle) innerShellToggle.style.display = 'none';
+      envelopeToggle.classList.remove('checked');
+      
 
       viewer.up = '+Z';
       document.getElementById('up-select').value = viewer.up;
