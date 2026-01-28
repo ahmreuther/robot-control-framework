@@ -20,6 +20,9 @@ customElements.define('urdf-viewer', URDFIKManipulator);
 const viewer = document.querySelector('urdf-viewer');
 setupMiniStats(viewer);
 
+// removing the viewers gizmo as it functions like manager for multi-robot implementation
+viewer.transformControls.detach();
+
 // Provide a global manipulator factory once so addRobot can reuse it.
 setManipulatorFactory(() => {
     if (!viewer) return null;
@@ -135,8 +138,35 @@ function addRobotOption(id, name) {
 function setActiveRobot(id) {
     activeRobotSelect.value = id;
     activeRobotId = id;
+    ControlCenterSliders()
 }
+async function addRobotByModel(model) {
+    const slotIndex = getNextSlotIndex();
+    const record = await addRobot({
+        model: model.name,
+        urdfPath: model.urdf,
+        sceneNode: null,
+        slotIndex
+    });
+    // fixed v1.1
+    const spawned = await spawnRobot(viewer, {urdfPath: model.urdf, slotIndex, getNextSlotIndex});
+    if (spawned) {
+        const {rig, robot} = spawned;
 
+        // store rig (so delete removes the whole robot space)
+        record.sceneNode = rig;
+        rig.updateMatrixWorld(true);
+
+        // pass robot for IK and rig so gizmo is parented correctly
+        record.manipulator.setRobot(robot, record.id, rig);
+    }
+    
+    addRobotOption(record.id, model.name);
+    setActiveRobot(record.id);
+    ControlCenterSliders();
+
+    robotCountValue.textContent = listRobots().length;
+}
 // spawnRobot handled by `services/sceneManager.js`
 
 // disposeRobotNode handled by `services/sceneManager.js`
@@ -149,32 +179,8 @@ addRobotBtn.addEventListener('click', async () => {
         
         const model = robotModels.find(m => m.name === selectedName);
         if (!model) return;
-
-        const slotIndex = getNextSlotIndex();
-        const record = await addRobot({
-            model: model.name,
-            urdfPath: model.urdf,
-            sceneNode: null,
-            slotIndex
-        });
-        // fixed v1.1
-        const spawned = await spawnRobot(viewer, {urdfPath: model.urdf, slotIndex, getNextSlotIndex});
-        if (spawned) {
-            const {rig, robot} = spawned;
-
-            // store rig (so delete removes the whole robot space)
-            record.sceneNode = rig;
-            rig.updateMatrixWorld(true);
-
-            // pass robot for IK and rig so gizmo is parented correctly
-            record.manipulator.setRobot(robot, record.id, rig);
-        }
+        addRobotByModel(model);
         
-        addRobotOption(record.id, model.name);
-        setActiveRobot(record.id);
-        ControlCenterSliders();
-
-        robotCountValue.textContent = listRobots().length; // update count
     } catch (err) {
         console.error('Failed to add robot', err);
         logMessage('Failed to add robot: ' + (err?.message || err));
@@ -211,54 +217,6 @@ deleteRobotBtn.addEventListener('click', async () => {
 activeRobotSelect.addEventListener('change', () => {
     activeRobotId = activeRobotSelect.value;
     ControlCenterSliders();
-});
-
-// Register the initially loaded robot (first URDF) so it counts and appears in the dropdown
-viewer.addEventListener('urdf-processed', async () => {
-    if (initialRobotRegistered || !viewer.robot) return;
-    try {
-        const slotIndex = getNextSlotIndex();
-
-        // Create rig for the initial robot
-        const rig = new THREE.Group();
-        rig.name = `rig_initial_${slotIndex}`;
-        rig.position.x = 1.5 * slotIndex;
-
-        // Add rig to scene and reparent the already-loaded robot into it
-        viewer.world.add(rig);
-        rig.add(viewer.robot);
-
-        // Robot base stays local identity inside rig
-        viewer.robot.position.set(0, 0, 0);
-        viewer.robot.quaternion.identity();
-
-        viewer.robot.updateMatrixWorld(true);
-        rig.updateMatrixWorld(true);
-
-        // Make the viewers own gizmo target follow the rig
-        if (typeof viewer.setBaseGroup === 'function'){
-            viewer.setBaseGroup(rig);
-        }
-
-        const record = await addRobot({
-            model: viewer.urdf || 'inital',
-            urdfPath: viewer.urdf,
-            sceneNode: rig,         // store rig, not robot
-            slotIndex,
-            createManipulator: false,
-        });
-
-        // This to register initial robot to make it deletable -> 
-        addRobotOption(record.id, record.model || record.id);
-        setActiveRobot(record.id);
-        ControlCenterSliders();
-
-        robotCountValue.textContent = listRobots().length;
-        initialRobotRegistered = true;
-
-    } catch (err) {
-        console.warn('Failed to register initial robot', err);
-    }
 });
 
 // Global Functions
@@ -309,20 +267,13 @@ controlsToggle.addEventListener('click', () => controlsel.classList.toggle('hidd
 
 
 viewer.addEventListener('urdf-change', () => {
-
-    Object
-        .values(controlSliders)
-        .forEach(sl => sl.remove());
+    Object.values(controlSliders).forEach(sl => sl.remove());
     controlSliders = {};
 
 });
 
 viewer.addEventListener('ignore-limits-change', () => {
-
-    Object
-        .values(controlSliders)
-        .forEach(sl => sl.update());
-
+    Object.values(controlSliders).forEach(sl => sl.update());
 });
 
 
@@ -364,9 +315,7 @@ viewer.addEventListener('manipulate-start', e => {
 });
 
 viewer.addEventListener('manipulate-end', e => {
-
     viewer.noAutoRecenter = originalNoAutoRecenter;
-
 });
 
 // create the sliders for the currently active robot
@@ -377,8 +326,6 @@ viewer.addEventListener('urdf-processed', () => {
 document.addEventListener('WebComponentsReady', () => {
 
     viewer.loadMeshFunc = (path, manager, done) => {
-
-
         const ext = path.split(/\./g).pop().toLowerCase();
         switch (ext) {
 
@@ -423,9 +370,19 @@ document.addEventListener('WebComponentsReady', () => {
         }
 
     };
+    //uses the eva model for color etc.
+    //maybe change it for more robust color
 
-    document.querySelector('li[urdf]').dispatchEvent(new Event('click'));
+    const color = "#546575";
+    viewer.up = '+Z';
+    document.getElementById('up-select').value = viewer.up;//what does this do?
 
+    animToggle.classList.add('checked');
+    setColor(color);
+    //adding initial robot
+    const model = robotModels[0]; //eva robot
+    addRobotByModel(model);
+    
     if (/javascript\/example\/bundle/i.test(window.location)) {
         viewer.package = '../../../urdf';
     }
@@ -438,29 +395,28 @@ document.addEventListener('WebComponentsReady', () => {
 
 });
 
-// init 2D UI and animation
 const updateAngles = () => {
-    if (!viewer.setJointValue || !viewer.robot || !viewer.robot.joints) return;
+    const robots = listRobots();
+    if (robots.length === 0) return;
 
-    // reset everything to 0 first
-    // const resetJointValues = viewer.angles;
-    // for (const name in resetJointValues) resetJointValues[name] = 0;
-    // viewer.setJointValues(resetJointValues);
-
-
-
-    // animate the legs
     const time = Date.now() / 3e2;
-    for (let i = 1; i <= 6; i++) {
-        const offset = i * Math.PI / 3;
-        const ratio = Math.max(0, Math.sin(time + offset));
-        viewer.setJointValue(`HP${i}`, THREE.MathUtils.lerp(30, 0, ratio) * DEG2RAD);
-        viewer.setJointValue(`KP${i}`, THREE.MathUtils.lerp(90, 150, ratio) * DEG2RAD);
-        viewer.setJointValue(`AP${i}`, THREE.MathUtils.lerp(-30, -60, ratio) * DEG2RAD);
-        viewer.setJointValue(`TC${i}A`, THREE.MathUtils.lerp(0, 0.065, ratio));
-        viewer.setJointValue(`TC${i}B`, THREE.MathUtils.lerp(0, 0.065, ratio));
-        viewer.setJointValue(`W${i}`, window.performance.now() * 0.001);
-    }
+
+    robots.forEach(record => {
+        const manipulator = record.manipulator;
+        if (record.model === 'EVA') {
+            const time = Date.now() / 3e2;
+            for (let i = 1; i <= 6; i++) {
+                const offset = i * Math.PI / 3;
+                const ratio = Math.max(0, Math.sin(time + offset));
+                manipulator.setJointValue(`HP${i}`, THREE.MathUtils.lerp(30, 0, ratio) * DEG2RAD);
+                manipulator.setJointValue(`KP${i}`, THREE.MathUtils.lerp(90, 150, ratio) * DEG2RAD);
+                manipulator.setJointValue(`AP${i}`, THREE.MathUtils.lerp(-30, -60, ratio) * DEG2RAD);
+                manipulator.setJointValue(`TC${i}A`, THREE.MathUtils.lerp(0, 0.065, ratio));
+                manipulator.setJointValue(`TC${i}B`, THREE.MathUtils.lerp(0, 0.065, ratio));
+                manipulator.setJointValue(`W${i}`, window.performance.now() * 0.001);
+            }
+        }
+    });
 };
 
 const updateLoop = () => {
@@ -472,30 +428,6 @@ const updateLoop = () => {
     requestAnimationFrame(updateLoop);
 
 };
-
-const updateList = () => {
-
-    document.querySelectorAll('#urdf-options li[urdf]').forEach(el => {
-
-        el.addEventListener('click', e => {
-
-            const urdf = e.target.getAttribute('urdf');
-            const color = e.target.getAttribute('color');
-
-            viewer.up = '+Z';
-            document.getElementById('up-select').value = viewer.up;
-
-            viewer.urdf = urdf;
-            animToggle.classList.add('checked');
-            setColor(color);
-
-        });
-
-    });
-
-};
-
-updateList();
 
 document.addEventListener('WebComponentsReady', () => {
 

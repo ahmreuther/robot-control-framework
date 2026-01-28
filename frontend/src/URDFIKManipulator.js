@@ -246,7 +246,7 @@ export default class URDFIKManipulator extends URDFManipulator {
      */
     setJointValue(jointName, value) {
         if (!this.robot || !this.robot.joints || !this.robot.joints[jointName]) {
-            console.warn(`Joint ${jointName} not found on robot`);
+            //console.warn(`Joint ${jointName} not found on robot`);
             return;
         }
         
