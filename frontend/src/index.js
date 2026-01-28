@@ -21,7 +21,7 @@ const viewer = document.querySelector('urdf-viewer');
 setupMiniStats(viewer);
 
 // removing the viewers gizmo as it functions like manager for multi-robot implementation
-viewer.transformControls.detach();
+//viewer.transformControls.detach();
 
 // Provide a global manipulator factory once so addRobot can reuse it.
 setManipulatorFactory(() => {
