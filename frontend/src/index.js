@@ -9,7 +9,7 @@ import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 import URDFLoader from 'urdf-loader/src/URDFLoader.js';
-import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory } from './robotManager.js';
+import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory, getActiveRobot, setActiveRobot} from './robotManager.js';
 import { spawnRobot, disposeRobotNode, renderForAFewFrames } from './sceneManager.js';
 import { applyDefaultPose } from './URDFIKManipulator.js';
 customElements.define('urdf-viewer', URDFIKManipulator);
@@ -19,9 +19,6 @@ customElements.define('urdf-viewer', URDFIKManipulator);
 // TODO: Remove this once modules or parcel is being used
 const viewer = document.querySelector('urdf-viewer');
 setupMiniStats(viewer);
-
-// removing the viewers gizmo as it functions like manager for multi-robot implementation
-//viewer.transformControls.detach();
 
 // Provide a global manipulator factory once so addRobot can reuse it.
 setManipulatorFactory(() => {
@@ -65,7 +62,6 @@ const deleteRobotBtn = document.getElementById('delete-robot-btn');
 const robotCountValue = document.getElementById('robot-count-value');
 
 
-let activeRobotId = null;
 let initialRobotRegistered = false;
 
 const logMessage = msg => {
@@ -135,11 +131,6 @@ function addRobotOption(id, name) {
     activeRobotSelect.appendChild(opt);
 }
 
-function setActiveRobot(id) {
-    activeRobotSelect.value = id;
-    activeRobotId = id;
-    ControlCenterSliders()
-}
 async function addRobotByModel(model) {
     const slotIndex = getNextSlotIndex();
     const record = await addRobot({
@@ -163,6 +154,7 @@ async function addRobotByModel(model) {
     
     addRobotOption(record.id, model.name);
     setActiveRobot(record.id);
+    activeRobotSelect.value = record.id;
     ControlCenterSliders();
 
     robotCountValue.textContent = listRobots().length;
@@ -188,34 +180,35 @@ addRobotBtn.addEventListener('click', async () => {
 });
 
 deleteRobotBtn.addEventListener('click', async () => {
-    if (!activeRobotId) return;
+    const record = getActiveRobot();
+
+    if (!record) return;
     
-    const record = getRobot(activeRobotId);
     if (record && record.sceneNode) {
         if (record.sceneNode.parent) record.sceneNode.parent.remove(record.sceneNode);
         disposeRobotNode(record.sceneNode);
     }
     renderForAFewFrames(viewer);
 
-    await removeRobot(activeRobotId);
+    await removeRobot(record.id);
     ControlCenterSliders();
 
     // remove from dropdown
-    const option = activeRobotSelect.querySelector(`option[value="${activeRobotId}"]`);
+    const option = activeRobotSelect.querySelector(`option[value="${record.id}"]`);
     if (option) option.remove();
 
     // select new robot if available
     if (activeRobotSelect.options.length > 0) {
-        activeRobotId = activeRobotSelect.options[0].value;
-        activeRobotSelect.value = activeRobotId;
+        setActiveRobot(activeRobotSelect.options[0].value);
+        activeRobotSelect.value = activeRobotSelect.options[0].value;
     } else {
-        activeRobotId = null;
+        setActiveRobot(null);
     }
     robotCountValue.textContent = listRobots().length;
 });
 
 activeRobotSelect.addEventListener('change', () => {
-    activeRobotId = activeRobotSelect.value;
+    setActiveRobot(activeRobotSelect.value);
     ControlCenterSliders();
 });
 
@@ -444,17 +437,12 @@ document.addEventListener('WebComponentsReady', () => {
 });
 
 // ===== Robot Control Center Functions =====
-function getActiveRecord() {
-    if (!activeRobotId) return null;
-    return getRobot(activeRobotId);
-}
-
 function ControlCenterSliders() {
     // Clear existing sliders
     Object.values(controlSliders).forEach(li => li.remove());
     controlSliders = {};
 
-    const record = getActiveRecord();
+    const record = getActiveRobot();
     const manipulator = record?.manipulator;
     const robot = manipulator?.robot || viewer?.robot;
     if (!robot || !robot.joints) return;

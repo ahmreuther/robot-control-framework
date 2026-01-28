@@ -22,6 +22,20 @@ class RobotManager {
     this.statusListener = null;
     this.manipulatorFactory = null; // set once from UI layer
     this.api = api;
+
+    this.activeRobotId = null;
+  }
+
+  setActiveRobot(robotId) {
+    if (robotId && this.robots.has(robotId)) {
+      this.activeRobotId = robotId;
+    } else {
+      this.activeRobotId = null;
+    }
+  }
+
+  getActiveRobot() {
+    return this.activeRobotId ? this.getRobot(this.activeRobotId) : null;
   }
 
   attachManipulator(record, manipulator) {
@@ -157,7 +171,8 @@ export const addRobot = robotManager.addRobot.bind(robotManager);
 export const removeRobot = robotManager.removeRobot.bind(robotManager);
 export const clearAll = robotManager.clearAll.bind(robotManager);
 export const getNextSlotIndex = robotManager.getNextSlotIndex.bind(robotManager);
-
+export const setActiveRobot = robotManager.setActiveRobot.bind(robotManager);
+export const getActiveRobot = robotManager.getActiveRobot.bind(robotManager);
 // Small built-in catalog of known robot models used by the UI.
 // Kept here to avoid an extra config file while still centralizing model metadata.
 export const robotModels = [
