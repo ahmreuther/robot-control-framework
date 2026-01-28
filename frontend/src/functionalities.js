@@ -1,4 +1,6 @@
 import { Vector3 } from "three";
+import { getActiveRobot } from './robotManager.js';
+
 
 let socket;
 let socket_mcp;
@@ -1544,16 +1546,14 @@ function updateRobotLockToggleVisibility() {
 
 const homeIcon = document.getElementById('home-icon');
 if (homeIcon) {
-    homeIcon.addEventListener('click', () => {
-        const viewer = document.querySelector('urdf-viewer');
-        if (viewer && viewer.camera) {
+  homeIcon.addEventListener('click', () => {
+    const record = getActiveRobot();
+    if (!record?.manipulator) return;
 
-            viewer.dispatchEvent(new Event('reset-angles'));
-
-
-        }
-    });
+    record.manipulator.dispatchEvent(new Event('reset-angles'));
+  });
 }
+
 
 function setup_mcp_socket() {
     socket_mcp = new WebSocket("ws://127.0.0.1:8000/ws_mcp");
