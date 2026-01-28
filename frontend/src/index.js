@@ -435,7 +435,8 @@ document.addEventListener('WebComponentsReady', () => {
     viewer.addEventListener('manipulate-start', e => animToggle.classList.remove('checked'));
     viewer.addEventListener('urdf-processed', e => updateAngles());
     updateLoop();
-    viewer.camera.position.set(-5.5, 3.5, 5.5);
+    //viewer.camera.position.set(-1.5, 3.5, 5.5);
+    viewer.camera.position.set(-1.5, 1.5, 1.5);
     autocenterToggle.classList.remove('checked');
     viewer.noAutoRecenter = true;
 

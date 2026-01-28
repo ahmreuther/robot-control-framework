@@ -4,7 +4,6 @@ import { getActiveRobot } from './robotManager.js';
 
 let socket;
 let socket_mcp;
-let viewer = null;
 let opcUaSyncEnabled;
 let isMouseDownOnJoint = false;
 let connectedUrl;
@@ -36,7 +35,9 @@ function normalizeMapLike(mapLike) {
 }
 
 function urdfJointsArray() {
-    const raw = viewer?.robot?.joints || null;
+    const manipulator = getActiveManipulator();
+
+    const raw = manipulator?.robot?.joints || null;
     const obj = normalizeMapLike(raw);
     const arr = [];
     for (const name in obj) {
@@ -123,16 +124,18 @@ function orderedRevoluteFromBaseJoint(baseJoint) {
 
 
 function getOrderedRevoluteJoints() {
-    if (!viewer || !viewer.robot || !viewer.robot.joints) {
-        console.warn("⚠️ viewer.robot.joints missing.");
+    const manipulator = getActiveManipulator();
+
+    if (!manipulator || !manipulator.robot || !manipulator.robot.joints) {
+        console.warn("⚠️ manipulator.robot.joints missing.");
         return [];
     }
 
 
-    const allJoints = Object.values(viewer.robot.joints);
+    const allJoints = Object.values(manipulator.robot.joints);
 
-    // Find base = joint whose parent is directly viewer.robot
-    const baseCandidates = allJoints.filter(j => j.parent === viewer.robot);
+    // Find base = joint whose parent is directly manipulator.robot
+    const baseCandidates = allJoints.filter(j => j.parent === manipulator.robot);
     if (baseCandidates.length === 0) {
         console.warn("⚠️ No Base-Joint found.");
         return [];
@@ -161,8 +164,10 @@ function getOrderedRevoluteJoints() {
 
 
 function getOrderedRevoluteJointNames() {
-    if (!viewer || !viewer.robot || !viewer.robot.joints) {
-        console.warn("⚠️ viewer.robot.joints missing.");
+    const manipulator = getActiveManipulator();
+
+    if (!manipulator || !manipulator.robot || !manipulator.robot.joints) {
+        console.warn("⚠️ manipulator.robot.joints missing.");
         return [];
     }
 
@@ -170,7 +175,7 @@ function getOrderedRevoluteJointNames() {
     let currentJoint = null;
 
     // Base-Joint = the first URDFJoint under URDFRobot
-    for (const child of viewer.robot.children) {
+    for (const child of manipulator.robot.children) {
         if (child.type === "URDFJoint") {
             currentJoint = child;
             break;
@@ -179,7 +184,7 @@ function getOrderedRevoluteJointNames() {
 
     while (currentJoint) {
         const jointName = currentJoint.name;
-        const jointObj = viewer.robot.joints[jointName];
+        const jointObj = manipulator.robot.joints[jointName];
 
         if (jointObj && (jointObj.jointType === "revolute" || jointObj.jointType === "continuous")) {
             ordered.push(jointName);
@@ -246,13 +251,15 @@ function buildAxisToJointMap(anglesMsg) {
 let endEffectorMap = null;
 
 function buildEndEffectorMap() {
-    if (!viewer?.robot?.joints) {
-        console.warn("⚠️ viewer.robot.joints missing.");
+    const manipulator = getActiveManipulator();
+    
+    if (!manipulator?.robot?.joints) {
+        console.warn("⚠️ manipulator.robot.joints missing.");
         endEffectorMap = { byIndex: {}, byName: {}, byParent: {} };
         return endEffectorMap;
     }
 
-    const all = Object.values(viewer.robot.joints);
+    const all = Object.values(manipulator.robot.joints);
     const pris = all.filter(j => isPrismaticType(j.jointType))
         .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -389,7 +396,7 @@ window.addEventListener('load', () => {
         const data = event.data;
         // Check whether the message should be output using the flag “x|”
         if (event.data.startsWith("x|")) {
-
+            const manipulator = getActiveManipulator();
             if (data.startsWith("x|custom:")) {
                 try {
                     const payload = JSON.parse(data.slice("x|custom:".length));
@@ -493,7 +500,6 @@ window.addEventListener('load', () => {
 
 
             if (typeof event.data === "string" && event.data.startsWith("x|angles:")) {
-                if (!viewer) viewer = document.querySelector('urdf-viewer');
 
                 let dictStr = event.data.replace("x|angles:", "").replace(/'/g, '"');
                 let anglesMsg = {};
@@ -515,9 +521,8 @@ window.addEventListener('load', () => {
                     return;
                 }
 
-
-                if (!viewer || !viewer.robot || !viewer.robot.joints) {
-                    console.warn("⚠️ URDF Viewer or Robot Joints not available.");
+                if (!manipulator || !manipulator.robot || !manipulator.robot.joints) {
+                    console.warn("⚠️ URDF Manipulator or Robot Joints not available.");
                     return;
                 }
 
@@ -544,9 +549,9 @@ window.addEventListener('load', () => {
                     // Radiant (C81 or null) → use directly
                     jointValuesRad[jointName] = value;
                 }
-                const success = viewer.setJointValues(jointValuesRad);
+                const success = manipulator.setJointValues(jointValuesRad);
                 if (!success) {
-                    console.warn("⚠️ viewer.setJointValues() did not cause any change.");
+                    console.warn("⚠️ manipulator.setJointValues() did not cause any change.");
                 } else {
                     console.log("✅ Angle of joints updated:", jointValuesRad);
                 }
@@ -768,6 +773,8 @@ opcUaSyncToggle.addEventListener('change', function () {
         return;
     }
 
+    const manipulator = getActiveManipulator();
+
     opcUaSyncEnabled = this.checked;
     const url = document.getElementById('opc-ua-url').value.trim();
     if (opcUaSyncEnabled) {
@@ -776,7 +783,7 @@ opcUaSyncToggle.addEventListener('change', function () {
             socket.send(`stream mode|${url}`);
             opcUaStreamActive = true;
         }
-        if (lastOpcUaAngles && viewer && viewer.robot && viewer.robot.joints) {
+        if (lastOpcUaAngles && manipulator && manipulator.robot && manipulator.robot.joints) {
 
             try {
                 buildAxisToJointMap({
@@ -799,7 +806,7 @@ opcUaSyncToggle.addEventListener('change', function () {
                 }
             }
 
-            viewer.setJointValues(jointValuesRad);
+            manipulator.setJointValues(jointValuesRad);
         }
 
 
@@ -1282,23 +1289,24 @@ function getEEFMasters(robot) {
 
 
 window.addEventListener('DOMContentLoaded', () => {
-    viewer = document.querySelector('urdf-viewer');
     const animToggle = document.getElementById('do-animate');
 
-    viewer.camera.position.set(-0.5, 1.1, 0.8);
+    const manipulator = getActiveManipulator();
 
 
-    if (!viewer || !animToggle) {
-        console.warn('URDF Viewer not found.');
+    if (!manipulator || !animToggle) {
+        console.warn('URDF Manipulator not found.');
         return;
     }
 
-    viewer.addEventListener('urdf-processed', () => {
+    manipulator.addEventListener('urdf-processed', () => {
+        manipulator.camera.position.set(-0.5, 1.1, 0.8);
+
         animToggle.classList.remove('checked');
         animToggle.remove(animToggle);
 
         function updateRevoluteJointStatus() {
-            const r = viewer.robot;
+            const r = manipulator.robot;
             //console.log(r);
 
 
@@ -1337,7 +1345,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const TCPField = document.getElementById('robot-tcp-value');
 
             if (TCPField) {
-                TCPField.textContent = 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', ');
+                TCPField.textContent = 'Pos: ' + manipulator.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + manipulator.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', ');
 
             }
 
@@ -1346,7 +1354,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         updateRevoluteJointStatus();
 
-        viewer.addEventListener('angle-change', () => {
+        manipulator.addEventListener('angle-change', () => {
             updateRevoluteJointStatus();
         });
 
@@ -1356,98 +1364,98 @@ window.addEventListener('DOMContentLoaded', () => {
             }, 0);
         });
 
-        viewer.addEventListener('manipulate-start', () => {
+        manipulator.addEventListener('manipulate-start', () => {
             isManipulating = true;
         });
-        viewer.addEventListener('manipulate-end', () => {
-    isManipulating = false;
-    const syncToggle = document.getElementById('opc-ua-sync-toggle');
-    if (!syncToggle || !syncToggle.checked) return;
+        manipulator.addEventListener('manipulate-end', () => {
+            isManipulating = false;
+            const syncToggle = document.getElementById('opc-ua-sync-toggle');
+            if (!syncToggle || !syncToggle.checked) return;
 
-    const r = viewer.robot;
-    if (!r || !r.joints) return;
+            const r = manipulator.robot;
+            if (!r || !r.joints) return;
 
-    const eefMasters = getEEFMasters(r);
-    let eefTriggered = false;
+            const eefMasters = getEEFMasters(r);
+            let eefTriggered = false;
 
-    // --- Endeffektor prüfen ---
-    for (const j of eefMasters) {
-        const cur = getVal(j);
-        const last = lastEEFPositions[j.name];
-        const changed = (last !== undefined) && (cur !== last);
+            // --- Endeffektor prüfen ---
+            for (const j of eefMasters) {
+                const cur = getVal(j);
+                const last = lastEEFPositions[j.name];
+                const changed = (last !== undefined) && (cur !== last);
 
-        if (changed) {
-            const { lower, upper } = getLimits(j);
-            const atLower = (cur === lower);
-            const atUpper = (cur === upper);
+                if (changed) {
+                    const { lower, upper } = getLimits(j);
+                    const atLower = (cur === lower);
+                    const atUpper = (cur === upper);
 
-            if (atLower || atUpper) {
-                let nodeId = toggleEndEffMethodNodeId || localStorage.getItem(`toggleEndEffNodeId:${connectedUrl}`);
-                if (!nodeId) {
-                    logMessageToBox('⚠️ “toggleEndEff” method not yet known. Please connect or try again.');
-                    break;
+                    if (atLower || atUpper) {
+                        let nodeId = toggleEndEffMethodNodeId || localStorage.getItem(`toggleEndEffNodeId:${connectedUrl}`);
+                        if (!nodeId) {
+                            logMessageToBox('⚠️ “toggleEndEff” method not yet known. Please connect or try again.');
+                            break;
+                        }
+
+                        const payload = { nodeId, url: connectedUrl };
+                        console.log("Send End Effector after limit reached:", payload);
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(`call|${JSON.stringify(payload)}`);
+                            eefTriggered = true;
+                        }
+                        break; // nur ein EEF-Call
+                    }
                 }
+            }
 
-                const payload = { nodeId, url: connectedUrl };
-                console.log("Send End Effector after limit reached:", payload);
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(`call|${JSON.stringify(payload)}`);
-                    eefTriggered = true;
+            // letzte EEF-Positionen merken
+            eefMasters.forEach(j => { lastEEFPositions[j.name] = getVal(j); });
+
+            if (eefTriggered) return; // nur Endeffektor gesendet → fertig
+
+            // --- Revolute prüfen: nur senden, wenn sich was geändert hat ---
+            const jointValuesRad = [];
+            let revoluteChanged = false;
+
+            for (const name in r.joints) {
+                const joint = r.joints[name];
+                if (joint.jointType === 'revolute') {
+                    let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
+                    jointValuesRad.push(parseFloat(value.toFixed(6)));
+
+                    // prüfen ob sich gegenüber letztem Stand geändert hat
+                    if (lastEEFPositions[name] === undefined || lastEEFPositions[name] !== value) {
+                        revoluteChanged = true;
+                    }
                 }
-                break; // nur ein EEF-Call
             }
-        }
-    }
 
-    // letzte EEF-Positionen merken
-    eefMasters.forEach(j => { lastEEFPositions[j.name] = getVal(j); });
+            if (!revoluteChanged) return; // nix Neues → kein GoTo
 
-    if (eefTriggered) return; // nur Endeffektor gesendet → fertig
-
-    // --- Revolute prüfen: nur senden, wenn sich was geändert hat ---
-    const jointValuesRad = [];
-    let revoluteChanged = false;
-
-    for (const name in r.joints) {
-        const joint = r.joints[name];
-        if (joint.jointType === 'revolute') {
-            let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
-            jointValuesRad.push(parseFloat(value.toFixed(6)));
-
-            // prüfen ob sich gegenüber letztem Stand geändert hat
-            if (lastEEFPositions[name] === undefined || lastEEFPositions[name] !== value) {
-                revoluteChanged = true;
+            const jointsString = JSON.stringify(jointValuesRad);
+            let nodeId = gotoMethodNodeId || localStorage.getItem(`gotoNodeId:${connectedUrl}`);
+            if (!nodeId) {
+                logMessageToBox('⚠️ “Go To” method not yet known. Please connect or try again.');
+                return;
             }
-        }
-    }
 
-    if (!revoluteChanged) return; // nix Neues → kein GoTo
+            const payload = {
+                nodeId,
+                inputs: {
+                    mode: 'automatic',
+                    joints: jointsString,
+                    "max-Speed": '',
+                    time: '',
+                    tcp_config: '',
+                    avoidance_zones: ''
+                },
+                url: connectedUrl
+            };
 
-    const jointsString = JSON.stringify(jointValuesRad);
-    let nodeId = gotoMethodNodeId || localStorage.getItem(`gotoNodeId:${connectedUrl}`);
-    if (!nodeId) {
-        logMessageToBox('⚠️ “Go To” method not yet known. Please connect or try again.');
-        return;
-    }
-
-    const payload = {
-        nodeId,
-        inputs: {
-            mode: 'automatic',
-            joints: jointsString,
-            "max-Speed": '',
-            time: '',
-            tcp_config: '',
-            avoidance_zones: ''
-        },
-        url: connectedUrl
-    };
-
-    console.log("Send Go To after drag end:", payload);
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(`call|${JSON.stringify(payload)}`);
-    }
-});
+            console.log("Send Go To after drag end:", payload);
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(`call|${JSON.stringify(payload)}`);
+            }
+        });
 
     });
 });
@@ -1569,16 +1577,20 @@ function setup_mcp_socket() {
     socket_mcp.onmessage = (event) => {
         console.log("MCP Message from server:", event.data);
         const data = event.data;
-        let r = viewer.robot;
+
+        const manipulator = getActiveManipulator();
+        if (!manipulator) return;
+        let r = manipulator.robot;
+
         if (event.data.startsWith("TCP_POS|")) {
             let tcp_pos = event.data.replace("TCP_POS|", "");
             let tcp_coords = tcp_pos.split(",");
             let position = new Vector3(parseFloat(tcp_coords[0]), parseFloat(tcp_coords[1]), parseFloat(tcp_coords[2]))
-            viewer.targetObject.position.set(...position);
-            // console.log('Target pos2:', viewer.targetObject.position);
-            viewer.solve();
-            viewer.dispatchEvent(new Event('manipulate-end'));
-            viewer.dispatchEvent(new Event('change'));
+            manipulator.targetObject.position.set(...position);
+            // console.log('Target pos2:', manipulator.targetObject.position);
+            manipulator.solve();
+            manipulator.dispatchEvent(new Event('manipulate-end'));
+            manipulator.dispatchEvent(new Event('change'));
         } else if (event.data.startsWith("JOINTS|")) {
             let joint_raw_data = event.data.replace("JOINTS|", "").replace("°", "").split(", ");
 
@@ -1593,7 +1605,7 @@ function setup_mcp_socket() {
                 }
             }
 
-            viewer.setJointValues(jointValuesRad);
+            manipulator.setJointValues(jointValuesRad);
         } else if (event.data.startsWith("JOINT|")) {
             let joint_raw_data = event.data.replace("JOINT|", "").split("|");
             let joint_index = joint_raw_data[0];
@@ -1628,39 +1640,45 @@ document.getElementById('mcp-integration-toggle').addEventListener('click', (e) 
     }
 });
 
-viewer = document.querySelector('urdf-viewer');
-viewer.addEventListener('angle-change', () => {
-    if (socket_mcp == null || socket_mcp.readyState != WebSocket.OPEN) {
-        return;
-    }
-    socket_mcp.send('TCP|' + 'Pos: ' + viewer.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + viewer.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', '));
-    const r = viewer.robot;
-    const radiansToggle = document.getElementById('radians-toggle');
-    const useRadians = radiansToggle && radiansToggle.classList.contains('checked');
 
-    if (!r || !r.joints) return;
-    const jointValues = [];
-    let idx = 1;
 
-    for (const name in r.joints) {
-        const joint = r.joints[name];
-        if (joint.jointType === 'revolute') {
-            let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
-            if (!useRadians) value *= 180 / Math.PI;
-            let num = parseFloat(value);
-            let formatted;
-            if (!useRadians) {
-                formatted = num.toFixed(1); // Grad: 1 Nachkommastelle
-            } else {
-                if (Math.abs(num) < 1) {
-                    formatted = num.toPrecision(2);
-                } else {
-                    formatted = num.toFixed(2).replace(/\.0+$/, '').replace(/(\.[1-9]*)0+$/, '$1');
-                }
-            }
-            jointValues.push(`j${idx}:${formatted}${useRadians ? 'rad' : '°'}`);
-            idx++;
+document.addEventListener('DOMContentLoaded', () => {
+    const manipulator = getActiveManipulator();
+    if (!manipulator) return;
+
+    manipulator.addEventListener('angle-change', () => {
+        if (socket_mcp == null || socket_mcp.readyState != WebSocket.OPEN) {
+            return;
         }
-    }
-    socket_mcp.send('ANGLES|' + jointValues.join(', '));
-})
+        socket_mcp.send('TCP|' + 'Pos: ' + manipulator.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + manipulator.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', '));
+        const r = manipulator.robot;
+        const radiansToggle = document.getElementById('radians-toggle');
+        const useRadians = radiansToggle && radiansToggle.classList.contains('checked');
+
+        if (!r || !r.joints) return;
+        const jointValues = [];
+        let idx = 1;
+
+        for (const name in r.joints) {
+            const joint = r.joints[name];
+            if (joint.jointType === 'revolute') {
+                let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
+                if (!useRadians) value *= 180 / Math.PI;
+                let num = parseFloat(value);
+                let formatted;
+                if (!useRadians) {
+                    formatted = num.toFixed(1); // Grad: 1 Nachkommastelle
+                } else {
+                    if (Math.abs(num) < 1) {
+                        formatted = num.toPrecision(2);
+                    } else {
+                        formatted = num.toFixed(2).replace(/\.0+$/, '').replace(/(\.[1-9]*)0+$/, '$1');
+                    }
+                }
+                jointValues.push(`j${idx}:${formatted}${useRadians ? 'rad' : '°'}`);
+                idx++;
+            }
+        }
+        socket_mcp.send('ANGLES|' + jointValues.join(', '));
+    })
+});
