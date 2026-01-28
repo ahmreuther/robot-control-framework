@@ -141,17 +141,22 @@ async function addRobotByModel(model) {
     });
     // fixed v1.1
     const spawned = await spawnRobot(viewer, {urdfPath: model.urdf, slotIndex, getNextSlotIndex});
-    if (spawned) {
-        const {rig, robot} = spawned;
+    if (!spawned) return;
 
-        // store rig (so delete removes the whole robot space)
-        record.sceneNode = rig;
-        rig.updateMatrixWorld(true);
+    const {rig, robot} = spawned;
 
-        // pass robot for IK and rig so gizmo is parented correctly
-        record.manipulator.setRobot(robot, record.id, rig);
-    }
-    
+    // store rig (so delete removes the whole robot space)
+    record.sceneNode = rig;
+    rig.updateMatrixWorld(true);
+
+    // pass robot for IK and rig so gizmo is parented correctly
+    record.manipulator.setRobot(robot, record.id, rig);
+    record.manipulator.addEventListener('manipulate-start', () => {
+        setActiveRobot(record.id);
+        activeRobotSelect.value = record.id; 
+        ControlCenterSliders();              
+    });
+
     addRobotOption(record.id, model.name);
     setActiveRobot(record.id);
     activeRobotSelect.value = record.id;

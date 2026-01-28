@@ -18,7 +18,10 @@ let hasRoboticsNamespace = null
 let gotoMethodNodeId = null;
 let toggleEndEffMethodNodeId = null;
 
-
+function getActiveManipulator() {
+    const record = getActiveRobot();
+    return record?.manipulator || null;
+}
 
 // Utils: Extract URDF joints from viewer
 function normalizeMapLike(mapLike) {
@@ -1547,10 +1550,10 @@ function updateRobotLockToggleVisibility() {
 const homeIcon = document.getElementById('home-icon');
 if (homeIcon) {
   homeIcon.addEventListener('click', () => {
-    const record = getActiveRobot();
-    if (!record?.manipulator) return;
+    const manipulator = getActiveManipulator();
+    if (!manipulator) return;
 
-    record.manipulator.dispatchEvent(new Event('reset-angles'));
+    manipulator.dispatchEvent(new Event('reset-angles'));
   });
 }
 
