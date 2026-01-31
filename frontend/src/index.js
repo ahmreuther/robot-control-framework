@@ -8,10 +8,43 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
-import URDFLoader from 'urdf-loader/src/URDFLoader.js';
 import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory, getActiveRobot, setActiveRobot} from './robotManager.js';
 import { spawnRobot, disposeRobotNode, renderForAFewFrames } from './sceneManager.js';
-import { applyDefaultPose } from './URDFIKManipulator.js';
+import {
+    handleSocketMessage,
+    toggleOpcUaSection,
+    toggleRobotDashboardSection,
+    connectOpcUa,
+    disconnectOpcUa,
+    handleOpcUaSyncToggle,
+    handleOpcUaNodeSelection,
+    handleSubtreeClick,
+    switchTab,
+    logMessageToBox,
+    clearLog,
+
+    handleNodeClick,
+    handleGlobalMouseDown,
+
+    handleContextMenu,
+    handleContextCallMethod,
+    handleContextSubscribe,
+    handleContextUnsubscribe,
+    handleContextSubscribeEvent,
+
+    syncWidth,
+    initWidthObserver,
+    initAnimationBlocker,
+    getToggleDimensions,
+    handleManipulateEnd,
+    updateRevoluteJointStatus,
+    refreshSelectedNode,
+    handleHomeClick,
+    toggleMcpIntegration,
+    sendMcpRobotStateUpdate,
+    updateConnectionStatus
+} from './functionalities.js';
+
 customElements.define('urdf-viewer', URDFIKManipulator);
 
 // declare these globally for the sake of the example.
@@ -23,7 +56,7 @@ setupMiniStats(viewer);
 // Provide a global manipulator factory once so addRobot can reuse it.
 setManipulatorFactory(() => {
     if (!viewer) return null;
-    return new URDFIKManipulator({
+    const manipulator = new URDFIKManipulator({
         scene: viewer.scene,
         world: viewer.world,
         camera: viewer.camera,
@@ -37,6 +70,8 @@ setManipulatorFactory(() => {
             }
         }
     });
+    
+    return manipulator;
 });
 
 const limitsToggle = document.getElementById('ignore-joint-limits');
@@ -62,16 +97,35 @@ const deleteRobotBtn = document.getElementById('delete-robot-btn');
 const robotCountValue = document.getElementById('robot-count-value');
 
 
-let initialRobotRegistered = false;
+let globalSocket = null;
 
-const logMessage = msg => {
-    const logContainer = document.getElementById('message-log');
-    if (!logContainer) return;
-    const line = document.createElement('div');
-    line.classList.add('log-entry');
-    line.textContent = msg;
-    logContainer.prepend(line);
-};
+function initGlobalSocket() {
+    globalSocket = new WebSocket("ws://127.0.0.1:8000/ws");
+
+    globalSocket.onopen = () => {
+        console.log("WebSocket connection established.");
+        globalSocket.send("status");
+    };
+    globalSocket.onmessage = (event) => {
+        const activeRobot = getActiveRobot();
+        
+        // Safety Check: Only process if a robot actually exists
+        if (activeRobot) {
+            handleSocketMessage(activeRobot, event);
+        } else {
+            console.warn("Socket message received, but no active robot found to process it.");
+        }
+    }
+
+    globalSocket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+    };
+
+    globalSocket.onclose = () => {
+        console.log("WebSocket connection closed.");
+    };
+}
+initGlobalSocket();
 
 // renderForAFewFrames is provided by `services/sceneManager.js`
 
@@ -149,6 +203,10 @@ async function addRobotByModel(model) {
     record.sceneNode = rig;
     rig.updateMatrixWorld(true);
 
+    if (globalSocket) {
+        record.state.connectivity.socket = globalSocket;
+    }
+
     // pass robot for IK and rig so gizmo is parented correctly
     record.manipulator.setRobot(robot, record.id, rig);
     record.manipulator.addEventListener('manipulate-start', () => {
@@ -180,7 +238,7 @@ addRobotBtn.addEventListener('click', async () => {
         
     } catch (err) {
         console.error('Failed to add robot', err);
-        logMessage('Failed to add robot: ' + (err?.message || err));
+        logMessageToBox('Failed to add robot: ' + (err?.message || err));
     }
 });
 
@@ -209,11 +267,26 @@ deleteRobotBtn.addEventListener('click', async () => {
     } else {
         setActiveRobot(null);
     }
+    activeRobotSelect.value = getActiveRobot();
+
     robotCountValue.textContent = listRobots().length;
 });
 
 activeRobotSelect.addEventListener('change', () => {
-    setActiveRobot(activeRobotSelect.value);
+    const selectedId = activeRobotSelect.value;
+    setActiveRobot(selectedId);
+
+    const record = getActiveRobot();
+    const urlInput = document.getElementById('opcua-url');
+    if (record) {
+        const isConnected = (record.state.connectivity.status === 'connected');
+        updateConnectionStatus(record, isConnected);
+
+        const urlInput = document.getElementById('opcua-url');
+        if (urlInput) {
+            urlInput.value = record.state.connectivity.connectedUrl || "";
+        }
+    }
     ControlCenterSliders();
 });
 
@@ -567,3 +640,173 @@ function ControlCenterSliders() {
         if (record) record._controlCenterListenerAttached = true;
     }
 }
+
+    
+toggleRobotDashboardSection();
+toggleOpcUaSection();
+document.getElementById('connect-opc-ua').addEventListener('click', () => {
+    connectOpcUa(getActiveRobot());
+});
+
+document.getElementById('disconnect-opc-ua').addEventListener('click', () => {
+    disconnectOpcUa(getActiveRobot());
+});
+const opcUaSyncToggle = document.getElementById('opc-ua-sync-toggle');
+opcUaSyncToggle.addEventListener('change', (e) => {
+    handleOpcUaSyncToggle(getActiveRobot(), e);
+});
+
+const opcUaSyncToggleContainer = document.getElementById('opc-ua-sync-toggle-container');
+opcUaSyncToggleContainer.addEventListener('click', (e) => {
+    e.stopPropagation();
+}, true);
+
+document.addEventListener("click", (e) => {
+    handleOpcUaNodeSelection(getActiveRobot(), e);
+});
+
+document.addEventListener("click", async (e) => {
+        handleSubtreeClick(getActiveRobot(), e);
+});
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        const tabName = btn.getAttribute("data-tab");
+        switchTab(tabName);
+    });
+});
+
+document.getElementById('clear-log-btn').addEventListener('click', () => {
+    clearLog();
+});
+
+document.addEventListener("contextmenu", (e) => {
+    handleContextMenu(getActiveRobot(), e);
+});
+
+document.addEventListener("click", (e) => {
+    handleNodeClick(getActiveRobot(), e);
+});
+
+document.getElementById('context-call-method').addEventListener('click', () => {
+    handleContextCallMethod(getActiveRobot());
+});
+
+document.getElementById('context-subscribe').addEventListener('click', () => {
+    handleContextSubscribe(getActiveRobot());
+});
+
+document.getElementById('context-unsubscribe').addEventListener('click', () => {
+    handleContextUnsubscribe(getActiveRobot());
+});
+
+document.getElementById('context-subscribe_event').addEventListener('click', () => {
+    handleContextSubscribeEvent(getActiveRobot());
+});
+document.getElementById('context-unsubscribe_event').addEventListener('click', () => {
+    handleContextUnsubscribeEvent(getActiveRobot());
+});
+
+window.addEventListener('mousedown', (e) => {
+    handleGlobalMouseDown(e);
+});
+
+// DOM Elements
+const infoBox = document.getElementById("info-box");
+const propertiesBox = document.getElementById("properties-box");
+const toggleBtn = document.getElementById("info-toggle-btn");
+//already defined
+//const animToggle = document.getElementById('do-animate');
+
+// Internal State
+
+// 1. Initial Setup
+syncWidth(infoBox, propertiesBox);
+initWidthObserver(infoBox, propertiesBox);
+initAnimationBlocker(animToggle);
+
+let infoBoxExpanded = true;
+
+toggleBtn?.addEventListener("click", () => {
+    const { width, label } = getToggleDimensions(infoBoxExpanded);
+    
+    // Apply changes
+    infoBox.style.width = width;
+    propertiesBox.style.width = width;
+    toggleBtn.textContent = label;
+    
+    // Update state
+    infoBoxExpanded = !infoBoxExpanded;
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+    const robot = getActiveRobot();
+    const animToggle = document.getElementById('do-animate');
+
+    if (!robot || !robot.manipulator|| !animToggle) {
+            console.warn('URDF Manipulator not found.');
+            return;
+        };
+    const manipulator = robot.manipulator;
+
+    manipulator.addEventListener('urdf-processed', () => {
+        manipulator.camera.position.set(-0.5, 1.1, 0.8);
+
+        animToggle.classList.remove('checked');
+        animToggle.remove(animToggle);
+
+        
+        updateRevoluteJointStatus(robot);
+
+        manipulator.addEventListener('angle-change', updateRevoluteJointStatus);
+
+        document.getElementById('radians-toggle')?.addEventListener('click', () => {
+            setTimeout(() => { updateRevoluteJointStatus(robot); }, 0);
+        });
+
+        manipulator.addEventListener('manipulate-start', () => {
+            robot.state.interaction.isManipulating = true;
+        });
+        manipulator.addEventListener('manipulate-end', () => {
+            handleManipulateEnd(robot);
+        });
+
+
+    });
+});
+/*
+window.addEventListener('DOMContentLoaded', () => {
+    const urlInput = document.getElementById('opc-ua-url');
+    const lastUrl = localStorage.getItem('lastOpcUaUrl');
+    if (lastUrl && urlInput) {
+        urlInput.value = lastUrl;
+    }
+});*/
+
+document.getElementById('refresh-info-box').addEventListener('click', () =>{
+    refreshSelectedNode();
+});
+
+document.getElementById('home-icon').addEventListener('click', () => {
+    handleHomeClick(getActiveRobot());
+});
+
+document.getElementById('mcp-integration-toggle').addEventListener('click', (e) => {
+    toggleMcpIntegration(getActiveRobot(), e);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const robot = getActiveRobot();
+    if(robot){
+        manipulator.addEventListener('angle-change', () => {
+            sendMcpRobotStateUpdate(getActiveRobot());
+        });
+    }
+});
+
+
+window.addEventListener('load', () => {
+    // Enable Hide Fixed Joints when loading
+    const hideFixedToggle = document.getElementById('hide-fixed');
+    hideFixedToggle.dispatchEvent(new Event('click'));
+});

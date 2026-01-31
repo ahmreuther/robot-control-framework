@@ -57,8 +57,7 @@
                         <th>Value</th>
                     </tr>
                 </thead>
-                <tbody>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
 
@@ -77,11 +76,9 @@
                         <th>TypeDefinition</th>
                     </tr>
                 </thead>
-                <tbody>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
-
     </div>
 
     <div id="menu">
@@ -140,7 +137,10 @@
         <div id="opc-ua" class="hidden">
             <div id="toggle-opc-ua"></div>
             <div>
-
+                <div style="display:flex; align-items:center; margin-bottom:10px;">
+                    <div id="connection-status-dot" style="width:12px; height:12px; border-radius:50%; background-color:#f44336; margin-right:8px;"></div>
+                    <span id="connection-status-text" style="font-size:14px; color:#eee;">Disconnected</span>
+                </div>
 
                 <label for="opc-ua-url">OPC UA Server URL:</label><br>
                 <div id="opc-ua-input-container">
@@ -150,29 +150,25 @@
                         <option value="opc.tcp://10.10.38.25:4840/freeopcua/server/"></option>
                         <option value="opc.tcp://10.10.38.26:4840/freeopcua/server/"></option>
                         <option value="opc.tcp://10.10.38.27:4840/freeopcua/server/"></option>
-
                     </datalist>
-
                 </div>
+
                 <button id="connect-opc-ua">Connect</button>
                 <button id="disconnect-opc-ua">Disconnect</button>
-
             </div>
+            
             <div id="opc-ua-sync-toggle-container" style="margin: 10px 0 0 0;">
                 <label class="switch">
                     <input type="checkbox" id="opc-ua-sync-toggle">
                     <span class="slider round"></span>
                 </label>
-                <span style="margin-left: 10px; font-size: 14px; vertical-align: middle;">Synchronize
-                    OPC UA
-                    server</span>
+                <span style="margin-left: 10px; font-size: 14px; vertical-align: middle;">Synchronize OPC UA server</span>
             </div>
             <div id="method-call-status" style="display:none;">
                 <span id="method-spinner" class="ds-spinner"
                     style="margin-right:10px; display:inline-block; vertical-align:middle;"></span>
                 <span id="method-status-text" style="vertical-align:middle;"></span>
             </div>
-
         </div>
 
         <div id="robot-dashboard" class="hidden">
@@ -206,12 +202,7 @@
                 Errors: <span id="robot-errors">None</span>
             </div>
         </div>
-
-
-
-
-
-
+        
     </div>
 
     <div id="robot-stats-box">
@@ -234,9 +225,6 @@
         </div>
     </div>
 
-
-
-
     <div id="message-box">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <strong style="font-size: 16px;">Message Log</strong>
@@ -244,11 +232,6 @@
         </div>
         <div id="message-log"></div>
     </div>
-
-
-
-
-
 
     <div id="custom-context-menu" style="display:none;">
         <ul class="context-menu-list">
@@ -292,7 +275,7 @@
     <urdf-viewer up="-Z" display-shadow tabindex="0"></urdf-viewer>
 
     <script type="module" src="./index.js"></script>
-    <script type="module" src="./functionalities.js"></script>
+    <!--<script type="module" src="./functionalities.js"></script>-->
 </body>
 
 </html>
