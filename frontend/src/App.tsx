@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 import { Panel, Group } from 'react-resizable-panels'
 import { Viewport } from "./components/viewport/Viewport";
 import { SidebarMenu } from './components/Menu';
+import RobotsServersManager from './components/RobotsServersManager';
 import { useSceneState } from './hooks/useSceneState';
 import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './contexts/UrlContext';
@@ -11,6 +12,11 @@ import { useJointState } from "./hooks/useJointState";
 import WebSocketReciever  from './components/WebsocketReciever';
 import { LogProvider} from './contexts/LogContext';
 import { RobotInfoProvider, AxleValues, RobotInfo } from './contexts/RobotInfoContext';
+import useServersAndRobots from './hooks/useServersAndRobots';
+import MessageLog from './components/MenuComponents/Tab2Components/MessageLog';
+import Twin_Dashboard from './components/MenuComponents/TwinDashboardComponents/Twin_Dashboard';
+import Live_Status from './components/MenuComponents/TwinDashboardComponents/Live_Status';
+import { JointAnglesPanel } from "./components/MenuComponents/ControlsComponents/JointAnglesPanel";
 
 function App() {
   
@@ -21,7 +27,7 @@ function App() {
     reloadKey,
     handleRobotSelect,
     setJointLimits,
-    jointLimits,
+    jointProperties,
     options,
     showCollisionMesh,
     setShowCollisionMesh,
@@ -38,277 +44,96 @@ function App() {
   const [axleValues, setAxleValues] = useState<AxleValues>({});
   const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
 
-  type Robot = {
-    id: number;
-    name: string;
-    serverId: number | null;
-  };
-
-  type Server = {
-    id: number;
-    name: string;
-    robotIds: number[];
-  };
-
-  const [servers, setServers] = useState<Server[]>([]);
-  const [robots, setRobots] = useState<Robot[]>([]);
-  const [serverIdCounter, setServerIdCounter] = useState(1);
-  const [robotIdCounter, setRobotIdCounter] = useState(1);
-
-  const addServer = (name: string) => {
-    setServers(prev => [...prev, { id: serverIdCounter, name, robotIds: [] }]);
-    setServerIdCounter(id => id + 1);
-  };
-
-  const removeServer = (serverId: number) => {
-    setServers(prev => {
-      const newServers = prev.filter(s => s.id !== serverId);
-      if (activeASpaceServerId === serverId) {
-        setActiveASpaceServerId(newServers.length ? newServers[0].id : null);
-      }
-      return newServers;
-    });
-
-    setRobots(prev => prev.map(r => r.serverId === serverId ? { ...r, serverId: null } : r));
-    setServerIdCounter(id => id - 1);
-  };
-
-  const addRobot = (name: string) => {
-    setRobots(prev => [...prev, { id: robotIdCounter, name, serverId: null }]);
-    setRobotIdCounter(id => id + 1);
-  };
-
-  const removeRobot = (robotId: number) => {
-    setRobots(prev => prev.filter(r => r.id !== robotId));
-    setServers(prev => prev.map(s => ({ ...s, robotIds: s.robotIds.filter(id => id !== robotId) })));
-    setRobotIdCounter(id => id - 1);
-  };
-
-  const connectRobotToServer = (robotId: number, serverId: number) => {
-    const prevRobot = robots.find(r => r.id === robotId);
-    const prevServerId = prevRobot?.serverId;
-
-    setRobots(prev => prev.map(r => r.id === robotId ? { ...r, serverId } : r));
-    setServers(prev => prev.map(s => {
-      if (s.id === serverId) {
-        return { ...s, robotIds: [...s.robotIds, robotId] };
-      } else if (s.id === prevServerId) {
-        return { ...s, robotIds: s.robotIds.filter(id => id !== robotId) };
-      } else {
-        return s;
-      }
-    }));
-  };
-
-  const disconnectRobot = (robotId: number) => {
-    const robot = robots.find(r => r.id === robotId);
-    if (!robot || robot.serverId === null) return;
-    setRobots(prev => prev.map(r => r.id === robotId ? { ...r, serverId: null } : r));
-    setServers(prev => prev.map(s =>
-      s.id === robot.serverId
-        ? { ...s, robotIds: s.robotIds.filter(id => id !== robotId) }
-        : s
-    ));
-  };
-
-  const [newServerName, setNewServerName] = useState('');
-  const [newRobotName, setNewRobotName] = useState('');
-
-  const [activeASpaceServerId, setActiveASpaceServerId] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (servers.length && activeASpaceServerId === null) {
-      setActiveASpaceServerId(servers[0].id);
-    } else if (!servers.length) {
-      setActiveASpaceServerId(null);
-    }
-  }, [servers]);
-
-  const [serversOpen, setServersOpen] = useState(true);
-  const [robotsOpen, setRobotsOpen] = useState(true);
+  const {
+    servers,
+    robots,
+    addServer,
+    removeServer,
+    addRobot,
+    removeRobot,
+    connectRobotToServer,
+    disconnectRobot,
+    activeASpaceServerId,
+    setActiveASpaceServerId,
+  } = useServersAndRobots();
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-black text-white p-4">
       <div>
         Settings
       </div>
-      <Group>
-        <Panel defaultSize="80%">
+        <Group>
+        <Panel defaultSize="90%">
           <Group orientation="vertical">
             <Panel>
-              <div className="relative h-full">
-                <Viewport 
-                  key={reloadKey}
-                  urdfPath={selectedRobot.url}
-                  jointManager={jointManager}
-                  onJointLimitsLoaded={setJointLimits}
-                  showCollisionMesh={showCollisionMesh}
-                  setHoveredJointMesh={setHoveredJointMesh}
-                />
-              </div>
+                <Group>
+                  <Panel defaultSize="20%">
+                    <JointAnglesPanel
+                      jointManager={jointManager}
+                      jointProperties={jointProperties}
+                      showCollisionMesh={showCollisionMesh}
+                      setShowCollisionMesh={setShowCollisionMesh}
+                      reloadKey={reloadKey}
+                      hoveredJointMesh={hoveredJointMesh}
+                    />
+                  </Panel>
+                  <Panel>
+                <div className="relative h-full">
+                  <Viewport 
+                    key={reloadKey}
+                    urdfPath={selectedRobot.url}
+                    jointManager={jointManager}
+                    onJointLimitsLoaded={setJointLimits}
+                    showCollisionMesh={showCollisionMesh}
+                    setHoveredJointMesh={setHoveredJointMesh}
+                  />
+                </div>
+                </Panel>
+              </Group>
             </Panel>
-              <div>
-                Server: {activeASpaceServerId !== null ? servers.find(s => s.id === activeASpaceServerId)?.name : 'None'}
+              <div className="flex">
+                <span>Servers:</span>
+                <nav className="flex items-center gap-2" role="tablist" aria-label="Address Space servers">
+                  {servers.length ? servers.map(s => (
+                    <button
+                      key={s.id}
+                      role="tab"
+                      className={`${s.id === activeASpaceServerId ? 'border-2 border-blue-500' : ''}`}
+                      aria-selected={s.id === activeASpaceServerId}
+                      onClick={() => setActiveASpaceServerId(s.id)}
+                    >
+                      {s.name}
+                    </button>
+                  )) : (
+                    null
+                  )}
+                </nav>
               </div>
-            <Panel defaultSize="30%">
+            <Panel defaultSize="20%">
               <Group>
-              <Panel>
-                Aspace
-              </Panel>
-              <Panel>
-                MessageLog
-              </Panel>
+                <Panel defaultSize="70%">
+                  Aspace
+                </Panel>
+                <Panel>
+                  <MessageLog />
+                </Panel>
               </Group>
             </Panel>
           </Group>
         </Panel>
         <Panel>
-          <div className="flex flex-col">
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold">Servers</h2>
-                <button
-                  className="text-sm"
-                  onClick={() => setServersOpen(prev => !prev)}
-                  aria-expanded={serversOpen}
-                >
-                  {serversOpen ? '▼' : '▶'}
-                </button>
-              </div>
-              {serversOpen && (
-                <div>
-                  <div>
-                    <input
-                      className="w-full"
-                      type="text"
-                      placeholder="Server name"
-                      value={newServerName}
-                      onChange={e => setNewServerName(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          addServer(newServerName.trim());
-                          setNewServerName('');
-                          e.currentTarget.blur();
-                        }
-                      }}
-                    />
-                  </div>
-                  {servers.map(server => (
-                    <div key={server.id}>
-                      <div className="flex items-center justify-between">
-                        <div className="font-semibold">{server.name} (ID: {server.id})</div>
-                        <div className="flex">
-                          <button
-                            className="text-sm"
-                            onClick={() => setActiveASpaceServerId(server.id)}
-                          >
-                            Select
-                          </button>
-                          <button
-                            className="text-sm"
-                            onClick={() => removeServer(server.id)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>Connected Robots:
-                      <ul>
-                        {server.robotIds.map(rid => {
-                          const robot = robots.find(r => r.id === rid);
-                          return robot ? (
-                            <li key={rid}>
-                              {robot.name} (ID: {robot.id})
-                            </li>
-                          ) : null;
-                        })}
-                      </ul>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold">Robots</h2>
-                <button
-                  className="text-sm"
-                  onClick={() => setRobotsOpen(prev => !prev)}
-                  aria-expanded={robotsOpen}
-                >
-                  {robotsOpen ? '▼' : '▶'}
-                </button>
-              </div>
-
-              {robotsOpen && (
-                <div>
-                  <div>
-                    <input
-                      className="w-full"
-                      type="text"
-                      placeholder="Robot name"
-                      value={newRobotName}
-                      onChange={e => setNewRobotName(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          addRobot(newRobotName.trim());
-                          setNewRobotName('');
-                          e.currentTarget.blur();
-                        }
-                      }}
-                    />
-                  </div>
-                  {robots.map(robot => (
-                    <div key={robot.id}>
-                      <div className="flex items-center justify-between">
-                        <div className="font-semibold">{robot.name} (ID: {robot.id})</div>
-                        <button
-                          className="text-sm"
-                          onClick={() => removeRobot(robot.id)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-
-                      <div>
-                        Connected to server:
-                        <span>
-                          {servers.find(s => s.id === robot.serverId)?.name} (ID: {robot.serverId})
-                        </span>
-                        <select
-                          id={`connect-server-${robot.id}`}
-                          className="text-black"
-                          value={robot.serverId ?? ''}
-                          onChange={e => {
-                            const value = e.target.value;
-                            if (value === "") {
-                              disconnectRobot(robot.id);
-                            } else {
-                              const sid = Number(value);
-                              if (sid) connectRobotToServer(robot.id, sid);
-                            }
-                          }}
-                        >
-                          <option value="">None</option>
-                          {servers.map(server => (
-                            <option key={server.id} value={server.id}>{server.name} (ID: {server.id})</option>
-                          ))}
-
-                        </select>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div>
-            Dashboard
-          </div>
-          <div>Live Status with Syn button?</div>
+          <RobotsServersManager
+            servers={servers}
+            robots={robots}
+            addServer={addServer}
+            removeServer={removeServer}
+            addRobot={addRobot}
+            removeRobot={removeRobot}
+            connectRobotToServer={connectRobotToServer}
+            disconnectRobot={disconnectRobot}
+          />
+          <Live_Status />
+          <Twin_Dashboard /> 
         </Panel>
       </Group>
     </div>

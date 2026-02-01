@@ -46,7 +46,7 @@ export function JointAnglesPanel({
   };
 
   return (
-    <div className="text-white text-xs space-y-2 overflow-y-auto bg-black p-4 rounded border border-white/20 pointer-events-auto">
+    <div className="text-white text-xs space-y-2 overflow-y-auto bg-black p-4 rounded border border-white/20 pointer-events-auto h-full">
       <div className="font-bold mb-3 text-sm uppercase tracking-wide text-white/90">Joint Angles</div>
 
       <div className="flex items-center gap-2 px-2 py-2 rounded bg-white/5 mb-3">

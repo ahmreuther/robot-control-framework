@@ -70,8 +70,7 @@ export function Robot({
       metalness: 0.2,
       roughness: 0.7,
       transparent: true,
-      opacity: 0.7,
-      wireframe: true, // Optional: wireframe for better visibility?
+      opacity: 0.7
     })  
   );
 

@@ -25,7 +25,7 @@ export interface SceneStateApi {
   options: ModelConfig[];
   showCollisionMesh: boolean;
   setShowCollisionMesh: (visible: boolean) => void;
-  jointLimits: Array<JointProperty | null>;
+  jointProperties: Array<JointProperty | null>;
   setJointLimits: (limits: Array<JointProperty | null>) => void;
   updateJointLimit: (index: number, limit: JointProperty | null) => void;
   selectedRobot: ModelConfig | null;
@@ -43,7 +43,7 @@ export function useSceneState(): SceneStateApi {
   } = {};
 
   const [showCollisionMesh, setShowCollisionMesh] = useState<boolean>(initialShowCollisionMesh);
-  const [jointLimits, setJointLimits] = useState<Array<JointProperty | null>>(initialJointLimits);
+  const [jointProperties, setJointLimits] = useState<Array<JointProperty | null>>(initialJointLimits);
   const [selectedRobot, setSelectedRobot] = useState<ModelConfig>(ROBOT_MODELS[0]);
   const [reloadKey, setReloadKey] = useState(0);
   const [hoveredJointMesh, setHoveredJointMesh] = useState<number | null>(null);
@@ -66,7 +66,7 @@ export function useSceneState(): SceneStateApi {
       options: ROBOT_MODELS,
       showCollisionMesh,
       setShowCollisionMesh,
-      jointLimits,
+      jointProperties,
       setJointLimits,
       updateJointLimit,
       selectedRobot,
@@ -76,6 +76,6 @@ export function useSceneState(): SceneStateApi {
       hoveredJointMesh,
       setHoveredJointMesh,
     }),
-    [showCollisionMesh, jointLimits, updateJointLimit, selectedRobot, reloadKey, handleRobotSelect, hoveredJointMesh]
+    [showCollisionMesh, jointProperties, updateJointLimit, selectedRobot, reloadKey, handleRobotSelect, hoveredJointMesh]
   );
 }
