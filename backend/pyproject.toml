@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 # Open3D currently requires Python 3.12.x. Restrict project to 3.12 to ensure compatibility.
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.11,<3.13"
 # Add commonly needed scientific libraries; numpy and Open3D are used for point cloud processing
 dependencies = [
     "asyncua>=1.1.6",

@@ -4,7 +4,7 @@ COPY ./frontend/. /src/.
 RUN npm ci
 RUN npm run build
 
-FROM python:3.12-slim
+FROM python:3.11-slim
 WORKDIR /app
 COPY ./backend /app/
 
