@@ -14,12 +14,14 @@ RUN apt-get update \
         libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libopenblas-dev \
     && pip install --upgrade pip setuptools wheel \
     && pip install uv \
-    && uv sync \
+    && uv sync --frozen --python /usr/local/bin/python \
     && apt-get remove -y build-essential gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build_frontend /src/public/urdf /app/www/urdf
 COPY --from=build_frontend /src/dist /app/www
+
 ENV HOST=true
+
 ENTRYPOINT [ "uv", "run", "main.py" ]
