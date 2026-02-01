@@ -373,6 +373,140 @@ function removeSubscriptionRow(nodeId) {
     if (row) row.remove();
 }
 
+// --- PCD2 receiver (frontend) ---
+const PCD2_MAGIC = "PCD2";
+const PCD2_HEADER_BYTES = 52;
+
+const pcdAssemblies = new Map(); // seqId -> asm
+// asm: { totalPoints, chunkCount, got, min:[3], scale:[3], qbuf:Uint16Array, kind:string }
+
+function ensureAsm(seqId, totalPoints, chunkCount, min, scale, kind = "unknown") {
+  let asm = pcdAssemblies.get(seqId);
+  if (!asm) {
+    asm = {
+      totalPoints,
+      chunkCount,
+      got: 0,
+      min,
+      scale,
+      kind,
+      qbuf: new Uint16Array(totalPoints * 3),
+    };
+    pcdAssemblies.set(seqId, asm);
+  } else {
+    // Update existing assembly with new metadata (in case it was pre-created by pcd_kind)
+    if (!asm.qbuf) {
+      asm.qbuf = new Uint16Array(totalPoints * 3);
+    }
+    asm.totalPoints = totalPoints;
+    asm.chunkCount = chunkCount;
+    asm.got = 0;  // ← WICHTIG: Reset asm.got wenn wir updaten!
+    asm.min = min;
+    asm.scale = scale;
+    if (kind !== "unknown") {
+      asm.kind = kind;
+    }
+  }
+  return asm;
+}
+
+function dequantizeToVector3Array(asm) {
+  const pts = new Array(asm.totalPoints);
+  const minx = asm.min[0], miny = asm.min[1], minz = asm.min[2];
+  const sx = asm.scale[0], sy = asm.scale[1], sz = asm.scale[2];
+
+  const q = asm.qbuf;
+  for (let i = 0; i < asm.totalPoints; i++) {
+    const qx = q[i * 3 + 0];
+    const qy = q[i * 3 + 1];
+    const qz = q[i * 3 + 2];
+    pts[i] = new Vector3(minx + qx * sx, miny + qy * sy, minz + qz * sz);
+  }
+  return pts;
+}
+
+function handlePCD2ArrayBuffer(buf) {
+  console.log("[PCD2 RX] handlePCD2ArrayBuffer called, buf size:", buf.byteLength);
+  
+  const dv = new DataView(buf);
+
+  const magic =
+    String.fromCharCode(dv.getUint8(0)) +
+    String.fromCharCode(dv.getUint8(1)) +
+    String.fromCharCode(dv.getUint8(2)) +
+    String.fromCharCode(dv.getUint8(3));
+
+  console.log("[PCD2 RX] Magic:", magic, "Expected: PCD2");
+
+  if (magic !== PCD2_MAGIC) {
+    console.warn("[PCD2 RX] Bad magic, ignoring");
+    return;
+  }
+
+  const seqId = dv.getUint32(4, true);
+  const chunkIndex = dv.getUint32(8, true);
+  const chunkCount = dv.getUint32(12, true);
+  const totalPoints = dv.getUint32(16, true);
+  const startIndex = dv.getUint32(20, true);
+  const n = dv.getUint32(24, true);
+
+  const minx = dv.getFloat32(28, true);
+  const miny = dv.getFloat32(32, true);
+  const minz = dv.getFloat32(36, true);
+  const sx = dv.getFloat32(40, true);
+  const sy = dv.getFloat32(44, true);
+  const sz = dv.getFloat32(48, true);
+
+  console.log(`[PCD2 RX] Chunk ${chunkIndex}/${chunkCount}, total=${totalPoints}, start=${startIndex}, n=${n}`);
+
+    const existingAsm = pcdAssemblies.get(seqId);
+    const asm = ensureAsm(
+        seqId,
+        totalPoints,
+        chunkCount,
+        [minx, miny, minz],
+        [sx, sy, sz],
+        existingAsm?.kind
+    );
+
+  // copy data
+  const data = new Uint16Array(buf, PCD2_HEADER_BYTES);
+  // data is interleaved xyz, length = n*3
+  const dstOffset = startIndex * 3;
+  console.log(`[PCD2 RX] Copying ${data.length} uint16 values to offset ${dstOffset}`);
+  asm.qbuf.set(data, dstOffset);
+
+  asm.got += 1;
+  console.log(`[PCD2 RX] asm.got=${asm.got}, asm.chunkCount=${asm.chunkCount}`);
+
+  // if complete -> show
+  if (asm.got >= asm.chunkCount) {
+    console.log(`[PCD2 RX] Assembly complete, dequantizing...`);
+    try {
+      const pts = dequantizeToVector3Array(asm);
+      console.log(`[PCD2 RX] complete seq=${seqId} kind=${asm.kind} pts=${pts.length}`);
+
+      // Ensure viewer is available
+      if (!viewer) {
+        viewer = document.querySelector('urdf-viewer');
+      }
+
+      // show surface point cloud (replace old cloud)
+      if (viewer && window.showRawPointCloud) {
+        console.log(`[PCD2 RX] Displaying ${pts.length} points in viewer`);
+        window.showRawPointCloud(viewer, pts, { size: 0.01, opacity: 0.9 });
+      } else {
+        console.warn('[PCD2 RX] Cannot display: viewer=' + !!viewer + ', showRawPointCloud=' + !!window.showRawPointCloud);
+      }
+
+      pcdAssemblies.delete(seqId);
+    } catch (err) {
+      console.error('[PCD2 RX] Error processing assembly:', err);
+    }
+  }
+}
+
+
 
 window.addEventListener('load', () => {
     // Enable Hide Fixed Joints when loading
@@ -383,21 +517,32 @@ window.addEventListener('load', () => {
     // connectedUrl = getLastOpcUaUrl();      // <-- Initialize here!
     const lastNodeId = getLastOpenNodeId();
 
-    var url = get_ws_url("/ws");
-    socket = new WebSocket(url);
+        // ---- OPC UA WS init (functionalities.js) ----
+        socket = new WebSocket(get_ws_url("/ws"));
 
-    socket.onopen = () => {
-        console.log("WebSocket connection established.");
-        socket.send("status");
+        // globally expose OPC UA socket
+        window.__WS__ = socket;
 
-        const lastNodeId = localStorage.getItem('opcuaLastOpenNode');
+        socket.addEventListener("open", () => {
+            console.log("[functionalities.js] OPC UA WS open:", socket.url);
+            socket.send("status");
+            const lastNodeId = localStorage.getItem('opcuaLastOpenNode');
+        });
 
-    };
+        socket.addEventListener("error", (e) => {
+            console.log("[functionalities.js] OPC UA WS error", e);
+        });
 
+        socket.addEventListener("close", () => {
+            console.log("[functionalities.js] OPC UA WS close");
+        });
 
-    socket.onmessage = (event) => {
-        console.log("Message from server:", event.data);
-        const data = event.data;
+        socket.onmessage = (event) => {
+       
+
+            // text
+            const data = event.data;
+            console.log("Message from server:", data);
         // Check whether the message should be output using the flag “x|”
         if (event.data.startsWith("x|")) {
 
@@ -667,6 +812,163 @@ window.addEventListener('load', () => {
 
     socket.onclose = () => {
         console.log("WebSocket connection closed.");
+    };
+
+    // ---- Workspace WS init (PCD2) ----
+    const socket_pcd = new WebSocket(get_ws_url("/ws_workspace"));
+    socket_pcd.binaryType = "arraybuffer";
+
+    // globally expose for index.js fallback
+    window.__WS_PCD__ = socket_pcd;
+
+    socket_pcd.addEventListener("open", () => {
+        console.log("[functionalities.js] Workspace WS open:", socket_pcd.url);
+        // notify index.js that workspace socket is ready
+        window.dispatchEvent(new CustomEvent("ws-ready", { detail: { socket: socket_pcd } }));
+    });
+
+    socket_pcd.addEventListener("error", (e) => {
+        console.log("[functionalities.js] Workspace WS error", e);
+    });
+
+    socket_pcd.addEventListener("close", () => {
+        console.log("[functionalities.js] Workspace WS close");
+    });
+
+    socket_pcd.onmessage = (event) => {
+        console.log("[PCD2 RX] event type:", typeof event.data, "instanceof ArrayBuffer:", event.data instanceof ArrayBuffer, "size:", event.data?.byteLength || event.data?.length);
+        const progressUI = window.__WS_PROGRESS__;
+        const setBar = (pct, text) => {
+            if (!progressUI?.set) return;
+            progressUI.show?.();
+            progressUI.set(pct, text);
+        };
+        
+        if (event.data instanceof ArrayBuffer) {
+            console.log("[PCD2 RX] Received binary data, size:", event.data.byteLength);
+            handlePCD2ArrayBuffer(event.data);
+            return;
+        }
+
+        const data = event.data;
+        console.log("[PCD2] server:", data);
+
+        // Debug acks / progress
+        if (data.startsWith("pcd_chunk|")) {
+            console.log("[PCD2] chunk ack:", data);
+            return;
+        }
+        if (data.startsWith("pcd_progress|")) {
+            // pcd_progress|seq|got|count
+            const parts = data.split("|");
+            const seq = parts[1];
+            const got = Number(parts[2]);
+            const cnt = Number(parts[3]);
+            const pct = Math.round((got / cnt) * 100);
+            console.log(`[PCD2] progress seq=${seq} ${pct}% (${got}/${cnt})`);
+            setBar(pct, "Sende Pointcloud an Backend");
+            return;
+        }
+        if (data.startsWith("pcd_ok|")) {
+            console.log("[PCD2] upload complete:", data);
+            setBar(100, "Upload fertig");
+            return;
+        }
+
+        if (data.startsWith("pcd_status|")) {
+            const parts = data.split("|");
+            const status = parts[2] || "";
+            const msg = parts[3] || "";
+
+            if (status === "processing_start") {
+                setBar(60, "Backend verarbeitet…");
+                return;
+            }
+            if (status === "processing_done") {
+                setBar(90, "Backend fertig. Warte auf SPC…");
+                return;
+            }
+            if (status === "processing_error") {
+                setBar(100, "Backend Fehler");
+                return;
+            }
+
+            if (status === "build_field_start") {
+                setBar(60, "Backend: Feldaufbau…");
+                return;
+            }
+            if (status === "field_progress") {
+                // msg = "ix/nx"
+                const parts2 = msg.split("/");
+                const a = Number(parts2[0]);
+                const b = Number(parts2[1]);
+                const frac = (b > 0 && Number.isFinite(a) && Number.isFinite(b)) ? (a / b) : 0;
+                const pct = 60 + Math.round(frac * 20); // 60..80
+                setBar(pct, `Backend: Feldaufbau ${msg}`);
+                return;
+            }
+            if (status === "build_field_done") {
+                setBar(80, "Backend: Feld fertig");
+                return;
+            }
+            if (status === "flood_fill_start") {
+                setBar(82, "Backend: Flood-Fill…");
+                return;
+            }
+            if (status === "flood_fill_done") {
+                setBar(85, "Backend: Flood-Fill fertig");
+                return;
+            }
+            if (status === "shell_start") {
+                setBar(87, "Backend: Shell…");
+                return;
+            }
+            if (status === "shell_done") {
+                setBar(89, "Backend: Shell fertig");
+                return;
+            }
+            if (status === "surface_points_done") {
+                setBar(90, msg ? `Backend: Oberfläche fertig (${msg})` : "Backend: Oberfläche fertig");
+                return;
+            }
+        }
+
+        // kind binding (backend tells you what the next seqId means)
+        // pcd_kind|seqId|surface
+        if (data.startsWith("pcd_kind|")) {
+            const parts = data.split("|");
+            const seqId = Number(parts[1]);
+            const kind = parts[2] || "unknown";
+
+            // store kind into existing or future assembly
+            let asm = pcdAssemblies.get(seqId);
+            if (!asm) {
+                // create placeholder (will be filled when first chunk arrives)
+                asm = { kind };
+                pcdAssemblies.set(seqId, asm);
+            } else {
+                asm.kind = kind;
+            }
+
+            console.log(`[PCD2] kind seq=${seqId} -> ${kind}`);
+            if (kind === "surface") {
+                setBar(0, "Receiving SPC");
+            }
+            return;
+        }
+
+        if (data.startsWith("surface_progress|")) {
+            const parts = data.split("|");
+            const got = Number(parts[2]);
+            const cnt = Number(parts[3]);
+            const pct = Math.round((got / cnt) * 100);
+            setBar(pct, "Receiving SPC");
+            return;
+        }
+        if (data.startsWith("surface_done|")) {
+            setBar(100, "Fertig");
+            return;
+        }
     };
 });
 

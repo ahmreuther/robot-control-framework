@@ -3,7 +3,9 @@ name = "dt-robot-control-backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+# Open3D currently requires Python 3.12.x. Restrict project to 3.12 to ensure compatibility.
+requires-python = ">=3.12,<3.13"
+# Add commonly needed scientific libraries; numpy and Open3D are used for point cloud processing
 dependencies = [
     "asyncua>=1.1.6",
     "fastapi>=0.116.1",
@@ -12,4 +14,9 @@ dependencies = [
     "ollmcp>=0.17.0",
     "uvicorn[standard]>=0.35.0",
     "websockets>=15.0.1",
+    "numpy>=1.27",
+    "open3d>=0.19",
+    "scipy>=1.12",         
+    "scikit-image>=0.23",  
+    "trimesh>=4.4.0", 
 ]

@@ -8,8 +8,14 @@ from typing import List, TypedDict, Set
 
 from contextlib import asynccontextmanager
 
+import sys
+# Enforce Python 3.12 at runtime because Open3D currently requires Python 3.12.x
+if (sys.version_info.major, sys.version_info.minor) != (3, 12):
+    raise RuntimeError(f"Python 3.12.x is required for Open3D compatibility. Running Python {sys.version_info.major}.{sys.version_info.minor}.")
+
 import opcua
 import mcp_server
+import WorkSpace
 
 
 class State(TypedDict):
@@ -53,6 +59,8 @@ app.add_middleware(
 
 app.include_router(opcua.router)
 app.include_router(mcp_server.router)
+app.include_router(WorkSpace.router)
+
 app.mount("/llm", mcp_server.mcp_app)
 
 # --- Static File Serving & Entrypoint ---

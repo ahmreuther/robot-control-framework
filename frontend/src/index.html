@@ -90,8 +90,12 @@
             <span style="color: rgb(32, 32, 32);">Digital Twin</span> <span
                 style="color: rgb(80, 114, 176);">Teach-In</span>
         </h1>
-        <div id="stats-output"><pre id="output-stats"></pre></div>
-        <div id="menu-output"><pre id="output"></pre></div>
+        <div id="stats-output">
+            <pre id="output-stats"></pre>
+        </div>
+        <div id="menu-output">
+            <pre id="output"></pre>
+        </div>
 
         <ul id="urdf-options">
             <li urdf="/urdf/eva_description/urdf/eva_description.urdf" color="#546575">EVA Automata</li>
@@ -106,12 +110,20 @@
             <div id="radians-toggle" class="toggle">Use Radians</div>
             <div id="autocenter-toggle" class="toggle">Autocenter</div>
             <div id="collision-toggle" class="toggle">Show Collision</div>
-            
 
-            <div id="show-work-envelope" class="toggle ">Show Work Envelope</div>
+            <div class="toggle-row">
+                <div id="show-work-envelope" class="toggle ">Show Work Envelope</div>
+                <div id="workspace-resolution" class="segmented" role="group" aria-label="Workspace Resolution">
+                    <button type="button" class="seg-btn" data-res="low">Low</button>
+                    <button type="button" class="seg-btn active" data-res="medium">Medium</button>
+                    <button type="button" class="seg-btn" data-res="high">High</button>
+                </div>
+            </div>
             <div id="show-inner-shell" class="toggle checked" style="display: none;">Inner Shell</div>
+            <div id="export" class="toggle" style="display:none;">Export raw cloud</div>
+
+
             <div id="workspace-progress"></div>
-            
 
             <div id="do-animate" class="toggle ">Animate Joints</div>
             <label>

@@ -36,7 +36,7 @@ flowchart TD
 For development, you will need:
 - **Git**
 - **Git LFS**
-- **Python 3.11+** (recommended)
+- **Python 3.12.x** (required — Open3D in backend needs Python 3.12.x)
 - **Node.js LTS** (e.g., 20.x) + **npm**
 - **uv** (Python package manager from Astral)
 Installation:
@@ -50,6 +50,9 @@ Installation:
     iwr https://astral.sh/uv/install.ps1 -UseBasicParsing | iex
 ```
 - Access to an **OPC UA Robotics Server** (e.g., Franka controller, simulator, or digital twin)
+
+> **Note:** The backend requires **Python 3.12.x** for Open3D compatibility. If your system Python is different, consider using `pyenv` to install Python 3.12 or run the app in Docker (the project's `Dockerfile` is configured to use Python 3.12).
+
 > If you don't want to use **uv**, you can also work with `venv` + `pip`.
 
 
