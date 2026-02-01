@@ -121,6 +121,7 @@ class RobotManager {
                     isMouseDownOnJoint: false
                 },
                 ui: {
+                    addressSpaceHTML: null,
                     selectedNodeId: null,
                     selectedNodeElement: null,
                     showSubscriptionsTabOnNextCustom: false,

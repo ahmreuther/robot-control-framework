@@ -810,3 +810,13 @@ window.addEventListener('load', () => {
     const hideFixedToggle = document.getElementById('hide-fixed');
     hideFixedToggle.dispatchEvent(new Event('click'));
 });
+
+// have last connect url in opcua url box
+window.addEventListener('DOMContentLoaded', () => {
+    const urlInput = document.getElementById('opc-ua-url');
+    const lastUrl = localStorage.getItem('lastOpcUaUrl');
+    if (lastUrl && urlInput) {
+        urlInput.value = lastUrl;
+    }
+});
+

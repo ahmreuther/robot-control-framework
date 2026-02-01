@@ -2,11 +2,6 @@ import { Vector3 } from "three";
 import { getActiveRobot } from './robotManager.js';
 
 
-function getActiveManipulator() {
-    const record = getActiveRobot();
-    return record?.manipulator || null;
-}
-
 // Utils: Extract URDF joints from viewer
 function normalizeMapLike(mapLike) {
     const out = {};
@@ -19,8 +14,8 @@ function normalizeMapLike(mapLike) {
     return out;
 }
 
-function urdfJointsArray() {
-    const manipulator = getActiveManipulator();
+function urdfJointsArray(robotRecord) {
+    const manipulator = robotRecord.manipulator;
 
     const raw = manipulator?.robot?.joints || null;
     const obj = normalizeMapLike(raw);
@@ -79,8 +74,8 @@ function buildAdjacency(jointsArr) {
 /**
  *Revolute order from base joint (BFS along the chain))
  */
-function orderedRevoluteFromBaseJoint(baseJoint) {
-    const jointsArr = urdfJointsArray();
+function orderedRevoluteFromBaseJoint(robotRecord, baseJoint) {
+    const jointsArr = urdfJointsArray(robotRecord);
     const adj = buildAdjacency(jointsArr);
     const order = [];
 
@@ -108,8 +103,8 @@ function orderedRevoluteFromBaseJoint(baseJoint) {
 }
 
 
-function getOrderedRevoluteJoints() {
-    const manipulator = getActiveManipulator();
+function getOrderedRevoluteJoints(robotRecord) {
+    const manipulator = robotRecord.manipulator;
 
     if (!manipulator || !manipulator.robot || !manipulator.robot.joints) {
         console.warn("⚠️ manipulator.robot.joints missing.");
@@ -148,8 +143,8 @@ function getOrderedRevoluteJoints() {
 
 
 
-function getOrderedRevoluteJointNames() {
-    const manipulator = getActiveManipulator();
+function getOrderedRevoluteJointNames(robotRecord) {
+    const manipulator = robotRecord.manipulator;
 
     if (!manipulator || !manipulator.robot || !manipulator.robot.joints) {
         console.warn("⚠️ manipulator.robot.joints missing.");
@@ -204,7 +199,7 @@ function buildAxisToJointMap(robotRecord, anglesMsg) {
     });
 
     // Find URDF joints in a chain
-    const urdfJointNames = getOrderedRevoluteJointNames();
+    const urdfJointNames = getOrderedRevoluteJointNames(robotRecord);
 
     // Take the minimum of the two (if the robot has fewer axes than OPC or vice versa)
     const n = Math.min(axisNames.length, urdfJointNames.length);
@@ -297,12 +292,18 @@ function buildEndEffectorMap(robotRecord) {
 
 
 
-function loadDeviceSet(opcUaUrl) {
+function loadDeviceSet(robotRecord, opcUaUrl) {
+    //to display the html only if the robot is actually connected
+    if (robotRecord.state.connectivity.status !== 'connected') return;
+
     const encodedUrl = encodeURIComponent(opcUaUrl);
     fetch(`http://127.0.0.1:8000/device_set_rendered?url=${encodedUrl}`)
         .then(res => res.text())
         .then(html => {
-            document.getElementById('info-content').innerHTML = html;
+            robotRecord.state.ui.addressSpaceHTML = html;
+            if (robotRecord === getActiveRobot()) {
+                document.getElementById('info-content').innerHTML = html;
+            }
         });
 }
 
@@ -550,12 +551,13 @@ function handleStatusMessage(robotRecord, data) {
 
     if (data.startsWith("✅ Connected to ")) {
         connectivity.connectedUrl = data.replace("✅ Connected to ", "").trim();
-        loadDeviceSet(connectivity.connectedUrl);
-        setInfoBoxState(true);
-        infoBox.style.width = "750px";
-        propertiesBox.style.width = "750px";
-        infoToggleBtn.textContent = "collapse »";
-        infoBoxExpanded = true;
+        loadDeviceSet(robotRecord, connectivity.connectedUrl);
+        setInfoBoxState(true); //this is duplicate logic right?
+        
+        document.getElementById('info-box').style.width = "750px";
+        document.getElementById('properties-box').style.width = "750px";
+        document.getElementById('info-toggle-btn').textContent = "collapse »";
+
         document.getElementById('info-content').style.width = "700px";
         document.getElementById('properties-box').style.display = 'none';
     } else if (data.startsWith("Model:")) {
@@ -594,7 +596,7 @@ function handleStatusMessage(robotRecord, data) {
         opcua.syncEnabled = false;
         opcua.streamActive = false;
         // Collapse-Button 
-        infoToggleBtn.style.display = "none";
+        document.getElementById('info-toggle-btn').style.display = "none";
         // Lock-Toggle 
         opcua.metadata.hasRoboticsNamespace = null;
         updateRobotLockToggleVisibility(robotRecord);
@@ -613,7 +615,11 @@ function handleStatusMessage(robotRecord, data) {
 }
 
 function setInfoBoxState(expanded) {
-    infoBoxExpanded = expanded;
+    // --- DOM Elements ---
+    const infoBox = document.getElementById('info-box');
+    const infoToggleBtn = document.getElementById('info-toggle-btn');
+    const propertiesBox = document.getElementById('properties-box');
+
     infoToggleBtn.style.display = "block";
     infoBox.style.width = expanded ? "750px" : "450px";
     propertiesBox.style.width = expanded ? "750px" : "450px";
@@ -670,7 +676,7 @@ export function connectOpcUa(robotRecord) {
     } else {
         alert("WebSocket is not connected.");
     }
-    record.state.connectivity.connectedUrl = url;
+    robotRecord.state.connectivity.connectedUrl = url;
 }
 
 export function disconnectOpcUa(robotRecord) {
@@ -1456,7 +1462,7 @@ export function handleHomeClick(robotRecord) {
     }
 }
 
-//connect and setup method if mcp socket doesn't exist. called in handleMcpToggle
+//connect and setup method if mcp socket doesn't exist. called in 
 function setup_mcp_socket(robotRecord) {
     if (!robotRecord) return;
     const { connectivity } = robotRecord.state;
@@ -1549,8 +1555,10 @@ export function toggleMcpIntegration(robotRecord, event) {
     if (!robotRecord) return;
     if (event.target.checked) {
         setup_mcp_socket(robotRecord);
+        robotRecord.opcua.syncEnabled = true;
     } else {
         disconnect_mcp_socket(robotRecord);
+        robotRecord.opcua.syncEnabled = false;
     }
 }
 
@@ -1594,10 +1602,10 @@ export function sendMcpRobotStateUpdate(robotRecord) {
     connectivity.socketMcp.send('ANGLES|' + jointValues.join(', '));
 }
 
-export function updateConnectionStatus(record, isConnected) {
+//TODO not yet working
+export function updateConnectionStatus(robotRecord, isConnected) {
     // Only update the UI if the robot we are changing is the one currently visible
-    
-    if (!record) return;
+    if (!robotRecord) return;
 
     const dot = document.getElementById('connection-status-dot');
     const text = document.getElementById('connection-status-text');
