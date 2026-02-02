@@ -17,6 +17,7 @@ import useIsMobile from './hooks/useIsMobile';
 import MobilePanelControls from './components/MobilePanelControls';
 import MessageLog from './components/MenuComponents/Tab2Components/MessageLog';
 import { JointAnglesPanel } from "./components/MenuComponents/ControlsComponents/JointAnglesPanel";
+import { ASpaceWindow } from './components/Adressspace';
 
 function App() {
   
@@ -59,6 +60,12 @@ function App() {
 
   const isMobile = useIsMobile();
   const [mobilePanelState, setMobilePanelState] = useState<'none'|'main'|'side'|'bot'>('none');
+    // Address Space window state - NOT persisted (always starts closed)
+  const [isAddressSpaceOpen, setIsAddressSpaceOpen] = useState(false);
+
+  const toggleAddressSpace = () => {
+    setIsAddressSpaceOpen(prev => !prev);
+  };
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-black text-white p-4">
@@ -115,7 +122,7 @@ function App() {
             <Panel defaultSize="20%">
               <Group>
                 <Panel defaultSize="70%">
-                  Aspace
+                  <ASpaceWindow />
                 </Panel>
                 <Panel>
                   <MessageLog />
@@ -184,7 +191,6 @@ function App() {
             {mobilePanelState === 'bot' && (
               <div>
                 <MessageLog />
-                ASpace
               </div>
               
             )}

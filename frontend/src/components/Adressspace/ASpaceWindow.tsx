@@ -17,30 +17,24 @@ interface WindowState {
   y: number;
   width: number;
   height: number;
-  minimized: boolean;
 }
 
-interface ASpaceWindowProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
 
 const DEFAULT_WINDOW: WindowState = {
   x: window.innerWidth - 520,
   y: 60,
   width: 500,
   height: 500,
-  minimized: false,
 };
 
-export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) => {
+export function ASpaceWindow(){
   const { url: opcUaUrl } = useUrlContext();
   const socket = useSocket();
   const [selectedNode, setSelectedNode] = useState<UaNode | null>(null);
-  
+
   // Key to force ASpaceBody re-mount (for reload functionality)
   const [bodyKey, setBodyKey] = useState(0);
-  
+
   // Clear tree state on page reload (runs once on mount)
   useEffect(() => {
     localStorage.removeItem(STORAGE_KEY_EXPANDED);
@@ -61,7 +55,7 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
     setInputValue, 
     callMethod 
   } = useMethodCall(opcUaUrl, (socket as any));
-  
+
   // Window state
   const [windowState, setWindowState] = useState<WindowState>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_WINDOW);
@@ -78,7 +72,7 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
   // Dragging state - use refs for offset to avoid re-renders
   const [isDragging, setIsDragging] = useState(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
-  
+
   // Resizing state
   const [isResizing, setIsResizing] = useState(false);
   const windowRef = useRef<HTMLDivElement>(null);
@@ -144,54 +138,17 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
     }
   }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
 
-  // ========== RESIZE HANDLE ==========
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsResizing(true);
-  };
-
-  // Toggle minimize (also saves to localStorage)
-  const toggleMinimize = () => {
-    setWindowState(prev => {
-      const newState = { ...prev, minimized: !prev.minimized };
-      saveWindowState(newState);
-      return newState;
-    });
-  };
-
-  // Close window and RESET tree state completely
-  const handleClose = () => {
-    // Clear saved expanded nodes - tree will reset on next open
-    localStorage.removeItem(STORAGE_KEY_EXPANDED);
-    onClose();
-  };
-
   // Reload/Reset tree (clears state and forces re-mount)
   const handleReload = () => {
     localStorage.removeItem(STORAGE_KEY_EXPANDED);
     setBodyKey(prev => prev + 1); // Force ASpaceBody to re-mount
   };
 
-  if (!isOpen) return null;
 
   return (
     <div
-      ref={windowRef}
-      style={{
-        position: "fixed",
-        left: windowState.x,
-        top: windowState.y,
-        width: windowState.width,
-        height: windowState.minimized ? "auto" : windowState.height,
-        zIndex: 9999,
-        border: "1px solid #555",
-        borderRadius: 8,
-        overflow: "hidden",
-        background: "#1a1a1a",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
-        display: "flex",
-        flexDirection: "column",
-      }}
+      className="relative w-full h-full bg-gray-100 shadow-lg overflow-auto border-b-2 border-black"
+      style={{ height: '100%', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'auto' }}
     >
       {/* Header - Draggable */}
       <div
@@ -235,47 +192,11 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
           >
             ↻
           </button>
-          
-          {/* Minimize */}
-          <button
-            onClick={toggleMinimize}
-            style={{
-              background: "#444",
-              border: "none",
-              color: "#fff",
-              width: 24,
-              height: 24,
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 12,
-            }}
-            title={windowState.minimized ? "Expand" : "Minimize"}
-          >
-            {windowState.minimized ? "□" : "−"}
-          </button>
-          
-          {/* Close (resets tree state) */}
-          <button
-            onClick={handleClose}
-            style={{
-              background: "#633",
-              border: "none",
-              color: "#fff",
-              width: 24,
-              height: 24,
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 12,
-            }}
-            title="Close (resets tree)"
-          >
-            ×
-          </button>
+
         </div>
       </div>
 
       {/* Body */}
-      {!windowState.minimized && (
         <div
           style={{
             flex: 1,
@@ -288,9 +209,6 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
             <div style={{ color: "#888", padding: 20, textAlign: "center", flex: 1 }}>
               <div style={{ fontSize: 24, marginBottom: 8 }}>🔌</div>
               <div>Please connect to an OPC UA server first</div>
-              <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>
-                Use the OPC-UA tab → Connect
-              </div>
             </div>
           ) : (
             <>
@@ -398,7 +316,6 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
             </>
           )}
         </div>
-      )}
 
       {/* Method Dialog */}
       <MethodDialog
@@ -412,24 +329,6 @@ export const ASpaceWindow: React.FC<ASpaceWindowProps> = ({ isOpen, onClose }) =
         onCall={callMethod}
         onClose={closeMethodDialog}
       />
-
-      {/* Resize Handle */}
-      {!windowState.minimized && (
-        <div
-          className="resize-handle"
-          onMouseDown={handleResizeStart}
-          style={{
-            position: "absolute",
-            bottom: 0,
-            right: 0,
-            width: 16,
-            height: 16,
-            cursor: "se-resize",
-            background: "linear-gradient(135deg, transparent 50%, #444 50%)",
-            borderBottomRightRadius: 6,
-          }}
-        />
-      )}
     </div>
   );
 };
