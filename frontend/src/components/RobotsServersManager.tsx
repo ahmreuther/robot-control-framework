@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import Live_Status from './MenuComponents/TwinDashboardComponents/Live_Status';
+import Twin_Dashboard from './MenuComponents/TwinDashboardComponents/Twin_Dashboard';
 
 type Robot = { id: number; name: string; serverId: number | null };
 type Server = { id: number; name: string; robotIds: number[] };
@@ -33,10 +35,14 @@ export default function RobotsServersManager(props: Props) {
   const [newServerName, setNewServerName] = useState('');
   const [newRobotName, setNewRobotName] = useState('');
 
+  // track which robot detail panels are open
+  const [openRobotIds, setOpenRobotIds] = useState<Record<number, boolean>>({});
+  const toggleRobotOpen = (id: number) => setOpenRobotIds(prev => ({ ...prev, [id]: !prev[id] }));
+  const isRobotOpen = (id: number) => !!openRobotIds[id];
+
 
   return (
     <div className="flex flex-col">
-      <div>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Servers</h2>
           <button
@@ -48,7 +54,7 @@ export default function RobotsServersManager(props: Props) {
           </button>
         </div>
         {serversOpen && (
-          <div>
+          <div className='ml-2'>
             <div>
               <input
                 className="w-full"
@@ -77,7 +83,7 @@ export default function RobotsServersManager(props: Props) {
                     </button>
                 </div>
 
-                <div>Connected Robots:
+                <div className='ml-2'>Connected Robots:
                   <ul>
                     {server.robotIds.map(rid => {
                       const robot = robots.find(r => r.id === rid);
@@ -92,9 +98,7 @@ export default function RobotsServersManager(props: Props) {
               </div>
             ))}
           </div>
-        )}
-      </div>
-
+        )} 
       <div>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Robots</h2>
@@ -108,7 +112,7 @@ export default function RobotsServersManager(props: Props) {
         </div>
 
         {robotsOpen && (
-          <div>
+          <div className='ml-2'>
             <div>
               <input
                 className="w-full"
@@ -125,23 +129,33 @@ export default function RobotsServersManager(props: Props) {
                 }}
               />
             </div>
-            {robots.map(robot => (
-              <div key={robot.id}>
+            {robots.map(robot => {
+              const open = isRobotOpen(robot.id);
+              return (
+              <div key={robot.id} className="border-b border-gray-700 pb-2 mb-2">
                 <div className="flex items-center justify-between">
                   <div className="font-semibold">{robot.name} (ID: {robot.id})</div>
-                  <button
-                    className="text-sm"
-                    onClick={() => removeRobot(robot.id)}
-                  >
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="text-sm"
+                      onClick={() => toggleRobotOpen(robot.id)}
+                      aria-expanded={open}
+                    >
+                      {open ? 'Hide' : 'Details'}
+                    </button>
+                    <button
+                      className="text-sm"
+                      onClick={() => removeRobot(robot.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-
-                <div>
+                <div className='ml-2'>
                   Connected to server:
-                  <span>
+                  <div>
                     {servers.find(s => s.id === robot.serverId)?.name} (ID: {robot.serverId})
-                  </span>
+                  </div>
                   <select
                     id={`connect-server-${robot.id}`}
                     className="text-black"
@@ -163,8 +177,15 @@ export default function RobotsServersManager(props: Props) {
 
                   </select>
                 </div>
+
+                {open && (
+                  <div>
+                    <Live_Status />
+                    <Twin_Dashboard />
+                  </div>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

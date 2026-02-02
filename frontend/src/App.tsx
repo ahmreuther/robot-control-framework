@@ -13,9 +13,9 @@ import WebSocketReciever  from './components/WebsocketReciever';
 import { LogProvider} from './contexts/LogContext';
 import { RobotInfoProvider, AxleValues, RobotInfo } from './contexts/RobotInfoContext';
 import useServersAndRobots from './hooks/useServersAndRobots';
+import useIsMobile from './hooks/useIsMobile';
+import MobilePanelControls from './components/MobilePanelControls';
 import MessageLog from './components/MenuComponents/Tab2Components/MessageLog';
-import Twin_Dashboard from './components/MenuComponents/TwinDashboardComponents/Twin_Dashboard';
-import Live_Status from './components/MenuComponents/TwinDashboardComponents/Live_Status';
 import { JointAnglesPanel } from "./components/MenuComponents/ControlsComponents/JointAnglesPanel";
 
 function App() {
@@ -57,18 +57,23 @@ function App() {
     setActiveASpaceServerId,
   } = useServersAndRobots();
 
+  const isMobile = useIsMobile();
+  const [mobilePanelState, setMobilePanelState] = useState<'none'|'main'|'side'|'bot'>('none');
+
   return (
     <div className="w-screen h-screen overflow-hidden bg-black text-white p-4">
       <div>
         Settings
       </div>
+      <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
+      {!(isMobile && mobilePanelState !== 'none') ? (
         <Group>
         <Panel defaultSize="90%">
           <Group orientation="vertical">
             <Panel>
                 <Group>
-                  <Panel defaultSize="20%">
-                    <JointAnglesPanel
+                  <Panel>
+                   <JointAnglesPanel
                       jointManager={jointManager}
                       jointProperties={jointProperties}
                       showCollisionMesh={showCollisionMesh}
@@ -77,8 +82,7 @@ function App() {
                       hoveredJointMesh={hoveredJointMesh}
                     />
                   </Panel>
-                  <Panel>
-                <div className="relative h-full">
+                  <Panel defaultSize="85%">
                   <Viewport 
                     key={reloadKey}
                     urdfPath={selectedRobot.url}
@@ -87,8 +91,7 @@ function App() {
                     showCollisionMesh={showCollisionMesh}
                     setHoveredJointMesh={setHoveredJointMesh}
                   />
-                </div>
-                </Panel>
+                  </Panel>   
               </Group>
             </Panel>
               <div className="flex">
@@ -132,10 +135,62 @@ function App() {
             connectRobotToServer={connectRobotToServer}
             disconnectRobot={disconnectRobot}
           />
-          <Live_Status />
-          <Twin_Dashboard /> 
         </Panel>
       </Group>
+      ) : (
+        <div className="md:hidden fixed inset-0 bg-black text-white p-4">
+          <div className="flex items-center justify-between mb-2 z-50">
+            <MobilePanelControls className="flex items-center gap-2" mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={true} />
+          </div>
+          <div>
+            {mobilePanelState === 'main' && (
+              <div className="h-full gap-2 flex flex-col">
+                <div className="w-full h-[60vh]">
+                  <Viewport 
+                    key={reloadKey}
+                    urdfPath={selectedRobot.url}
+                    jointManager={jointManager}
+                    onJointLimitsLoaded={setJointLimits}
+                    showCollisionMesh={showCollisionMesh}
+                    setHoveredJointMesh={setHoveredJointMesh}
+                  />
+                </div>
+                <div className="w-full z-50 max-h-[30vh] overflow-auto">
+                  <JointAnglesPanel
+                    jointManager={jointManager}
+                    jointProperties={jointProperties}
+                    showCollisionMesh={showCollisionMesh}
+                    setShowCollisionMesh={setShowCollisionMesh}
+                    reloadKey={reloadKey}
+                    hoveredJointMesh={hoveredJointMesh}
+                  />
+                </div>
+              </div>
+            )}
+            {mobilePanelState === 'side' && (
+              <div className="flex flex-col gap-4">
+                <RobotsServersManager
+                  servers={servers}
+                  robots={robots}
+                  addServer={addServer}
+                  removeServer={removeServer}
+                  addRobot={addRobot}
+                  removeRobot={removeRobot}
+                  connectRobotToServer={connectRobotToServer}
+                  disconnectRobot={disconnectRobot}
+                />
+              </div>
+            )}
+            {mobilePanelState === 'bot' && (
+              <div>
+                <MessageLog />
+                ASpace
+              </div>
+              
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
