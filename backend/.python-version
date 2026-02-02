@@ -1,1 +1,9 @@
 3.13
+# "numpy>=1.27",
+#     "scipy>=1.12",
+#     "scikit-image>=0.23",
+#     "trimesh>=4.4.0",
+
+#     # Open3D: aarch64/arm64 -> 0.18.x, x86_64 -> 0.19.x
+#     'open3d==0.18.0; platform_machine == "aarch64" or platform_machine == "arm64"',
+#     'open3d==0.19.0; platform_machine == "x86_64"',

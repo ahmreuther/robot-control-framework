@@ -9,9 +9,8 @@ from typing import List, TypedDict, Set
 from contextlib import asynccontextmanager
 
 import sys
-# Enforce Python 3.12 at runtime because Open3D currently requires Python 3.12.x
-if (sys.version_info.major, sys.version_info.minor) != (3, 12):
-    raise RuntimeError(f"Python 3.12.x is required for Open3D compatibility. Running Python {sys.version_info.major}.{sys.version_info.minor}.")
+# Note: Keep runtime compatible with the project's declared Python range.
+# Dependency installation (uv/pip) will fail early if an incompatible Python version is used.
 
 import opcua
 import mcp_server

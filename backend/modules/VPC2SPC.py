@@ -1,4 +1,4 @@
-# surface_points.py
+# surface_points_no_open3d.py
 # -*- coding: utf-8 -*-
 """
 Compute outer surface contour points from an input point cloud, but return ORIGINAL
@@ -11,14 +11,15 @@ Pointcloud -> implicit occupancy-like field (Gaussian of NN distance) -> thresho
 -> return mapped points (subset of original) as surface points
 
 Dependencies:
-  pip install open3d numpy scipy
+  pip install numpy scipy
+Optional for .ply/.pcd:
+  pip install pyntcloud pandas
 """
 
 from __future__ import annotations
 
 import os
 import numpy as np
-import open3d as o3d
 from scipy.spatial import cKDTree
 
 
@@ -75,7 +76,6 @@ def compute_outer_surface_points_from_xyz(
     if status_cb:
         status_cb("shell_done")
 
-    # --- NEW: map shell voxels -> original points (avoids voxel-center inflation) ---
     if status_cb:
         status_cb("map_to_original_start", f"mode={map_mode}")
 
@@ -95,28 +95,71 @@ def compute_outer_surface_points_from_xyz(
 
 
 # ------------------------------------------------------------
-# IO helpers (optional)
+# IO helpers (NO open3d)
 # ------------------------------------------------------------
 def read_point_cloud(path: str) -> np.ndarray:
+    """
+    Supported:
+      - .xyz .xyzn .xyzrgb .pts .txt : loadtxt (first 3 cols)
+      - .npy : numpy array (N,3) or (N,>=3)
+      - .npz : expects key 'points' or first array
+      - .ply/.pcd : via PyntCloud (optional dependency)
+
+    Returns:
+      (N,3) float32
+    """
     ext = os.path.splitext(path)[1].lower()
 
-    if ext in [".ply", ".pcd", ".xyz", ".xyzn", ".xyzrgb", ".pts"]:
-        pcd = o3d.io.read_point_cloud(path)
-        if pcd.is_empty():
+    # NPY / NPZ are handy for pipelines, keep them simple
+    if ext == ".npy":
+        arr = np.load(path)
+        arr = np.asarray(arr, dtype=np.float32)
+        if arr.ndim != 2 or arr.shape[1] < 3:
+            raise ValueError(f".npy must be (N,>=3), got {arr.shape}")
+        return arr[:, :3].astype(np.float32)
+
+    if ext == ".npz":
+        z = np.load(path)
+        if "points" in z:
+            arr = z["points"]
+        else:
+            # take first array in file
+            first_key = list(z.keys())[0]
+            arr = z[first_key]
+        arr = np.asarray(arr, dtype=np.float32)
+        if arr.ndim != 2 or arr.shape[1] < 3:
+            raise ValueError(f".npz array must be (N,>=3), got {arr.shape}")
+        return arr[:, :3].astype(np.float32)
+
+    # text-ish formats
+    if ext in [".xyz", ".xyzn", ".xyzrgb", ".pts", ".txt"]:
+        pts = np.loadtxt(path, dtype=np.float32)
+        if pts.ndim != 2 or pts.shape[1] < 3:
+            raise ValueError("Text file must contain at least 3 columns (x y z).")
+        return pts[:, :3].astype(np.float32)
+
+    # PLY / PCD via PyntCloud
+    if ext in [".ply", ".pcd"]:
+        try:
+            from pyntcloud import PyntCloud  # type: ignore
+        except ImportError as e:
+            raise ImportError(
+                "Reading .ply/.pcd requires 'pyntcloud' (and pandas). "
+                "Install with: pip install pyntcloud pandas"
+            ) from e
+
+        cloud = PyntCloud.from_file(path)
+        df = cloud.points  # pandas DataFrame
+        # common column names: x,y,z
+        for col in ("x", "y", "z"):
+            if col not in df.columns:
+                raise ValueError(f"{path} missing '{col}' column; columns={list(df.columns)}")
+        pts = df[["x", "y", "z"]].to_numpy(dtype=np.float32, copy=True)
+        if pts.size == 0:
             raise ValueError(f"Point cloud is empty or could not be read: {path}")
-        return np.asarray(pcd.points, dtype=np.float32)
+        return pts
 
-    pts = np.loadtxt(path, dtype=np.float32)
-    if pts.ndim != 2 or pts.shape[1] < 3:
-        raise ValueError("Text file must contain at least 3 columns (x y z).")
-    return pts[:, :3].astype(np.float32)
-
-
-def points_to_open3d_pcd(points_xyz: np.ndarray) -> o3d.geometry.PointCloud:
-    pcd = o3d.geometry.PointCloud()
-    if points_xyz.size:
-        pcd.points = o3d.utility.Vector3dVector(points_xyz.astype(np.float64))
-    return pcd
+    raise ValueError(f"Unsupported point cloud extension '{ext}' for file: {path}")
 
 
 # ------------------------------------------------------------
@@ -255,7 +298,7 @@ def voxel_centers_from_mask(mask: np.ndarray, origin: np.ndarray, voxel_size: fl
 
 
 # ------------------------------------------------------------
-# NEW: map shell voxels -> original points
+# Map shell voxels -> original points
 # ------------------------------------------------------------
 def map_shell_voxels_to_original_points(
     shell_mask: np.ndarray,
@@ -303,7 +346,6 @@ def map_shell_voxels_to_original_points(
         if not idx_lists:
             return np.empty((0, 3), dtype=np.float32)
 
-        # flatten lists -> numpy
         all_idx = np.fromiter((i for lst in idx_lists for i in lst), dtype=np.int64, count=-1)
         if all_idx.size == 0:
             return np.empty((0, 3), dtype=np.float32)
@@ -345,7 +387,6 @@ def compute_outer_surface_points(
     outside_air = flood_fill_outside_air(air)
     outer_shell = voxel_shell_of_solid_adjacent_to(solid, outside_air)
 
-    # map shell -> original points (default NN)
     surface_points = map_shell_voxels_to_original_points(
         shell_mask=outer_shell,
         origin=origin,
