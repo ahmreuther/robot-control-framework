@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.ndimage import binary_closing
 
 
 # ------------------------------------------------------------
@@ -32,6 +33,7 @@ def compute_outer_surface_points_from_xyz(
     sigma: float = 0.02,
     iso_level: float = 0.30,
     padding: float = 0.05,
+    closing_radius: int = 0,
     min_points: int = 200,
     status_cb=None,
     map_mode: str = "nn",            # "nn" or "radius"
@@ -62,6 +64,14 @@ def compute_outer_surface_points_from_xyz(
         status_cb("build_field_done")
 
     solid = field >= float(iso_level)
+    if closing_radius and int(closing_radius) > 0:
+        cr = int(closing_radius)
+        if status_cb:
+            status_cb("closing_start", f"r={cr}")
+        structure = np.ones((2 * cr + 1, 2 * cr + 1, 2 * cr + 1), dtype=bool)
+        solid = binary_closing(solid.astype(bool, copy=False), structure=structure)
+        if status_cb:
+            status_cb("closing_done")
     air = ~solid
 
     if status_cb:
@@ -369,6 +379,7 @@ def compute_outer_surface_points(
     sigma: float = 0.02,
     iso_level: float = 0.30,
     padding: float = 0.05,
+    closing_radius: int = 0,
     min_points: int = 200,
 ) -> np.ndarray:
     """
@@ -382,6 +393,10 @@ def compute_outer_surface_points(
     field, origin, _dims = build_field_from_points(points, voxel_size, sigma, padding)
 
     solid = field >= float(iso_level)
+    if closing_radius and int(closing_radius) > 0:
+        cr = int(closing_radius)
+        structure = np.ones((2 * cr + 1, 2 * cr + 1, 2 * cr + 1), dtype=bool)
+        solid = binary_closing(solid.astype(bool, copy=False), structure=structure)
     air = ~solid
 
     outside_air = flood_fill_outside_air(air)
