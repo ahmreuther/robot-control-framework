@@ -14,6 +14,8 @@ export interface ViewportProps {
   onJointLimitsLoaded: (limits: Array<JointProperty | null>) => void;
   showCollisionMesh: boolean;
   setHoveredJointMesh?: (index: number | null) => void;
+  effectComposer?: boolean;
+  environment?: boolean;
 }
 
 export function Viewport(props: ViewportProps) {
@@ -33,21 +35,32 @@ export function Viewport(props: ViewportProps) {
       <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>
 
         {/* Environment */}
-        <Suspense fallback={null}> 
-          <Environment 
-            files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr"}
-            environmentIntensity={0.6}
-            backgroundIntensity={0.5} 
-            //ground={{ height: 5, radius: 40, scale: 20 }}
-            background={true}
-          />
-        </Suspense>
+        {props.environment &&
+          <Suspense fallback={null}> 
+            <Environment 
+              files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr"}
+              environmentIntensity={0.6}
+              backgroundIntensity={0.5} 
+              //ground={{ height: 5, radius: 40, scale: 20 }}
+              background={true}
+            />
+          </Suspense>
+        }
+
+        {!props.environment &&
+          <>
+            <ambientLight intensity={2} />
+            <directionalLight position={[5, 10, 7.5]} intensity={1} />
+          </>
+        }
 
         {/* Postprocessing Effects */}
-        <EffectComposer>
-          <Bloom />
-          <Vignette eskil={false} offset={0.1} darkness={0.3} />
-        </EffectComposer>
+        {props.effectComposer && 
+          <EffectComposer>
+            <Bloom />
+            <Vignette eskil={false} offset={0.1} darkness={0.3} />
+          </EffectComposer>
+        }
 
         {/* Grid Helper */}
         <gridHelper args={[10, 10]} rotation={[0, Math.PI / 2, 0]} />

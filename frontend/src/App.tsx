@@ -18,8 +18,23 @@ import MobilePanelControls from './components/MobilePanelControls';
 import MessageLog from './components/MenuComponents/Tab2Components/MessageLog';
 import { JointAnglesPanel } from "./components/MenuComponents/ControlsComponents/JointAnglesPanel";
 import { ASpaceWindow } from './components/Adressspace';
+import Settings from './components/Settings';
+
+export type SettingsState = {
+  environment: boolean;
+  effectComposer: boolean;
+};
 
 function App() {
+  
+  const [settings, setSettings] = useState<SettingsState>({
+      effectComposer: true,
+      environment: true,
+    });
+
+  const toggleSettings = (key: keyof SettingsState) => {
+    setSettings((s) => ({ ...s, [key]: !s[key] }));
+  };
   
   const jointManager = useJointState();
 
@@ -69,9 +84,7 @@ function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-black text-white p-4">
-      <div>
-        Settings
-      </div>
+      <Settings settings={settings} toggleSettings={toggleSettings} />
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
       {!(isMobile && mobilePanelState !== 'none') ? (
         <Group>
@@ -97,6 +110,8 @@ function App() {
                     onJointLimitsLoaded={setJointLimits}
                     showCollisionMesh={showCollisionMesh}
                     setHoveredJointMesh={setHoveredJointMesh}
+                    effectComposer={settings.effectComposer}
+                    environment={settings.environment}
                   />
                   </Panel>   
               </Group>
@@ -160,6 +175,8 @@ function App() {
                     onJointLimitsLoaded={setJointLimits}
                     showCollisionMesh={showCollisionMesh}
                     setHoveredJointMesh={setHoveredJointMesh}
+                    effectComposer={settings.effectComposer}
+                    environment={settings.environment}
                   />
                 </div>
                 <div className="w-full z-50 max-h-[30vh] overflow-auto">
