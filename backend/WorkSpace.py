@@ -33,6 +33,7 @@ DEFAULT_PCD_CFG = {
     "sigma": 0.02,
     "iso_level": 0.30,
     "padding": 0.05,
+    "closing_radius": 0,
 }
 
 
@@ -216,13 +217,14 @@ async def handle_pcd2_bytes(app, websocket: WebSocket, payload: bytes):
 
         def _process():
             cfg = getattr(websocket.state, "pcd_cfg", DEFAULT_PCD_CFG)
-            # ✅ DIRECT: point cloud from websocket -> surface points (outer shell centers)
+            #  DIRECT: point cloud from websocket -> surface points (outer shell centers)
             return compute_outer_surface_points_from_xyz(
                 pts,
                 voxel_size=float(cfg.get("voxel_size", DEFAULT_PCD_CFG["voxel_size"])),
                 sigma=float(cfg.get("sigma", DEFAULT_PCD_CFG["sigma"])),
                 iso_level=float(cfg.get("iso_level", DEFAULT_PCD_CFG["iso_level"])),
                 padding=float(cfg.get("padding", DEFAULT_PCD_CFG["padding"])),
+                closing_radius=int(cfg.get("closing_radius", DEFAULT_PCD_CFG["closing_radius"])),
                 status_cb=status_cb,
             )
 
