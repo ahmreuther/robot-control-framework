@@ -42,9 +42,9 @@ export function JointAnglesPanel({
 
   return (
     <section className="panel flex h-full flex-col pointer-events-auto">
-  <header className="panel-header">
-    <div className="panel-title">Joint Angles</div>
-  </header>
+      <header className="panel-header">
+        <div className="panel-title text-xs">Joint Angles</div>
+      </header>
 
   <div className="panel-body flex flex-col overflow-y-auto">
     {/* toggles */}

@@ -100,7 +100,7 @@
   }
 
   .button-ghost {
-    @apply border px-2 py-1;
+    @apply border px-2 py-1 text-xs;
     border-color: rgb(var(--panel-border) / 0.20);
     background: transparent;
     color: rgb(var(--fg) / 0.80);
@@ -143,5 +143,17 @@
     box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
   }
 
+  .list-panel {
+    @apply flex flex-col gap-1;
+  }
+
+  .list-panel > li {
+    @apply px-2 py-1 text-xs transition-colors;
+    background: rgb(var(--panel-border) / 0.05);
+  }
+
+  .list-panel > li:hover {
+    background: rgb(var(--panel-border) / 0.08);
+  }
   
 }

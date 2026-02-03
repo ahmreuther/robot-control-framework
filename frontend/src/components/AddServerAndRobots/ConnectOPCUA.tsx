@@ -10,7 +10,6 @@ export interface ConnectOPCUAProps {
   addServer: (name: string, connectedUrl: string, backendport: string | null) => void;
 }
 
-// Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
 function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
   const [localUrl, setLocalUrl] = useState("opc.tcp://127.0.0.1:4840/freeopcua/server/");
@@ -18,8 +17,8 @@ function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
   const { setUrl } = useContext(UrlContext);
   const { sendMessage } = useSendMessage();
   const isConnected = useContext(RobotInfoContext).robotStatus === "Connected";
+  const [open, setOpen] = useState(false);
 
-  // Load saved URL from localStorage on mount
   useEffect(() => {
     const lastUrl = localStorage.getItem("lastOpcUaUrl");
     if (lastUrl) {
@@ -29,57 +28,76 @@ function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
 
   function handleConnect() {
     sendMessage("connect", localUrl);
-    // Setze URL im UrlContext wenn erfolgreich (wird durch Backend-Response aktualisiert)
     const trimmedUrl = localUrl.trim();
     if (trimmedUrl) {
       setUrl(trimmedUrl);
     }
   }
-
-
   return (
-    <div className="flex flex-col gap-3 p-4 bg-black bg-opacity-70 rounded border border-white/20">
-      <div className="font-bold text-sm uppercase tracking-wide text-white/90 pb-2 border-b border-white/20">
-        OPC-UA Connection
-      </div>
-      <Input
-        value={localUrl}
-        onChange={(e) => setLocalUrl(e.target.value)}
-        aria-label="Server-Adress"
-        className="w-full text-xs"
-        placeholder="OPC UA Server URL"
-        list={savedUrl ? "savedUrls" : undefined}
-        disabled={isConnected}
-      />
-      {savedUrl && (
-        <datalist id="savedUrls">
-          <option value={savedUrl}>{savedUrl}</option>
-        </datalist>
-      )}
-      <div className="mt-2">
-        <Input
-          value={serverName}
-          onChange={(e) => setServerName(e.target.value)}
-          aria-label="Server-Name"
-          className="w-full text-xs"
-          placeholder="Server name"
+    <div>
+      <button
+        onClick={() => setOpen(true)}
+        className="button-ghost"
+      >
+        +
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={() => setOpen(false)}
         />
-        <div className="flex gap-2 mt-2">
-          <Button
-            onPress={() => {
-              const trimmed = serverName.trim();
-              if (trimmed) {
-                addServer(trimmed, localUrl.trim(), null);
-                handleConnect();
-                setServerName("");
-              }
-            }}
-            className="px-3 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20"
-          >
-            Add Server
-          </Button>
-        </div>
-      </div>
+      )}
+
+      {open && (
+        <section className="panel fixed -translate-x-1/2 -translate-y-1/2 z-50 flex-col overflow-hidden">
+          <div className="panel-header">
+            <div className="panel-title">OPCUA Connect</div>
+            <button
+              onClick={() => setOpen(false)}
+              className="button-ghost"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="panel-body space-y-2">
+            <input
+              value={localUrl}
+              onChange={(e) => setLocalUrl(e.target.value)}
+              aria-label="Server-Adress"
+              placeholder="OPC UA Server URL"
+              list={savedUrl ? "savedUrls" : undefined}
+              disabled={isConnected}
+              className="input-ghost w-full text-left"
+            />
+            {savedUrl && (
+              <datalist id="savedUrls">
+                <option value={savedUrl}>{savedUrl}</option>
+              </datalist>
+            )}
+            <input
+              value={serverName}
+              onChange={(e) => setServerName(e.target.value)}
+              placeholder="Server Name"
+              className="input-ghost w-full text-left"
+            />
+            <button
+              onClick={() => {
+                const trimmed = serverName.trim();
+                if (trimmed) {
+                  addServer(trimmed, localUrl.trim(), null);
+                  handleConnect();
+                  setServerName("");
+                }
+                setOpen(false);
+              }}
+              className="button-ghost"
+            >
+              Add Server
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

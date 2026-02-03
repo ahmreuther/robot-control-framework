@@ -46,8 +46,6 @@ export default function RobotsServersManager(props: Props) {
   const toggleRobotOpen = (id: number) => setOpenRobotIds(prev => ({ ...prev, [id]: !prev[id] }));
   const isRobotOpen = (id: number) => !!openRobotIds[id];
 
-
-  const [showServerPopup, setShowServerPopup] = useState(false);
   const [showRobotPopup, setShowRobotPopup] = useState(false);
 
   const { sendMessage } = useSendMessage();
@@ -58,98 +56,72 @@ export default function RobotsServersManager(props: Props) {
   }
 
   return (
-    <div className="flex flex-col overflow-y-auto h-full p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Servers</h2>
-          <button
-            className="text-sm"
-            onClick={() => setServersOpen(!serversOpen)}
-            aria-expanded={serversOpen}
-          >
-            {serversOpen ? '▼' : '▶'}
-          </button>
-        </div>
-        {serversOpen && (
-          <div className='ml-2'>
-            {/* opens popup window if clicked */}
-            <button
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
-              onClick={() => setShowServerPopup(true)}
-            >
-              +
+    <div className="flex flex-col overflow-y-auto h-full w-full">
+        <section className="panel">
+          <header className="panel-header">
+            <div className="panel-title">Servers</div>
+            <div className="flex items-center gap-2">
+              <ConnectOPCUA
+                jointManager={jointManager}
+                addServer={addServer}
+              />
+              <button
+                className="button-ghost"
+                onClick={() => setServersOpen(!serversOpen)}
+                aria-expanded={serversOpen}
+              >
+              {serversOpen ? '▼' : '▶'}
             </button>
-
-            {showServerPopup && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                <div className="w-full max-w-md bg-white p-4 rounded shadow-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-lg font-bold">OPC-UA Connection</div>
+            </div>
+          </header>    
+            {serversOpen && servers.map(server => (
+              <section className="panel ml-4" key={server.id}>
+                <header className="panel-header">
+                  <div className="panel-title">{server.name}</div>
                     <button
-                      className="text-gray-500 hover:text-gray-800"
-                      onClick={() => setShowServerPopup(false)}
-                      aria-label="Close"
-                    >
-                      ✕
-                    </button>
-                  </div>                 
-                    <ConnectOPCUA
-                      jointManager={jointManager}
-                      addServer={addServer}
-                    />
-                </div>
-              </div>
-            )}
-            {servers.map(server => (
-              <div key={server.id}>
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold">{server.name} (ID: {server.id})</div>
-                    <button
-                      className="text-sm"
+                      className="button-ghost"
                       onClick={() => handleRemoveServer(server.id)}
                     >
                       Remove
                     </button>
-                </div>
-
-                <div className='ml-2'>Connected Robots:
-                  <ul>
-                    {server.robotIds.map(rid => {
-                      const robot = robots.find(r => r.id === rid);
-                      return robot ? (
-                        <li key={rid}>
-                          {robot.name} (ID: {robot.id})
-                        </li>
-                      ) : null;
-                    })}
-                  </ul>
-                </div>
-              </div>
+                  </header>
+                  <div className='px-2 py-1 text-xs font-semibold uppercase'>
+                    Connected Robots:
+                  </div>
+                    <ul className='list-panel'>
+                      {server.robotIds.map(rid => {
+                        const robot = robots.find(r => r.id === rid);
+                        return robot ? (
+                          <li key={rid}>
+                            {robot.name}
+                          </li>
+                        ) : null;
+                      })}
+                    </ul>
+                </section>
             ))}
-          </div>
-        )} 
-      <div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Robots</h2>
-          <button
-            className="text-sm"
-            onClick={() => setRobotsOpen(!robotsOpen)}
-            aria-expanded={robotsOpen}
-          >
-            {robotsOpen ? '▼' : '▶'}
-          </button>
-        </div>
-
-        {robotsOpen && (
-          <div className='ml-2'>
+          </section>
+      <section className='panel'>
+        <header className='panel-header'>
+          <div className='panel-title'>Robots</div>
+          <div className="flex items-center gap-2">
             <button
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+              className="button-ghost"
               onClick={() => setShowRobotPopup(true)}
             >
               +
             </button>
-
-            {showRobotPopup && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <button
+                className="button-ghost"
+                onClick={() => setRobotsOpen(!robotsOpen)}
+                aria-expanded={robotsOpen}
+              >
+              {robotsOpen ? '▼' : '▶'}
+            </button>
+          </div>
+        </header>
+        {showRobotPopup && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
                 <div className="w-full max-w-md bg-white p-4 rounded shadow-lg">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-lg font-bold text-black">Add Robot</div>
@@ -170,37 +142,37 @@ export default function RobotsServersManager(props: Props) {
                     />
                 </div>
               </div>
-            )}
-
-            {robots.map(robot => {
+        )}
+        <div>
+            {robotsOpen && robots.map(robot => {
               const open = isRobotOpen(robot.id);
               return (
-              <div key={robot.id} className="border-b border-gray-700 pb-2 mb-2">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold">{robot.name} (ID: {robot.id})</div>
-                  <div className="flex items-center gap-2">
+              <section key={robot.id} className="panel ml-4">
+                  <header className="panel-header">
+                    <div className="panel-title">{robot.name}</div>
+                    <div className="flex items-center gap-2">
                     <button
-                      className="text-sm"
+                      className="button-ghost"
                       onClick={() => toggleRobotOpen(robot.id)}
                       aria-expanded={open}
                     >
                       {open ? 'Hide' : 'Details'}
                     </button>
                     <button
-                      className="text-sm"
+                      className="button-ghost"
                       onClick={() => removeRobot(robot.id)}
                     >
                       Remove
                     </button>
                     <Synchronize_Button jointManager={jointManager} />
                   </div>
-                </div>
-                <div className='ml-2'>
-                  Connected to server:
-                  <div>
-                    {servers.find(s => s.id === robot.serverId)?.name} (ID: {robot.serverId})
+                  </header>
+                  <div className='px-2 py-1 text-xs font-semibold uppercase'>
+                    Connected Server:
                   </div>
-                  <select
+                  <ul className='list-panel'>
+                    {servers.find(s => s.id === robot.serverId)?.name}
+                    {/* <select
                     id={`connect-server-${robot.id}`}
                     className="bg-white text-black border border-gray-300 rounded px-2 py-1"
                     value={robot.serverId ?? ''}
@@ -216,23 +188,21 @@ export default function RobotsServersManager(props: Props) {
                   >
                     <option value="">None</option>
                     {servers.map(server => (
-                      <option key={server.id} value={server.id}>{server.name} (ID: {server.id})</option>
+                      <option key={server.id} value={server.id}>{server.name}</option>
                     ))}
 
                   </select>
-                </div>
-
-                {open && (
+                  {open && (
                   <div>
                     <Live_Status />
                     <Twin_Dashboard />
                   </div>
-                )}
-              </div>
+                )} */}
+                  </ul>
+              </section>
             )})}
           </div>
-        )}
+      </section>
       </div>
-    </div>
   );
 }

@@ -31,8 +31,8 @@ export function MessageLog() {
       <header className="panel-header">
         <div className="panel-title">Message Log</div>
         <div className="flex items-center gap-2">
-          <button onClick={addManual} className="button-ghost">Test Log</button>
-          <button onClick={clearLog} className="button-ghost">Clear</button>
+          <button onClick={addManual} className="button-ghost ">Test Log</button>
+          <button onClick={clearLog} className="button-ghost ">Clear</button>
         </div>
       </header>
 

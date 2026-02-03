@@ -7,7 +7,6 @@ export interface AddRobotProps {
   onSelectURDF?: (model: ModelConfig) => void;
 }
 
-// Available URDF models
 const urdfOptions: ModelConfig[] = [
   { id: "fr3", label: "FR3", url: "/urdf/fr3_description/urdf/fr3.urdf" },
   { id: "fr3_wagon", label: "FR3 with Wagon", url: "/urdf/fr3_description_with_wagon/urdf/fr3.urdf" },
