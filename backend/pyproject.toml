@@ -3,19 +3,19 @@ name = "dt-robot-control-backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "asyncua>=1.1.6",
     "fastapi>=0.116.1",
     "fastmcp>=2.11.3",
     "jinja2>=3.1.6",
+    "matplotlib>=3.10.8",
     "numpy>=2.4.2",
     "ollmcp>=0.17.0",
+    "ompl>=1.7.0",
     "scikit-image>=0.26.0",
     "scipy>=1.17.0",
     "trimesh>=4.11.1",
     "uvicorn[standard]>=0.35.0",
     "websockets>=15.0.1",
-   
-
 ]
