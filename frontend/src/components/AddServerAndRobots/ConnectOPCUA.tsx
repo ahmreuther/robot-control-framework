@@ -1,5 +1,6 @@
 import { Button, Input } from "@heroui/react";
 import { useState, useContext, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { UrlContext } from "../../contexts/UrlContext";
 import { useSendMessage } from "../../hooks/send-message";
 import { RobotInfoContext } from "../../contexts/RobotInfoContext";
@@ -42,61 +43,63 @@ function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
         +
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-40 bg-black/50"
+          className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center"
           onClick={() => setOpen(false)}
-        />
-      )}
-
-      {open && (
-        <section className="panel fixed -translate-x-1/2 -translate-y-1/2 z-50 flex-col overflow-hidden">
-          <div className="panel-header">
-            <div className="panel-title">OPCUA Connect</div>
-            <button
-              onClick={() => setOpen(false)}
-              className="button-ghost"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="panel-body space-y-2">
-            <input
-              value={localUrl}
-              onChange={(e) => setLocalUrl(e.target.value)}
-              aria-label="Server-Adress"
-              placeholder="OPC UA Server URL"
-              list={savedUrl ? "savedUrls" : undefined}
-              disabled={isConnected}
-              className="input-ghost w-full text-left"
-            />
-            {savedUrl && (
-              <datalist id="savedUrls">
-                <option value={savedUrl}>{savedUrl}</option>
-              </datalist>
-            )}
-            <input
-              value={serverName}
-              onChange={(e) => setServerName(e.target.value)}
-              placeholder="Server Name"
-              className="input-ghost w-full text-left"
-            />
-            <button
-              onClick={() => {
-                const trimmed = serverName.trim();
-                if (trimmed) {
-                  addServer(trimmed, localUrl.trim(), null);
-                  handleConnect();
-                  setServerName("");
-                }
-                setOpen(false);
-              }}
-              className="button-ghost"
-            >
-              Add Server
-            </button>
-          </div>
-        </section>
+        >
+          <section 
+            className="panel z-50 flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="panel-header">
+              <div className="panel-title">OPCUA Connect</div>
+              <button
+                onClick={() => setOpen(false)}
+                className="button-ghost"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="panel-body space-y-2">
+              <input
+                value={localUrl}
+                onChange={(e) => setLocalUrl(e.target.value)}
+                aria-label="Server-Adress"
+                placeholder="OPC UA Server URL"
+                list={savedUrl ? "savedUrls" : undefined}
+                disabled={isConnected}
+                className="input-ghost w-full text-left"
+              />
+              {savedUrl && (
+                <datalist id="savedUrls">
+                  <option value={savedUrl}>{savedUrl}</option>
+                </datalist>
+              )}
+              <input
+                value={serverName}
+                onChange={(e) => setServerName(e.target.value)}
+                placeholder="Server Name"
+                className="input-ghost w-full text-left"
+              />
+              <button
+                onClick={() => {
+                  const trimmed = serverName.trim();
+                  if (trimmed) {
+                    addServer(trimmed, localUrl.trim(), null);
+                    handleConnect();
+                    setServerName("");
+                  }
+                  setOpen(false);
+                }}
+                className="button-ghost"
+              >
+                Add Server
+              </button>
+            </div>
+          </section>
+        </div>,
+        document.body
       )}
     </div>
   );
