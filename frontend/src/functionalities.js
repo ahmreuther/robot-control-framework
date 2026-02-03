@@ -293,9 +293,6 @@ function buildEndEffectorMap(robotRecord) {
 
 
 function loadDeviceSet(robotRecord, opcUaUrl) {
-    //to display the html only if the robot is actually connected
-    //if (robotRecord.state.connectivity.status !== 'connected') return;
-
     const encodedUrl = encodeURIComponent(opcUaUrl);
     fetch(`http://127.0.0.1:8000/device_set_rendered?url=${encodedUrl}`)
         .then(res => res.text())
@@ -1606,24 +1603,15 @@ export function sendMcpRobotStateUpdate(robotRecord) {
 export function updateConnectionStatus(robotRecord, isConnected) {
     // Only update the UI if the robot we are changing is the one currently visible
     if (!robotRecord) return;
-    const { connectivity, ui } = robotRecord.state;
-    connectivity.isConnected = isConnected;
 
     const dot = document.getElementById('connection-status-dot');
     const text = document.getElementById('connection-status-text');
-    const infoBox = document.getElementById('info-box');
-
+    
     if (isConnected) {
         dot.style.backgroundColor = '#4CAF50'; // Green
         text.textContent = 'Connected';
-
-        if (ui.addressSpaceHtml) {
-            document.getElementById('info-content').innerHTML = ui.addressSpaceHtml;
-        }
-
     } else {
-        if (dot) dot.style.backgroundColor = '#f44336';
-        if (text) text.innerText = 'Disconnected';
-        if (infoBox) infoBox.style.display = 'none';
+        dot.style.backgroundColor = '#f44336'; // Red
+        text.textContent = 'Disconnected';
     }
 }

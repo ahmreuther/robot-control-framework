@@ -123,7 +123,7 @@ class RobotManager {
                 },
                 ui: {
                     addressSpaceHTML: null,
-                    selectedNjodeId: null,
+                    selectedNodeId: null,
                     selectedNodeElement: null,
                     showSubscriptionsTabOnNextCustom: false,
                     subscriptions: new Map()
