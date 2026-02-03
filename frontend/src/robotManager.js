@@ -101,7 +101,8 @@ class RobotManager {
                     socket: null, //backend opcua socket
                     socketMcp: null,
                     connectedUrl: null,
-                    status: 'disconnected'
+                    status: 'disconnected',
+                    isConnected: false
                 },
                 opcua: {
                     syncEnabled: false,
@@ -122,7 +123,7 @@ class RobotManager {
                 },
                 ui: {
                     addressSpaceHTML: null,
-                    selectedNodeId: null,
+                    selectedNjodeId: null,
                     selectedNodeElement: null,
                     showSubscriptionsTabOnNextCustom: false,
                     subscriptions: new Map()

@@ -184,6 +184,12 @@ function addRobotOption(id, name) {
     opt.textContent = `${name} (${id})`;
     activeRobotSelect.appendChild(opt);
 }
+//TODO
+function setActiveRobotUI(robotId){
+    setActiveRobot(robotId);
+    activeRobotSelect.value = robotId; 
+    ControlCenterSliders();  
+}
 
 async function addRobotByModel(model) {
     const slotIndex = getNextSlotIndex();
@@ -210,15 +216,11 @@ async function addRobotByModel(model) {
     // pass robot for IK and rig so gizmo is parented correctly
     record.manipulator.setRobot(robot, record.id, rig);
     record.manipulator.addEventListener('manipulate-start', () => {
-        setActiveRobot(record.id);
-        activeRobotSelect.value = record.id; 
-        ControlCenterSliders();              
+        setActiveRobotUI(record.id);             
     });
 
     addRobotOption(record.id, model.name);
-    setActiveRobot(record.id);
-    activeRobotSelect.value = record.id;
-    ControlCenterSliders();
+    setActiveRobotUI(record.id);
 
     robotCountValue.textContent = listRobots().length;
 }
@@ -266,8 +268,8 @@ deleteRobotBtn.addEventListener('click', async () => {
         activeRobotSelect.value = activeRobotSelect.options[0].value;
     } else {
         setActiveRobot(null);
+        activeRobotSelect.value = getActiveRobot();
     }
-    activeRobotSelect.value = getActiveRobot();
 
     robotCountValue.textContent = listRobots().length;
 });
