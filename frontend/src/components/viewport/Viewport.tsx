@@ -27,7 +27,7 @@ export function Viewport(props: ViewportProps) {
     <div className="relative h-full w-full z-0">
 
       {/* Viewport Stats (overlay) */}
-      <div className="absolute top-0 left-0 z-50 flex flex-col gap-13">
+      <div className="absolute top-0 left-0 z-50 flex gap-20">
         <Stats />
         <SolverStatus solveStatuses={solveStatuses} movedDistance={movedDistance} />
       </div>
