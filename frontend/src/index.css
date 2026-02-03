@@ -14,8 +14,8 @@
     --fg-muted: 165 172 182;
 
     /* ===== Panels / borders ===== */
-    --panel: 20 22 26;
-    --panel-border: 255 255 255;
+--panel: 28 32 38;          /* ~ #1C2026 */
+--panel-border: 220 235 255;
 
     /* ===== Brand (from logo gradient) ===== */
     --brand: 13 154 215;   /* #0D9AD7 (logo light blue) */
@@ -43,7 +43,7 @@
     line-height: 1.5;
     font-weight: 400;
     color: rgb(var(--fg));
-    background: rgb(var(--bg));
+    background: rgb(var(--panel));
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -64,8 +64,7 @@
   .panel {
     @apply border shadow;
     border-color: rgb(var(--panel-border) / 0.10);
-    background: rgb(var(--panel) / 0.75);
-    box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+    background: rgb(var(--panel));
     backdrop-filter: blur(14px);
   }
 
@@ -94,21 +93,23 @@
   }
 
   .input-ghost:focus {
-    background: rgb(var(--brand) / 0.10);
-    border-color: rgb(var(--brand));
+    border-color: rgb(var(--brand) / 0.70);
+    background: rgb(var(--brand) / 0.08);
+    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
     color: rgb(var(--fg));
   }
 
   .button-ghost {
-    @apply border px-2 py-2;
+    @apply border px-2 py-1;
     border-color: rgb(var(--panel-border) / 0.20);
     background: transparent;
     color: rgb(var(--fg) / 0.80);
   }
 
   .button-ghost:hover {
-    background: rgb(var(--brand) / 0.10);
-    border-color: rgb(var(--brand));
+    border-color: rgb(var(--brand) / 0.70);
+    background: rgb(var(--brand) / 0.08);
+    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
     color: rgb(var(--fg));
   }
 
@@ -120,16 +121,27 @@
     outline: none;
     box-shadow: 0 0 0 2px rgb(var(--brand) / 0.30);
   }
-}
 
-/* Chrome, Safari, Edge, Opera */
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
+  .row {
+    @apply border border-transparent transition-colors;
+    border-color: transparent;
+  }
 
-/* Firefox */
-input[type=number] {
-  -moz-appearance: textfield;
+  .row-hover {
+    border-color: rgb(var(--brand) / 0.70);
+    background: rgb(var(--brand) / 0.08);
+    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
+  }
+
+  .hover-surface {
+    @apply border border-transparent transition-colors px-2 py-1;
+  }
+
+  .hover-surface:hover {
+    border-color: rgb(var(--brand) / 0.70);
+    background: rgb(var(--brand) / 0.08);
+    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
+  }
+
+  
 }

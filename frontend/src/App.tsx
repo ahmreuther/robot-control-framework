@@ -86,10 +86,10 @@ function App() {
 
   return (
     <SocketProvider url={websocketUrl}>
+    <LogProvider logs={logs} setLogs={setLogs}>
     <div className="w-screen h-screen overflow-hidden">
-      <LogProvider logs={logs} setLogs={setLogs}>
-      <Settings settings={settings} toggleSettings={toggleSettings} />
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
+      <Settings settings={settings} toggleSettings={toggleSettings} />
       {!(isMobile && mobilePanelState !== 'none') ? (
         <Group>
         <Panel defaultSize="90%">
@@ -167,6 +167,7 @@ function App() {
       ) : (
         <div className="md:hidden fixed inset-0 bg-black text-white p-4">
           <div className="flex items-center justify-between mb-2 z-50">
+            <Settings settings={settings} toggleSettings={toggleSettings} />
             <MobilePanelControls className="flex items-center gap-2" mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={true} />
           </div>
           <div>
@@ -220,8 +221,8 @@ function App() {
           </div>
         </div>
       )}
-      </LogProvider>
     </div>
+    </LogProvider>
     </SocketProvider>
   )
 }

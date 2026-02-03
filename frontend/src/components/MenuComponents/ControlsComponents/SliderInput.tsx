@@ -112,10 +112,12 @@ export function SliderInput({
     };
 
     return (
-        <div className="w-full">
-            <div className='flex items-center'>
-                <label className="w-12 text-white/80">JOINT {i}:</label>
-                <div className="flex flex-1 justify-end items-center gap-1">
+        <div className="w-full hover-surface">
+            <div className='flex mb-1'>
+                <div className="">
+                    <label className="w-12 text-white/80">JOINT {i}:</label>
+                </div>
+                <div className="flex-1 flex justify-end space-x-2">
                     <input
                         type="number"
                         className="input-ghost w-16 text-right"
