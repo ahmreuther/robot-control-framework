@@ -25,7 +25,8 @@
     "stats.js": "^0.17.0",
     "tailwindcss": "^4.1.17",
     "three": "^0.181.2",
-    "urdf-loader": "^0.12.6"
+    "urdf-loader": "^0.12.6",
+    "react-virtuoso": "^2.9.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
