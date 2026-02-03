@@ -2,7 +2,10 @@ import { useState } from 'react';
 import Live_Status from '../MenuComponents/TwinDashboardComponents/Live_Status';
 import Twin_Dashboard from '../MenuComponents/TwinDashboardComponents/Twin_Dashboard';
 import ConnectOPCUA from './ConnectOPCUA';
+import AddRobot from './AddRobot';
 import type { JointStateManager } from '../../hooks/useJointState';
+import { useSendMessage } from '../../hooks/send-message';
+import type { ModelConfig } from '../MenuComponents/ControlsComponents/URDFSelector';
 
 type Robot = { id: number; name: string; serverId: number | null };
 type Server = { id: number; name: string; robotIds: number[] };
@@ -11,12 +14,13 @@ type Props = Partial<{
   servers: Server[];
   robots: Robot[];
   jointManager: JointStateManager;
-  addServer: (name: string) => void;
+  addServer: (name: string, connectedUrl: string, backendport: string | null) => void;
   removeServer: (id: number) => void;
   addRobot: (name: string) => void;
   removeRobot: (id: number) => void;
   connectRobotToServer: (robotId: number, serverId: number) => void;
   disconnectRobot: (robotId: number) => void;
+  onSelectURDF: (model: ModelConfig) => void;
 }>;
 
 export default function RobotsServersManager(props: Props) {
@@ -30,13 +34,11 @@ export default function RobotsServersManager(props: Props) {
     removeRobot = () => {},
     connectRobotToServer = () => {},
     disconnectRobot = () => {},
-
+    onSelectURDF = () => {},
   } = props;
 
   const [serversOpen, setServersOpen] = useState(true);
   const [robotsOpen, setRobotsOpen] = useState(true);
-  
-  const [newRobotName, setNewRobotName] = useState('');
 
   // track which robot detail panels are open
   const [openRobotIds, setOpenRobotIds] = useState<Record<number, boolean>>({});
@@ -44,7 +46,15 @@ export default function RobotsServersManager(props: Props) {
   const isRobotOpen = (id: number) => !!openRobotIds[id];
 
 
-  const [showPopup, setShowPopup] = useState(false);
+  const [showServerPopup, setShowServerPopup] = useState(false);
+  const [showRobotPopup, setShowRobotPopup] = useState(false);
+
+  const { sendMessage } = useSendMessage();
+
+  function handleRemoveServer(serverId: number) {
+    sendMessage("disconnect");
+    removeServer(serverId);
+  }
 
   return (
     <div className="flex flex-col overflow-y-auto h-full p-4 space-y-4">
@@ -62,20 +72,20 @@ export default function RobotsServersManager(props: Props) {
           <div className='ml-2'>
             {/* opens popup window if clicked */}
             <button
-              className=" bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
-              onClick={() => setShowPopup(true)}
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+              onClick={() => setShowServerPopup(true)}
             >
               +
             </button>
 
-            {showPopup && (
+            {showServerPopup && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
                 <div className="w-full max-w-md bg-white p-4 rounded shadow-lg">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-lg font-bold">OPC-UA Connection</div>
                     <button
                       className="text-gray-500 hover:text-gray-800"
-                      onClick={() => setShowPopup(false)}
+                      onClick={() => setShowServerPopup(false)}
                       aria-label="Close"
                     >
                       ✕
@@ -94,7 +104,7 @@ export default function RobotsServersManager(props: Props) {
                   <div className="font-semibold">{server.name} (ID: {server.id})</div>
                     <button
                       className="text-sm"
-                      onClick={() => removeServer(server.id)}
+                      onClick={() => handleRemoveServer(server.id)}
                     >
                       Remove
                     </button>
@@ -130,22 +140,37 @@ export default function RobotsServersManager(props: Props) {
 
         {robotsOpen && (
           <div className='ml-2'>
-            <div>
-              <input
-                className="input-ghost w-full text-left"
-                type="text"
-                placeholder="Robot name"
-                value={newRobotName}
-                onChange={e => setNewRobotName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    addRobot(newRobotName.trim());
-                    setNewRobotName('');
-                    e.currentTarget.blur();
-                  }
-                }}
-              />
-            </div>
+            <button
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+              onClick={() => setShowRobotPopup(true)}
+            >
+              +
+            </button>
+
+            {showRobotPopup && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <div className="w-full max-w-md bg-white p-4 rounded shadow-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-lg font-bold text-black">Add Robot</div>
+                    <button
+                      className="text-gray-500 hover:text-gray-800"
+                      onClick={() => setShowRobotPopup(false)}
+                      aria-label="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>                 
+                    <AddRobot
+                      addRobot={addRobot}
+                      onSelectURDF={(model) => {
+                        onSelectURDF(model);
+                        setShowRobotPopup(false);
+                      }}
+                    />
+                </div>
+              </div>
+            )}
+
             {robots.map(robot => {
               const open = isRobotOpen(robot.id);
               return (
@@ -175,7 +200,7 @@ export default function RobotsServersManager(props: Props) {
                   </div>
                   <select
                     id={`connect-server-${robot.id}`}
-                    className="text-black"
+                    className="bg-white text-black border border-gray-300 rounded px-2 py-1"
                     value={robot.serverId ?? ''}
                     onChange={e => {
                       const value = e.target.value;

@@ -35,7 +35,7 @@ export function SidebarMenu(MenuProps: MenuProps) {
   return (
     <div className="flex h-full z-10">
       {/* Address Space Window (floating, rendered outside menu flow) */}
-      <ASpaceWindow isOpen={isAddressSpaceOpen} onClose={toggleAddressSpace} />
+      <ASpaceWindow />
       
       {/* SIDEBAR */}
       <aside className="flex flex-col border-r bg-black text-white">

@@ -8,7 +8,7 @@ import { type JointStateManager } from "../../hooks/useJointState";
 
 export interface ConnectOPCUAProps {
   jointManager: JointStateManager;
-  addServer: (name: string) => void;
+  addServer: (name: string, connectedUrl: string, backendport: string | null) => void;
 }
 
 // Tab mit dem man Connect, Disconnect und Sync für OPC UA machen kann
@@ -37,9 +37,6 @@ function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
     }
   }
 
-  function handleDisconnect() {
-    sendMessage("disconnect");
-  }
 
   return (
     <div className="flex flex-col gap-3 p-4 bg-black bg-opacity-70 rounded border border-white/20">
@@ -60,21 +57,6 @@ function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
           <option value={savedUrl}>{savedUrl}</option>
         </datalist>
       )}
-      <div className="flex gap-2">
-        <Button
-          onPress={handleConnect}
-          className="px-3 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20"
-        >
-          Connect
-        </Button>
-        <Button
-          onPress={handleDisconnect}
-          className="px-3 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20"
-        >
-          Disconnect
-        </Button>
-      </div>
-
       <div className="mt-2">
         <Input
           value={serverName}
@@ -88,7 +70,8 @@ function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
             onPress={() => {
               const trimmed = serverName.trim();
               if (trimmed) {
-                addServer(trimmed);
+                addServer(trimmed, localUrl.trim(), null);
+                handleConnect();
                 setServerName("");
               }
             }}
