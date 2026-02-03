@@ -1,5 +1,5 @@
 import { useState } from "react";
-import ConnectOPCUA from "./MenuComponents/Tab2Components/ConnectOPCUA";
+import ConnectOPCUA from "./AddServerAndRobots/ConnectOPCUA";
 import Twin_Dashboard from "./MenuComponents/TwinDashboardComponents/Twin_Dashboard";
 import MessageLog from "./MenuComponents/Tab2Components/MessageLog";
 import {URDFSelector, type ModelConfig } from './MenuComponents/ControlsComponents/URDFSelector';

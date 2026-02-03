@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import Live_Status from './MenuComponents/TwinDashboardComponents/Live_Status';
-import Twin_Dashboard from './MenuComponents/TwinDashboardComponents/Twin_Dashboard';
+import Live_Status from '../MenuComponents/TwinDashboardComponents/Live_Status';
+import Twin_Dashboard from '../MenuComponents/TwinDashboardComponents/Twin_Dashboard';
+import ConnectOPCUA from './ConnectOPCUA';
+import type { JointStateManager } from '../../hooks/useJointState';
 
 type Robot = { id: number; name: string; serverId: number | null };
 type Server = { id: number; name: string; robotIds: number[] };
@@ -8,6 +10,7 @@ type Server = { id: number; name: string; robotIds: number[] };
 type Props = Partial<{
   servers: Server[];
   robots: Robot[];
+  jointManager: JointStateManager;
   addServer: (name: string) => void;
   removeServer: (id: number) => void;
   addRobot: (name: string) => void;
@@ -20,6 +23,7 @@ export default function RobotsServersManager(props: Props) {
   const {
     servers = [],
     robots = [],
+    jointManager,
     addServer = () => {},
     removeServer = () => {},
     addRobot = () => {},
@@ -32,7 +36,6 @@ export default function RobotsServersManager(props: Props) {
   const [serversOpen, setServersOpen] = useState(true);
   const [robotsOpen, setRobotsOpen] = useState(true);
   
-  const [newServerName, setNewServerName] = useState('');
   const [newRobotName, setNewRobotName] = useState('');
 
   // track which robot detail panels are open
@@ -40,6 +43,8 @@ export default function RobotsServersManager(props: Props) {
   const toggleRobotOpen = (id: number) => setOpenRobotIds(prev => ({ ...prev, [id]: !prev[id] }));
   const isRobotOpen = (id: number) => !!openRobotIds[id];
 
+
+  const [showPopup, setShowPopup] = useState(false);
 
   return (
     <div className="flex flex-col overflow-y-auto h-full p-4 space-y-4">
@@ -55,22 +60,34 @@ export default function RobotsServersManager(props: Props) {
         </div>
         {serversOpen && (
           <div className='ml-2'>
-            <div>
-              <input
-                className="w-full"
-                type="text"
-                placeholder="Server name"
-                value={newServerName}
-                onChange={e => setNewServerName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    addServer(newServerName.trim());
-                    setNewServerName('');
-                    e.currentTarget.blur();
-                  }
-                }}
-              />
-            </div>
+            {/* opens popup window if clicked */}
+            <button
+              className=" bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+              onClick={() => setShowPopup(true)}
+            >
+              +
+            </button>
+
+            {showPopup && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <div className="w-full max-w-md bg-white p-4 rounded shadow-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-lg font-bold">OPC-UA Connection</div>
+                    <button
+                      className="text-gray-500 hover:text-gray-800"
+                      onClick={() => setShowPopup(false)}
+                      aria-label="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>                 
+                    <ConnectOPCUA
+                      jointManager={jointManager}
+                      addServer={addServer}
+                    />
+                </div>
+              </div>
+            )}
             {servers.map(server => (
               <div key={server.id}>
                 <div className="flex items-center justify-between">

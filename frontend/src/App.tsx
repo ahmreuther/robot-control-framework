@@ -4,7 +4,6 @@ import './App.css';
 import { Panel, Group } from 'react-resizable-panels'
 import { Viewport } from "./components/viewport/Viewport";
 import { SidebarMenu } from './components/Menu';
-import RobotsServersManager from './components/RobotsServersManager';
 import { useSceneState } from './hooks/useSceneState';
 import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './contexts/UrlContext';
@@ -19,6 +18,7 @@ import MessageLog from './components/MenuComponents/Tab2Components/MessageLog';
 import { JointAnglesPanel } from "./components/MenuComponents/ControlsComponents/JointAnglesPanel";
 import { ASpaceWindow } from './components/Adressspace';
 import Settings from './components/Settings';
+import RobotsServersManager from './components/AddServerAndRobots/RobotsServersManager';
 
 export type SettingsState = {
   environment: boolean;
@@ -60,6 +60,8 @@ function App() {
   const [axleValues, setAxleValues] = useState<AxleValues>({});
   const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
 
+  const websocketUrl = "ws://127.0.0.1:8001/ws";
+
   const {
     servers,
     robots,
@@ -83,6 +85,7 @@ function App() {
   };
 
   return (
+    <SocketProvider url={websocketUrl}>
     <div className="w-screen h-screen overflow-hidden bg-black text-white p-4">
       <Settings settings={settings} toggleSettings={toggleSettings} />
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
@@ -150,6 +153,7 @@ function App() {
           <RobotsServersManager
             servers={servers}
             robots={robots}
+            jointManager={jointManager}
             addServer={addServer}
             removeServer={removeServer}
             addRobot={addRobot}
@@ -196,6 +200,7 @@ function App() {
                 <RobotsServersManager
                   servers={servers}
                   robots={robots}
+                  jointManager={jointManager}
                   addServer={addServer}
                   removeServer={removeServer}
                   addRobot={addRobot}
@@ -215,6 +220,7 @@ function App() {
         </div>
       )}
     </div>
+    </SocketProvider>
   )
 }
 
