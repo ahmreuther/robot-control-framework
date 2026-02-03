@@ -75,6 +75,7 @@ function App() {
     setActiveASpaceServerId,
   } = useServersAndRobots();
 
+
   const isMobile = useIsMobile();
   const [mobilePanelState, setMobilePanelState] = useState<'none'|'main'|'side'|'bot'>('none');
     // Address Space window state - NOT persisted (always starts closed)
@@ -84,8 +85,14 @@ function App() {
     setIsAddressSpaceOpen(prev => !prev);
   };
 
+  useEffect(() => {
+    const active = servers.find(s => s.id === activeASpaceServerId);
+    setOpcuaUrl(active?.connectedUrl ?? null);
+  }, [activeASpaceServerId, servers, setOpcuaUrl]);
+
   return (
     <SocketProvider url={websocketUrl}>
+    <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
     <div className="w-screen h-screen overflow-hidden">
       <LogProvider logs={logs} setLogs={setLogs}>
       <Settings settings={settings} toggleSettings={toggleSettings} />
@@ -161,6 +168,7 @@ function App() {
             removeRobot={removeRobot}
             connectRobotToServer={connectRobotToServer}
             disconnectRobot={disconnectRobot}
+            onSelectURDF={handleRobotSelect}
           />
         </Panel>
       </Group>
@@ -222,6 +230,7 @@ function App() {
       )}
       </LogProvider>
     </div>
+    </UrlProvider>
     </SocketProvider>
   )
 }

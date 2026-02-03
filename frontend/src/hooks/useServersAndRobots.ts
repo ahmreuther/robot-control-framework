@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 export type Robot = { id: number; name: string; serverId: number | null };
-export type Server = { id: number; name: string; robotIds: number[] };
+export type Server = { id: number; name: string; robotIds: number[]; connectedUrl: string | null; backendport: string | null };
 
 export default function useServersAndRobots() {
   const [servers, setServers] = useState<Server[]>([]);
@@ -9,9 +9,9 @@ export default function useServersAndRobots() {
   const [serverIdCounter, setServerIdCounter] = useState(1);
   const [robotIdCounter, setRobotIdCounter] = useState(1);
 
-  const addServer = (name: string) => {
+  const addServer = (name: string, connectedUrl: string, backendport: string | null = null) => {
     const id = serverIdCounter;
-    setServers(prev => [...prev, { id, name, robotIds: [] }]);
+    setServers(prev => [...prev, { id, name, robotIds: [], connectedUrl, backendport }]);
     setServerIdCounter(id => id + 1);
     return id;
   };
@@ -65,12 +65,11 @@ export default function useServersAndRobots() {
   const [activeASpaceServerId, setActiveASpaceServerId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (servers.length && activeASpaceServerId === null) {
-      setActiveASpaceServerId(servers[0].id);
-    } else if (!servers.length) {
+    // Reset activeASpaceServerId to null if the currently active server was deleted
+    if (activeASpaceServerId !== null && !servers.find(s => s.id === activeASpaceServerId)) {
       setActiveASpaceServerId(null);
     }
-  }, [servers]);
+  }, [servers, activeASpaceServerId]);
 
   return {
     servers,
