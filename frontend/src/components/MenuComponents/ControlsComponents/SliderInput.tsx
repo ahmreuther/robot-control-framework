@@ -118,7 +118,7 @@ export function SliderInput({
                 <div className="flex flex-1 justify-end items-center gap-1">
                     <input
                         type="number"
-                        className="w-16 text-right text-white/60 bg-transparent border border-white/20 px-1 focus:outline-none focus:border-blue-400"
+                        className="input-ghost w-16 text-right"
                         value={inputValue}
                         min={minDispLocal}
                         max={maxDispLocal}

@@ -132,7 +132,7 @@ export default function RobotsServersManager(props: Props) {
           <div className='ml-2'>
             <div>
               <input
-                className="w-full"
+                className="input-ghost w-full text-left"
                 type="text"
                 placeholder="Robot name"
                 value={newRobotName}
