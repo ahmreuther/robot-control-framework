@@ -51,7 +51,7 @@ function App() {
     setHoveredJointMesh,
   } = useSceneState();
 
-  const [logs, setLogs] = useState('');
+  const [logs, setLogs] = useState<string>("");
   const [opcuaUrl, setOpcuaUrl] = useState<string | null>(null);
   
   const [robotName, setRobotName] = useState('-');
@@ -83,7 +83,8 @@ function App() {
   };
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-black text-white p-4">
+    <div className="w-screen h-screen overflow-hidden">
+      <LogProvider logs={logs} setLogs={setLogs}>
       <Settings settings={settings} toggleSettings={toggleSettings} />
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
       {!(isMobile && mobilePanelState !== 'none') ? (
@@ -214,6 +215,7 @@ function App() {
           </div>
         </div>
       )}
+      </LogProvider>
     </div>
   )
 }
