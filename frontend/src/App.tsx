@@ -230,8 +230,8 @@ function App() {
         </div>
       )}
     </div>
-    </LogProvider>
     </UrlProvider>
+    </LogProvider>
     </SocketProvider>
   )
 }
