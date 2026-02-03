@@ -3,7 +3,6 @@ import './App.css';
 
 import { Panel, Group } from 'react-resizable-panels'
 import { Viewport } from "./components/viewport/Viewport";
-import { SidebarMenu } from './components/Menu';
 import { useSceneState } from './hooks/useSceneState';
 import { SocketProvider } from './hooks/use-socket';
 import { UrlProvider } from './contexts/UrlContext';
@@ -91,6 +90,10 @@ function App() {
   }, [activeASpaceServerId, servers, setOpcuaUrl]);
 
   return (
+    <RobotInfoProvider robotName={robotName} robotInfo={robotInfo} robotMode={robotMode}
+                 robotStatus={robotStatus} axleValues={axleValues}
+                 setAxleValues={setAxleValues} setRobotInfo={setRobotInfo} setRobotMode={setRobotMode}
+                 setRobotName={setRobotName} setRobotStatus={setRobotStatus}>
     <SocketProvider url={websocketUrl}>
     <LogProvider logs={logs} setLogs={setLogs}>
     <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
@@ -234,6 +237,7 @@ function App() {
     </UrlProvider>
     </LogProvider>
     </SocketProvider>
+    </RobotInfoProvider>
   )
 }
 

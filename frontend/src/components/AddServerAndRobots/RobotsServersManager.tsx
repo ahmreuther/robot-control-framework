@@ -6,6 +6,7 @@ import AddRobot from './AddRobot';
 import type { JointStateManager } from '../../hooks/useJointState';
 import { useSendMessage } from '../../hooks/send-message';
 import type { ModelConfig } from '../MenuComponents/ControlsComponents/URDFSelector';
+import Synchronize_Button from './SynchroniseButton';
 
 type Robot = { id: number; name: string; serverId: number | null };
 type Server = { id: number; name: string; robotIds: number[] };
@@ -191,6 +192,7 @@ export default function RobotsServersManager(props: Props) {
                     >
                       Remove
                     </button>
+                    <Synchronize_Button jointManager={jointManager} />
                   </div>
                 </div>
                 <div className='ml-2'>

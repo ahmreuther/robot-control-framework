@@ -1,7 +1,6 @@
 import { Button, Input } from "@heroui/react";
 import { useState, useContext, useEffect } from "react";
 import { UrlContext } from "../../contexts/UrlContext";
-import Synchronize_Button from "../MenuComponents/Tab2Components/SynchroniseButton";
 import { useSendMessage } from "../../hooks/send-message";
 import { RobotInfoContext } from "../../contexts/RobotInfoContext";
 import { type JointStateManager } from "../../hooks/useJointState";
@@ -81,8 +80,6 @@ function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
           </Button>
         </div>
       </div>
-
-      <Synchronize_Button jointManager={jointManager} />
     </div>
   );
 }
