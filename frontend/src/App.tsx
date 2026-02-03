@@ -97,6 +97,7 @@ function App() {
     <div className="w-screen h-screen overflow-hidden">
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
       <Settings settings={settings} toggleSettings={toggleSettings} />
+      <WebSocketReciever jointManager={jointManager} />
       {!(isMobile && mobilePanelState !== 'none') ? (
         <Group>
         <Panel defaultSize="90%">
