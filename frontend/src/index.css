@@ -79,7 +79,7 @@
   }
 
   .panel-body {
-    @apply p-4;
+    @apply p-4 text-sm;
   }
   
   .input-ghost {
@@ -101,7 +101,7 @@
 
   .button-ghost {
     @apply border px-2 py-1 text-xs;
-    border-color: rgb(var(--panel-border) / 0.20);
+    border-color: rgb(var(--panel-border) / 0.10);
     background: transparent;
     color: rgb(var(--fg) / 0.80);
   }

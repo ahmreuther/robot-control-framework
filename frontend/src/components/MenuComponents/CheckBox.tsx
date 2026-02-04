@@ -16,7 +16,7 @@ export function CheckBox({
         onChange={(e) => onToggle(e.target.checked)}
         className="check-input cursor-pointer"
       />
-      <label htmlFor={label.toLowerCase().replace(/\s+/g, "-")} className="check-label">
+      <label htmlFor={label.toLowerCase().replace(/\s+/g, "-")} className="check-label px-2 py-1 text-xs font-semibold uppercase tracking-wider">
         {label}
       </label>
     </div>

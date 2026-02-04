@@ -1,4 +1,3 @@
-import { Button, Input } from "@heroui/react";
 import { useState, useContext, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { UrlContext } from "../../contexts/UrlContext";

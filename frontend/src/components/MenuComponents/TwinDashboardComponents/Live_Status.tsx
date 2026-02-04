@@ -13,14 +13,11 @@ export default function Live_Status() {
                 .join(', ');
 
     return (
-        <div className="overflow-auto rounded p-4 space-y-3 text-white bg-black bg-opacity-70 border border-white/20">
-            {/* Identifier Header */}
-            <div className="text-sm font-bold uppercase tracking-wide border-b border-white/20 pb-2">
-                Live Status
-            </div>
-            
-            {/* Status items */}
-            <div className="flex flex-col space-y-2">
+        <section className="panel">
+            <header className="panel-header">
+                <div className='panel-title'>Live Status</div>
+            </header>
+            <div className="panel-body">
                 <StatusItem label="Connected Robot" value={robotName} />
                 <StatusItem
                     label="Status"
@@ -32,7 +29,7 @@ export default function Live_Status() {
                 {robotInfo.manufacturer && <StatusItem label="Manufacturer" value={robotInfo.manufacturer} />}
                 {robotInfo.serialNumber && <StatusItem label="Serial Number" value={robotInfo.serialNumber} />}
             </div>
-        </div>
+        </section>
     );
 }
 

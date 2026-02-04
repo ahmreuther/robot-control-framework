@@ -7,13 +7,6 @@ export interface AddRobotProps {
   onSelectURDF?: (model: ModelConfig) => void;
 }
 
-const urdfOptions: ModelConfig[] = [
-  { id: "fr3", label: "FR3", url: "/urdf/fr3_description/urdf/fr3.urdf" },
-  { id: "fr3_wagon", label: "FR3 with Wagon", url: "/urdf/fr3_description_with_wagon/urdf/fr3.urdf" },
-  { id: "ur5", label: "UR5", url: "/urdf/ur5_description/urdf/ur5_robot.urdf" },
-  { id: "eva", label: "EVA", url: "/urdf/eva_description/urdf/eva_description.urdf" },
-];
-
 function AddRobot({ addRobot, onSelectURDF }: AddRobotProps) {
   const [robotName, setRobotName] = useState("");
   const [selectedModel, setSelectedModel] = useState<ModelConfig | null>(null);
@@ -53,10 +46,6 @@ function AddRobot({ addRobot, onSelectURDF }: AddRobotProps) {
         <div className="text-xs text-white/70 mb-2">
           Select URDF Model: {selectedModel && <span className="text-blue-400">({selectedModel.label})</span>}
         </div>
-        <URDFSelector 
-          options={urdfOptions} 
-          onSelect={setSelectedModel}
-        />
       </div>
 
       <Button

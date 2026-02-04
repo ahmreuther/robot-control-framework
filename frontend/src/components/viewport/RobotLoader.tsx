@@ -16,10 +16,10 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
     const groupRef = useRef<THREE.Group | null>(null);
 
     useEffect(() => {
-        if (groupRef.current) {
-            scene.remove(groupRef.current);
-            groupRef.current = null;
-        }
+        // if (groupRef.current) {
+        //     scene.remove(groupRef.current);
+        //     groupRef.current = null;
+        // }
         if (robotRef.current) {
             robotRef.current = null;
         }

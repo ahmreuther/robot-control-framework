@@ -18,6 +18,12 @@ export default function Synchronize_Button({ jointManager }: SynchronizeButtonPr
 
     const axleValues = useContext(RobotInfoContext).axleValues;
 
+    const [switchState, setToggle] = useState(false);
+
+    const toggle = () => {
+      setToggle(prev => !prev);
+    };
+
     function synchronize(toggleState: boolean): boolean {
         if (!connectedUrl) {
             console.log("No OPC UA client connected. Please connect first.");
@@ -41,17 +47,28 @@ export default function Synchronize_Button({ jointManager }: SynchronizeButtonPr
     }
 
     return (
-        <Switch
-            isSelected={isSyncActive}
-            onChange={(next) => {
-                const maySwitch = synchronize(next);
-                if (!maySwitch) return;
-                setIsSyncActive(next);
-            }}>
-            <Switch.Control>
-                <Switch.Thumb />
-            </Switch.Control>
-            <Label className="text-sm text-white">Syncronize OPC UA Server</Label>
-        </Switch>
+        // <Switch
+        //     isSelected={isSyncActive}
+        //     onChange={(next) => {
+        //         const maySwitch = synchronize(next);
+        //         if (!maySwitch) return;
+        //         setIsSyncActive(next);
+        //     }}>
+        //     <Switch.Control>
+        //         <Switch.Thumb />
+        //     </Switch.Control>
+        //     <Label className="text-sm text-white">Syncronize OPC UA Server</Label>
+        // </Switch>
+        <button
+            className="button-ghost"
+            onClick={() => {
+                toggle();
+                 const maySwitch = synchronize(switchState);
+                 if (!maySwitch) return;
+                 setIsSyncActive(switchState);
+             }}
+        >
+            Sync
+        </button>
     );
 }

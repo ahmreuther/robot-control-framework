@@ -2,10 +2,9 @@ import { useState } from 'react';
 import Live_Status from '../MenuComponents/TwinDashboardComponents/Live_Status';
 import Twin_Dashboard from '../MenuComponents/TwinDashboardComponents/Twin_Dashboard';
 import ConnectOPCUA from './ConnectOPCUA';
-import AddRobot from './AddRobot';
 import type { JointStateManager } from '../../hooks/useJointState';
 import { useSendMessage } from '../../hooks/send-message';
-import type { ModelConfig } from '../MenuComponents/ControlsComponents/URDFSelector';
+import { URDFSelector, type ModelConfig } from '../MenuComponents/ControlsComponents/URDFSelector';
 import Synchronize_Button from './SynchroniseButton';
 
 type Robot = { id: number; name: string; serverId: number | null };
@@ -45,8 +44,6 @@ export default function RobotsServersManager(props: Props) {
   const [openRobotIds, setOpenRobotIds] = useState<Record<number, boolean>>({});
   const toggleRobotOpen = (id: number) => setOpenRobotIds(prev => ({ ...prev, [id]: !prev[id] }));
   const isRobotOpen = (id: number) => !!openRobotIds[id];
-
-  const [showRobotPopup, setShowRobotPopup] = useState(false);
 
   const { sendMessage } = useSendMessage();
 
@@ -105,12 +102,7 @@ export default function RobotsServersManager(props: Props) {
         <header className='panel-header'>
           <div className='panel-title'>Robots</div>
           <div className="flex items-center gap-2">
-            <button
-              className="button-ghost"
-              onClick={() => setShowRobotPopup(true)}
-            >
-              +
-            </button>
+            <URDFSelector addRobot={addRobot} onSelect={onSelectURDF}/>
             <button
                 className="button-ghost"
                 onClick={() => setRobotsOpen(!robotsOpen)}
@@ -120,29 +112,6 @@ export default function RobotsServersManager(props: Props) {
             </button>
           </div>
         </header>
-        {showRobotPopup && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                <div className="w-full max-w-md bg-white p-4 rounded shadow-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-lg font-bold text-black">Add Robot</div>
-                    <button
-                      className="text-gray-500 hover:text-gray-800"
-                      onClick={() => setShowRobotPopup(false)}
-                      aria-label="Close"
-                    >
-                      ✕
-                    </button>
-                  </div>                 
-                    <AddRobot
-                      addRobot={addRobot}
-                      onSelectURDF={(model) => {
-                        onSelectURDF(model);
-                        setShowRobotPopup(false);
-                      }}
-                    />
-                </div>
-              </div>
-        )}
         <div>
             {robotsOpen && robots.map(robot => {
               const open = isRobotOpen(robot.id);
@@ -151,6 +120,7 @@ export default function RobotsServersManager(props: Props) {
                   <header className="panel-header">
                     <div className="panel-title">{robot.name}</div>
                     <div className="flex items-center gap-2">
+                    <Synchronize_Button jointManager={jointManager} />
                     <button
                       className="button-ghost"
                       onClick={() => toggleRobotOpen(robot.id)}
@@ -164,17 +134,16 @@ export default function RobotsServersManager(props: Props) {
                     >
                       Remove
                     </button>
-                    <Synchronize_Button jointManager={jointManager} />
                   </div>
                   </header>
                   <div className='px-2 py-1 text-xs font-semibold uppercase'>
                     Connected Server:
                   </div>
                   <ul className='list-panel'>
-                    {servers.find(s => s.id === robot.serverId)?.name}
-                    {/* <select
+                    <li>
+                  <select
                     id={`connect-server-${robot.id}`}
-                    className="bg-white text-black border border-gray-300 rounded px-2 py-1"
+                    className=""
                     value={robot.serverId ?? ''}
                     onChange={e => {
                       const value = e.target.value;
@@ -192,12 +161,13 @@ export default function RobotsServersManager(props: Props) {
                     ))}
 
                   </select>
+                  </li>
                   {open && (
                   <div>
                     <Live_Status />
                     <Twin_Dashboard />
                   </div>
-                )} */}
+                )}
                   </ul>
               </section>
             )})}

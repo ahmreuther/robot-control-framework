@@ -1,4 +1,6 @@
 import React from 'react';
+import { useState } from 'react';
+import { createPortal } from "react-dom";
 
 export type ModelConfig = {
   id: string;
@@ -13,26 +15,91 @@ export interface URDFOptions {
 }
 
 interface URDFSelectorProps {
-  options: ModelConfig[];
+  addRobot: (name: string) => void;
   onSelect: (option: ModelConfig) => void;
 }
 
-export const URDFSelector: React.FC<URDFSelectorProps> = ({ options, onSelect }) => (
-  <div 
-    id="urdf-selector"
-    className="text-white text-xs bg-black bg-opacity-70 p-4 rounded border border-white/20 z-10 pointer-events-auto"
-  >
-    <div className="font-bold mb-3 text-sm uppercase tracking-wide text-white/90">Robot Model</div>
-    <ul className="list-none pl-0 space-y-2">
-      {options.map(opt => (
+const urdfOptions: ModelConfig[] = [
+  { id: "fr3", label: "FR3", url: "/urdf/fr3_description/urdf/fr3.urdf" },
+  { id: "fr3_wagon", label: "FR3 with Wagon", url: "/urdf/fr3_description_with_wagon/urdf/fr3.urdf" },
+  { id: "ur5", label: "UR5", url: "/urdf/ur5_description/urdf/ur5_robot.urdf" },
+  { id: "eva", label: "EVA", url: "/urdf/eva_description/urdf/eva_description.urdf" },
+];
+
+export function URDFSelector(props : URDFSelectorProps) {
+
+  const [robotName, setRobotName] = useState("");
+  const [selectedModel, setSelectedModel] = useState<ModelConfig | null>(null);
+  const [open, setOpen] = useState(false);
+
+  function handleAddRobot() {
+    if (!selectedModel) return;
+    const name = robotName.trim() || selectedModel.label;
+    props.addRobot(name);
+ 
+    props.onSelect(selectedModel);
+    setSelectedModel(selectedModel);
+    setRobotName("");
+    setSelectedModel(null);
+  }
+
+return(
+  <div>
+    <button
+      onClick={() => setOpen(true)}
+      className="button-ghost"
+    >
+      +
+    </button>
+    { open && createPortal(
+      <div
+          className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center"
+          onClick={() => setOpen(false)}
+        >
+    <section className="panel z-50 flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="panel-header">
+              <div className="panel-title">OPCUA Connect</div>
+              <button
+                onClick={() => setOpen(false)}
+                className="button-ghost"
+              >
+                ✕
+              </button>
+            </div>
+      <div className='panel-body'>
+        
+        <input
+          value={robotName}
+          onChange={(e) => setRobotName(e.target.value)}
+          placeholder="Robot Name"
+          className="input-ghost w-full text-left"
+        />
+      <div className="mt-2">
+        <div className="text-xs text-white/70 mb-2">
+          Select URDF Model: {selectedModel && <span className="text-blue-400">({selectedModel.label})</span>}
+        </div>
+      </div>
+    <ul className="list-panel mb-2">
+      {urdfOptions.map(opt => (
         <li
           key={opt.url}
-          className="cursor-pointer px-2 py-1 rounded hover:bg-white/10 hover:text-blue-300 transition-colors text-white/80"
-          onClick={() => onSelect(opt)}
+          className=""
+          onClick={() => {setSelectedModel(opt)}}
         >
           {opt.label}
         </li>
       ))}
     </ul>
+    <button
+            onClick={handleAddRobot}
+            className="button-ghost"
+          >
+            Add Robot
+          </button>
+    </div>
+  </section>
+  </div>,
+  document.body
+    )}
   </div>
-);
+);}
