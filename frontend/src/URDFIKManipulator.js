@@ -365,6 +365,7 @@ export default class URDFIKManipulator extends URDFManipulator {
     }
 
     onKeyDown(e) {
+        if (this.ignoreKeys) return;
         if (!this.transformControls) return;
         switch (e.key) {
             case 'w':

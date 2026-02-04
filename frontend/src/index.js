@@ -11,39 +11,47 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory, getActiveRobot, setActiveRobot} from './robotManager.js';
 import { spawnRobot, disposeRobotNode, renderForAFewFrames } from './sceneManager.js';
 import {
-    handleSocketMessage,
+    toggleMcpIntegration,
+    sendMcpRobotStateUpdate,
+    updateConnectionStatus
+} from './functionalities/mcp.js';
+
+import {
     toggleOpcUaSection,
     toggleRobotDashboardSection,
-    connectOpcUa,
-    disconnectOpcUa,
-    handleOpcUaSyncToggle,
-    handleOpcUaNodeSelection,
-    handleSubtreeClick,
     switchTab,
-    logMessageToBox,
-    clearLog,
-
     handleNodeClick,
-    handleGlobalMouseDown,
-
+    refreshSelectedNode,
     handleContextMenu,
+    handleGlobalMouseDown,
     handleContextCallMethod,
     handleContextSubscribe,
     handleContextUnsubscribe,
     handleContextSubscribeEvent,
-
+    handleContextUnsubscribeEvent,
+    logMessageToBox,
+    clearLog,
     syncWidth,
     initWidthObserver,
     initAnimationBlocker,
-    getToggleDimensions,
-    handleManipulateEnd,
+    getToggleDimensions
+} from './functionalities/ui.js';
+
+import {
+    handleSocketMessage,
+    connectOpcUa,
+    disconnectOpcUa,
+    handleOpcUaSyncToggle,
+    handleOpcUaNodeSelection,
+    handleSubtreeClick
+} from './functionalities/opcua.js';
+
+import {
     updateRevoluteJointStatus,
-    refreshSelectedNode,
+    handleManipulateEnd,
     handleHomeClick,
-    toggleMcpIntegration,
-    sendMcpRobotStateUpdate,
-    updateConnectionStatus
-} from './functionalities.js';
+    attachManipulatorEvents
+} from './functionalities/robot.js';
 
 customElements.define('urdf-viewer', URDFIKManipulator);
 
@@ -51,6 +59,8 @@ customElements.define('urdf-viewer', URDFIKManipulator);
 // Hack to make the build work with webpack for now.
 // TODO: Remove this once modules or parcel is being used
 const viewer = document.querySelector('urdf-viewer');
+viewer.ignoreKeys = true;
+
 setupMiniStats(viewer);
 
 // Provide a global manipulator factory once so addRobot can reuse it.
@@ -212,11 +222,19 @@ async function addRobotByModel(model) {
     if (globalSocket) {
         record.state.connectivity.socket = globalSocket;
     }
+    const manipulator = record.manipulator;
 
     // pass robot for IK and rig so gizmo is parented correctly
-    record.manipulator.setRobot(robot, record.id, rig);
-    record.manipulator.addEventListener('manipulate-start', () => {
+    manipulator.setRobot(robot, record.id, rig);
+
+    //does it so the selected robot is active
+    //attachManipulatorEvents(record);
+    manipulator.addEventListener('manipulate-start', () => {
         setActiveRobotUI(record.id);             
+    });
+
+    manipulator.addEventListener('angle-change', () => {
+        sendMcpRobotStateUpdate(record);
     });
 
     addRobotOption(record.id, model.name);
@@ -740,7 +758,7 @@ toggleBtn?.addEventListener("click", () => {
     // Update state
     infoBoxExpanded = !infoBoxExpanded;
 });
-
+/*
 window.addEventListener('DOMContentLoaded', () => {
     const robot = getActiveRobot();
     const animToggle = document.getElementById('do-animate');
@@ -770,20 +788,21 @@ window.addEventListener('DOMContentLoaded', () => {
             robot.state.interaction.isManipulating = true;
         });
         manipulator.addEventListener('manipulate-end', () => {
+            robot.state.interaction.isManipulating = false;
             handleManipulateEnd(robot);
         });
 
 
     });
-});
-/*
+});*/
+// have last connect url in opcua url box
 window.addEventListener('DOMContentLoaded', () => {
     const urlInput = document.getElementById('opc-ua-url');
     const lastUrl = localStorage.getItem('lastOpcUaUrl');
     if (lastUrl && urlInput) {
         urlInput.value = lastUrl;
     }
-});*/
+});
 
 document.getElementById('refresh-info-box').addEventListener('click', () =>{
     refreshSelectedNode();
@@ -797,15 +816,6 @@ document.getElementById('mcp-integration-toggle').addEventListener('click', (e) 
     toggleMcpIntegration(getActiveRobot(), e);
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    const robot = getActiveRobot();
-    if(robot){
-        manipulator.addEventListener('angle-change', () => {
-            sendMcpRobotStateUpdate(getActiveRobot());
-        });
-    }
-});
-
 
 window.addEventListener('load', () => {
     // Enable Hide Fixed Joints when loading
@@ -813,12 +823,4 @@ window.addEventListener('load', () => {
     hideFixedToggle.dispatchEvent(new Event('click'));
 });
 
-// have last connect url in opcua url box
-window.addEventListener('DOMContentLoaded', () => {
-    const urlInput = document.getElementById('opc-ua-url');
-    const lastUrl = localStorage.getItem('lastOpcUaUrl');
-    if (lastUrl && urlInput) {
-        urlInput.value = lastUrl;
-    }
-});
 
