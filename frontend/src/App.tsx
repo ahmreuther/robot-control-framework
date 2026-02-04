@@ -97,13 +97,16 @@ function App() {
     <SocketProvider url={websocketUrl}>
     <LogProvider logs={logs} setLogs={setLogs}>
     <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
-    <div className="w-screen h-screen overflow-hidden">
+    <div className="w-screen h-[100svh] min-h-0 overflow-hidden">
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
-      <Settings settings={settings} toggleSettings={toggleSettings} />
+      <header className='panel-header'>
+        <div className='panel-title text-sm'>Digital Twin Robots</div>
+        <Settings settings={settings} toggleSettings={toggleSettings} />
+      </header>
       <WebSocketReciever jointManager={jointManager} />
       {!(isMobile && mobilePanelState !== 'none') ? (
         <Group>
-        <Panel defaultSize="90%">
+        <Panel defaultSize="85%">
           <Group orientation="vertical">
             <Panel>
                 <Group>
@@ -131,16 +134,19 @@ function App() {
                   </Panel>   
               </Group>
             </Panel>
-              <div className="flex">
-                <span>Servers:</span>
-                <nav className="flex items-center gap-2" role="tablist" aria-label="Address Space servers">
+            <Panel defaultSize="20%">
+            <section className='panel h-full'>
+              <header className="panel-header">
+                <div className='panel-title'>Servers:</div>
+                <nav className="panel-nav" role="tablist" aria-label="Address Space servers">
                   {servers.length ? servers.map(s => (
                     <button
                       key={s.id}
                       role="tab"
-                      className={`${s.id === activeASpaceServerId ? 'border-2 border-blue-500' : ''}`}
+                      className="panel-tab"
                       aria-selected={s.id === activeASpaceServerId}
                       onClick={() => setActiveASpaceServerId(s.id)}
+                      type="button"
                     >
                       {s.name}
                     </button>
@@ -148,8 +154,8 @@ function App() {
                     null
                   )}
                 </nav>
-              </div>
-            <Panel defaultSize="20%">
+              </header>
+              <div className='panel-body h-full'>
               <Group>
                 <Panel defaultSize="70%">
                   <ASpaceWindow />
@@ -158,6 +164,8 @@ function App() {
                   <MessageLog />
                 </Panel>
               </Group>
+            </div>
+            </section>
             </Panel>
           </Group>
         </Panel>

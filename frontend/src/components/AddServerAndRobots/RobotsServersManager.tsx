@@ -53,7 +53,7 @@ export default function RobotsServersManager(props: Props) {
   }
 
   return (
-    <div className="flex flex-col overflow-y-auto h-full w-full">
+    <div className="flex flex-col overflow-y-auto h-full w-full space-y-2">
         <section className="panel">
           <header className="panel-header">
             <div className="panel-title">Servers</div>
@@ -70,7 +70,7 @@ export default function RobotsServersManager(props: Props) {
               {serversOpen ? '▼' : '▶'}
             </button>
             </div>
-          </header>    
+          </header> 
             {serversOpen && servers.map(server => (
               <section className="panel ml-4" key={server.id}>
                 <header className="panel-header">

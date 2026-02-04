@@ -291,9 +291,7 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect }
   }
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif" }}>
       <TreeNode node={root} level={0} onToggle={toggleNode} onSelect={onNodeSelect} />
-    </div>
   );
 };
 

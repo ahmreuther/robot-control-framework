@@ -83,7 +83,7 @@
   }
   
   .input-ghost {
-    @apply bg-transparent border px-2 py-1 text-xs outline-none;
+    @apply bg-transparent border px-2 py-1 text-xs outline-none transition-colors duration-150;
     border-color: rgb(var(--panel-border) / 0.20);
     color: rgb(var(--fg) / 0.75);
   }
@@ -100,7 +100,7 @@
   }
 
   .button-ghost {
-    @apply border px-2 py-1 text-xs;
+    @apply border px-2 py-1 text-xs transition-colors duration-150;
     border-color: rgb(var(--panel-border) / 0.10);
     background: transparent;
     color: rgb(var(--fg) / 0.80);
@@ -123,7 +123,7 @@
   }
 
   .row {
-    @apply border border-transparent transition-colors;
+    @apply border border-transparent transition-colors duration-150;
     border-color: transparent;
   }
 
@@ -134,7 +134,7 @@
   }
 
   .hover-surface {
-    @apply border border-transparent transition-colors px-2 py-1;
+    @apply border border-transparent transition-colors duration-150 px-2 py-1;
   }
 
   .hover-surface:hover {
@@ -148,12 +148,45 @@
   }
 
   .list-panel > li {
-    @apply px-2 py-1 text-xs transition-colors;
+    @apply px-2 py-1 text-xs transition-colors duration-150;
     background: rgb(var(--panel-border) / 0.05);
   }
 
   .list-panel > li:hover {
     background: rgb(var(--panel-border) / 0.08);
+  }
+
+  .panel-nav {
+    @apply flex items-center gap-1;
+  }
+
+  .panel-tab {
+    @apply inline-flex items-center justify-center
+           px-2 py-1 text-xs
+           cursor-pointer select-none
+           transition-colors duration-150;
+    color: rgb(var(--fg) / 0.75);
+    background: transparent;
+    border: 1px solid rgb(var(--panel-border) / 0.10);
+  }
+
+  .panel-tab:hover {
+    border-color: rgb(var(--brand) / 0.70);
+    background: rgb(var(--brand) / 0.08);
+    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
+    color: rgb(var(--fg));
+  }
+
+  .panel-tab[aria-selected="true"] {
+    border-color: rgb(var(--brand) / 0.70);
+    background: rgb(var(--brand) / 0.08);
+    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
+    color: rgb(var(--fg));
+  }
+
+  .panel-tab:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(var(--brand) / 0.35);
   }
   
 }
