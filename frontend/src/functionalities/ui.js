@@ -393,23 +393,6 @@ export const initWidthObserver = (source, target) => {
 };
 
 /**
- * Creates an observer that prevents the 'checked' class from being applied.
- * Starts the observer immediately after calling the method
- */
-export const initAnimationBlocker = (element) => {
-    if (!element) return null;
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.target.classList.contains('checked')) {
-                mutation.target.classList.remove('checked');
-            }
-        });
-    });
-    observer.observe(element, { attributes: true, attributeFilter: ['class'] });
-    return observer;
-};
-
-/**
  * Pure logic to determine the next UI state based on current expansion
  */
 export const getToggleDimensions = (isCurrentlyExpanded) => {

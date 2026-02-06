@@ -33,7 +33,6 @@ import {
     clearLog,
     syncWidth,
     initWidthObserver,
-    initAnimationBlocker,
     getToggleDimensions
 } from './functionalities/ui.js';
 
@@ -54,6 +53,15 @@ import {
 } from './functionalities/robot.js';
 
 customElements.define('urdf-viewer', URDFIKManipulator);
+
+// Global keyboard handler for the active robot
+window.addEventListener('keydown', (e) => {
+    // Dispatch key events only to the currently active robot's manipulator
+    const activeRecord = getActiveRobot();
+    if (activeRecord && activeRecord.manipulator && typeof activeRecord.manipulator.handleKey === 'function') {
+        activeRecord.manipulator.handleKey(e.key);
+    }
+});
 
 // declare these globally for the sake of the example.
 // Hack to make the build work with webpack for now.
@@ -92,7 +100,6 @@ const upSelect = document.getElementById('up-select');
 const sliderList = document.querySelector('#controls ul');
 const controlsel = document.getElementById('controls');
 const controlsToggle = document.getElementById('toggle-controls');
-const animToggle = document.getElementById('do-animate');
 const hideFixedToggle = document.getElementById('hide-fixed');
 const ikMove = document.getElementById('ik-move');
 const DEG2RAD = Math.PI / 180;
@@ -106,6 +113,7 @@ const activeRobotSelect = document.getElementById('active-robot-select');
 const deleteRobotBtn = document.getElementById('delete-robot-btn');
 const robotCountValue = document.getElementById('robot-count-value');
 
+let originalNoAutoRecenter = null;
 
 let globalSocket = null;
 
@@ -227,16 +235,59 @@ async function addRobotByModel(model) {
     // pass robot for IK and rig so gizmo is parented correctly
     manipulator.setRobot(robot, record.id, rig);
 
-    //does it so the selected robot is active
-    //attachManipulatorEvents(record);
-    manipulator.addEventListener('manipulate-start', () => {
-        setActiveRobotUI(record.id);             
+    // create the sliders for the currently active robot
+    manipulator.addEventListener('urdf-processed', () => {
+        viewer.camera.position.set(-0.5, 1.1, 0.8);
+        ControlCenterSliders();
+        updateRevoluteJointStatus(record);
+
     });
 
-    manipulator.addEventListener('angle-change', () => {
+    manipulator.addEventListener('angle-change', (e) => {
+        if (e && e.detail && controlSliders[e.detail]) {
+            controlSliders[e.detail].update();
+        } else {
+            Object.values(controlSliders).forEach(sl => sl.update());
+        }
+        updateRevoluteJointStatus(record);
+
         sendMcpRobotStateUpdate(record);
     });
 
+    manipulator.addEventListener('manipulate-start', (e) => {
+        setActiveRobotUI(record.id);
+        
+        const j = document.querySelector(`li[joint-name="${e.detail}"]`);
+        if (j) {
+            j.scrollIntoView({ block: 'nearest' });
+            window.scrollTo(0, 0);
+        }
+
+        originalNoAutoRecenter = viewer.noAutoRecenter;
+        viewer.noAutoRecenter = true;
+
+        record.state.interaction.isManipulating = true;
+    });
+
+    manipulator.addEventListener('manipulate-end', e => {
+        viewer.noAutoRecenter = originalNoAutoRecenter;
+        record.state.interaction.isManipulating = false;
+        handleManipulateEnd(record)
+    });
+    //hover effect i think
+    manipulator.addEventListener('joint-mouseover', e => {
+
+        const j = document.querySelector(`li[joint-name="${e.detail}"]`);
+        if (j) j.setAttribute('robot-hovered', true);
+
+    });
+
+    manipulator.addEventListener('joint-mouseout', e => {
+
+        const j = document.querySelector(`li[joint-name="${e.detail}"]`);
+        if (j) j.removeAttribute('robot-hovered');
+
+    });
     addRobotOption(record.id, model.name);
     setActiveRobotUI(record.id);
 
@@ -356,63 +407,11 @@ upSelect.addEventListener('change', () => viewer.up = upSelect.value);
 
 controlsToggle.addEventListener('click', () => controlsel.classList.toggle('hidden'));
 
-
-viewer.addEventListener('urdf-change', () => {
-    Object.values(controlSliders).forEach(sl => sl.remove());
-    controlSliders = {};
-
-});
-
+// not in addRobotByModel because it is global and for all UI (i think)
 viewer.addEventListener('ignore-limits-change', () => {
     Object.values(controlSliders).forEach(sl => sl.update());
 });
 
-
-viewer.addEventListener('angle-change', e => {
-    if (e && e.detail && controlSliders[e.detail]) {
-        controlSliders[e.detail].update();
-    } else {
-        Object.values(controlSliders).forEach(sl => sl.update());
-    }
-});
-
-
-viewer.addEventListener('joint-mouseover', e => {
-
-    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
-    if (j) j.setAttribute('robot-hovered', true);
-
-});
-
-viewer.addEventListener('joint-mouseout', e => {
-
-    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
-    if (j) j.removeAttribute('robot-hovered');
-
-});
-
-let originalNoAutoRecenter;
-viewer.addEventListener('manipulate-start', e => {
-
-    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
-    if (j) {
-        j.scrollIntoView({ block: 'nearest' });
-        window.scrollTo(0, 0);
-    }
-
-    originalNoAutoRecenter = viewer.noAutoRecenter;
-    viewer.noAutoRecenter = true;
-
-});
-
-viewer.addEventListener('manipulate-end', e => {
-    viewer.noAutoRecenter = originalNoAutoRecenter;
-});
-
-// create the sliders for the currently active robot
-viewer.addEventListener('urdf-processed', () => {
-    ControlCenterSliders();
-});
 
 document.addEventListener('WebComponentsReady', () => {
 
@@ -468,7 +467,6 @@ document.addEventListener('WebComponentsReady', () => {
     viewer.up = '+Z';
     document.getElementById('up-select').value = viewer.up;//what does this do?
 
-    animToggle.classList.add('checked');
     setColor(color);
     //adding initial robot
     const model = robotModels[0]; //eva robot
@@ -477,62 +475,22 @@ document.addEventListener('WebComponentsReady', () => {
     if (/javascript\/example\/bundle/i.test(window.location)) {
         viewer.package = '../../../urdf';
     }
-
+    /* // currently not working because it would need to be per robot and use the robotmanager. TODO
     registerDragEvents(viewer, () => {
         setColor('#263238');
         animToggle.classList.remove('checked');
         updateList();
     });
-
+    */
 });
 
-const updateAngles = () => {
-    const robots = listRobots();
-    if (robots.length === 0) return;
-
-    const time = Date.now() / 3e2;
-
-    robots.forEach(record => {
-        const manipulator = record.manipulator;
-        if (record.model === 'EVA') {
-            const time = Date.now() / 3e2;
-            for (let i = 1; i <= 6; i++) {
-                const offset = i * Math.PI / 3;
-                const ratio = Math.max(0, Math.sin(time + offset));
-                manipulator.setJointValue(`HP${i}`, THREE.MathUtils.lerp(30, 0, ratio) * DEG2RAD);
-                manipulator.setJointValue(`KP${i}`, THREE.MathUtils.lerp(90, 150, ratio) * DEG2RAD);
-                manipulator.setJointValue(`AP${i}`, THREE.MathUtils.lerp(-30, -60, ratio) * DEG2RAD);
-                manipulator.setJointValue(`TC${i}A`, THREE.MathUtils.lerp(0, 0.065, ratio));
-                manipulator.setJointValue(`TC${i}B`, THREE.MathUtils.lerp(0, 0.065, ratio));
-                manipulator.setJointValue(`W${i}`, window.performance.now() * 0.001);
-            }
-        }
-    });
-};
-
-const updateLoop = () => {
-
-    if (animToggle.classList.contains('checked')) {
-        updateAngles();
-    }
-
-    requestAnimationFrame(updateLoop);
-
-};
 
 document.addEventListener('WebComponentsReady', () => {
 
-    animToggle.addEventListener('click', () => animToggle.classList.toggle('checked'));
-
-    // stop the animation if user tried to manipulate the model
-    viewer.addEventListener('manipulate-start', e => animToggle.classList.remove('checked'));
-    viewer.addEventListener('urdf-processed', e => updateAngles());
-    updateLoop();
     //viewer.camera.position.set(-1.5, 3.5, 5.5);
     viewer.camera.position.set(-1.5, 1.5, 1.5);
     autocenterToggle.classList.remove('checked');
     viewer.noAutoRecenter = true;
-
 });
 
 // ===== Robot Control Center Functions =====
@@ -543,7 +501,7 @@ function ControlCenterSliders() {
 
     const record = getActiveRobot();
     const manipulator = record?.manipulator;
-    const robot = manipulator?.robot || viewer?.robot;
+    const robot = manipulator?.robot;
     if (!robot || !robot.joints) return;
 
     Object.keys(robot.joints)
@@ -561,7 +519,7 @@ function ControlCenterSliders() {
         .forEach(jointName => {
             const joint = robot.joints[jointName];
 
-            if (joint.jointType === 'fixed') return;
+            // if (joint.jointType === 'fixed') return;
             if (joint.jointType === 'prismatic' && Array.isArray(joint.mimicJoints) && joint.mimicJoints.length === 0) return;
 
             const li = document.createElement('li');
@@ -579,7 +537,7 @@ function ControlCenterSliders() {
             const input = li.querySelector('input[type="number"]');
 
             li.update = () => {
-                const current = (manipulator?.robot || viewer?.robot)?.joints?.[jointName];
+                const current = (manipulator?.robot)?.joints?.[jointName];
                 if (!current) return;
 
                 const degMultiplier = radiansToggle.classList.contains('checked') ? 1.0 : RAD2DEG;
@@ -626,8 +584,6 @@ function ControlCenterSliders() {
                 const value = parseFloat(slider.value);
                 if (manipulator?.setJointValue) {
                     manipulator.setJointValue(jointName, value);
-                } else if (viewer?.setJointValue) {
-                    viewer.setJointValue(jointName, value);
                 }
                 li.update();
             });
@@ -637,8 +593,6 @@ function ControlCenterSliders() {
                 const value = parseFloat(input.value) * degMultiplier;
                 if (manipulator?.setJointValue) {
                     manipulator.setJointValue(jointName, value);
-                } else if (viewer?.setJointValue) {
-                    viewer.setJointValue(jointName, value);
                 }
                 li.update();
             });
@@ -736,14 +690,12 @@ const infoBox = document.getElementById("info-box");
 const propertiesBox = document.getElementById("properties-box");
 const toggleBtn = document.getElementById("info-toggle-btn");
 //already defined
-//const animToggle = document.getElementById('do-animate');
 
 // Internal State
 
 // 1. Initial Setup
 syncWidth(infoBox, propertiesBox);
 initWidthObserver(infoBox, propertiesBox);
-initAnimationBlocker(animToggle);
 
 let infoBoxExpanded = true;
 
@@ -758,43 +710,7 @@ toggleBtn?.addEventListener("click", () => {
     // Update state
     infoBoxExpanded = !infoBoxExpanded;
 });
-/*
-window.addEventListener('DOMContentLoaded', () => {
-    const robot = getActiveRobot();
-    const animToggle = document.getElementById('do-animate');
 
-    if (!robot || !robot.manipulator|| !animToggle) {
-            console.warn('URDF Manipulator not found.');
-            return;
-        };
-    const manipulator = robot.manipulator;
-
-    manipulator.addEventListener('urdf-processed', () => {
-        manipulator.camera.position.set(-0.5, 1.1, 0.8);
-
-        animToggle.classList.remove('checked');
-        animToggle.remove(animToggle);
-
-        
-        updateRevoluteJointStatus(robot);
-
-        manipulator.addEventListener('angle-change', updateRevoluteJointStatus);
-
-        document.getElementById('radians-toggle')?.addEventListener('click', () => {
-            setTimeout(() => { updateRevoluteJointStatus(robot); }, 0);
-        });
-
-        manipulator.addEventListener('manipulate-start', () => {
-            robot.state.interaction.isManipulating = true;
-        });
-        manipulator.addEventListener('manipulate-end', () => {
-            robot.state.interaction.isManipulating = false;
-            handleManipulateEnd(robot);
-        });
-
-
-    });
-});*/
 // have last connect url in opcua url box
 window.addEventListener('DOMContentLoaded', () => {
     const urlInput = document.getElementById('opc-ua-url');
@@ -804,6 +720,11 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('radians-toggle')?.addEventListener('click', () => {
+        setTimeout(() => { updateRevoluteJointStatus(robot); }, 0);
+    });
+});
 document.getElementById('refresh-info-box').addEventListener('click', () =>{
     refreshSelectedNode();
 });

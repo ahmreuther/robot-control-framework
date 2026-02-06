@@ -361,28 +361,6 @@ export function updateRevoluteJointStatus(robotRecord) {
         }
     }
 }
-export function attachManipulatorEvents(robotRecord) {
-    const manipulator = robotRecord.manipulator;
-
-    if (!manipulator) return;
-
-    // Revolute joint status
-    manipulator.addEventListener('angle-change', () => {
-        updateRevoluteJointStatus(robotRecord);
-        sendMcpRobotStateUpdate(robotRecord);
-    });
-
-    // Manipulation start
-    manipulator.addEventListener('manipulate-start', () => {
-        robotRecord.state.interaction.isManipulating = true;
-    });
-
-    // Manipulation end
-    manipulator.addEventListener('manipulate-end', () => {
-        robotRecord.state.interaction.isManipulating = false;
-        handleManipulateEnd(robotRecord);
-    });
-}
 
 export function handleManipulateEnd(robotRecord) {
     const manipulator = robotRecord.manipulator;

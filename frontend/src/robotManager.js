@@ -79,23 +79,7 @@ class RobotManager {
             slotIndex: assignedSlot,
             manipulator: null,
 
-            //add opcua attributes from funcitionalities.js
-            /*
-            let socket; x
-            let socket_mcp; x
-            let opcUaSyncEnabled; x
-            let isMouseDownOnJoint = false; x
-            let connectedUrl; x
-            let opcUaStreamActive = false; x
-            let lastOpcUaAngles = null; x
-            let isManipulating = false; x
-            let selectedNodeId = null; x
-            let selectedNodeElement = null; x
-            let showSubscriptionsTabOnNextCustom = false;
-            let hasRoboticsNamespace = null; x //should be false
-            let gotoMethodNodeId = null; x
-            let toggleEndEffMethodNodeId = null; x
-            */
+            //global attributes from funcitionalities.js now per robot
             state: {
                 connectivity: {
                     socket: null, //backend opcua socket
