@@ -346,14 +346,19 @@ export function updateRevoluteJointStatus(robotRecord) {
     
     const jointValues = getFormattedJointString(robotRecord);
     const statusField = document.getElementById('robot-position-value');
+    const manipulator = robotRecord?.manipulator || null;
+    
     if (statusField) {
         statusField.textContent = jointValues.join(', ');
     }
     const TCPField = document.getElementById('robot-tcp-value');
 
     if (TCPField) {
+        if (manipulator && manipulator.targetObject) {
         TCPField.textContent = 'Pos: ' + manipulator.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + manipulator.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', ');
-
+        } else {
+            TCPField.textContent = 'Pos: (n/a) ;Rot: (n/a)';
+        }
     }
 }
 export function attachManipulatorEvents(robotRecord) {
