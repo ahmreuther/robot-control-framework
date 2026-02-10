@@ -1,16 +1,18 @@
-// ASpaceBody.tsx - Tree loading and rendering component (Performance Optimized)
-
-import React, { useEffect, useState, useCallback, memo, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { UaNode } from "./types";
 import { fetchChildren } from "./api";
 import { updateNodeById, findNodeById, isLikelyExpandable } from "./treeUtils";
+import { Tree } from "antd";
+import type { TreeDataNode } from "antd";
 
 type ASpaceBodyProps = {
   opcUaUrl: string;
-  onNodeSelect?: (node: UaNode) => void;
+  onNodeSelect: (node: UaNode) => void;
+  addSubscription: (node: UaNode) => void;
+  addEventSubscription: (node: UaNode) => void;
+  openMethodDialog: (node: UaNode) => void;
 };
 
-const INDENT_PER_LEVEL_PX = 20;
 const STORAGE_KEY_EXPANDED = "addressSpace_expandedNodes";
 
 const getNodeClassEmoji = (nodeClass: string): string => {
@@ -35,79 +37,7 @@ const getNodeClassEmoji = (nodeClass: string): string => {
       return "📄";
   }
 };
-// ========== MEMOIZED NODE COMPONENT (prevents unnecessary re-renders) ==========
-interface TreeNodeProps {
-  node: UaNode;
-  level: number;
-  onToggle: (nodeId: string) => void;
-  onSelect?: (node: UaNode) => void;
-}
 
-const TreeNode = memo<TreeNodeProps>(({ node, level, onToggle, onSelect }) => {
-  const expandable = isLikelyExpandable(node);
-  const hasChildren = (node.children?.length ?? 0) > 0;
-  const showArrow = node.loading || (node.loaded ? hasChildren : expandable);
-  const arrowChar = node.loading ? "…" : node.expanded ? "▾" : "▸";
-
-  const handleClick = useCallback(() => {
-    if (showArrow) onToggle(node.nodeId);
-  }, [showArrow, onToggle, node.nodeId]);
-
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    onSelect?.(node);
-  }, [onSelect, node]);
-
-  return (
-    <div>
-      <div
-        style={{
-          marginLeft: level * INDENT_PER_LEVEL_PX,
-          display: "flex",
-          gap: 6,
-          alignItems: "center",
-          cursor: showArrow ? "pointer" : "default",
-          padding: "3px 6px",
-          borderRadius: 4,
-        }}
-        className="hover:bg-white/5"
-        onClick={handleClick}
-        onContextMenu={handleContextMenu}
-        title={node.nodeId}
-      >
-        {showArrow ? (
-          <span style={{ width: 16, color: "#888", fontFamily: "monospace" }}>
-            {arrowChar}
-          </span>
-        ) : (
-          <span style={{ width: 16 }} />
-        )}
-        <span style={{ fontSize: 14 }}>{getNodeClassEmoji(node.nodeClass)}</span>
-        <span style={{ color: "#fff" }}>{node.displayName}</span>
-      </div>
-
-      {node.expanded && node.children?.map((c) => (
-        <TreeNode
-          key={c.nodeId}
-          node={c}
-          level={level + 1}
-          onToggle={onToggle}
-          onSelect={onSelect}
-        />
-      ))}
-
-      {node.expanded && node.loaded && !hasChildren && (
-        <div style={{ marginLeft: (level + 1) * INDENT_PER_LEVEL_PX + 16, color: "#555", fontSize: 11, padding: "2px 0" }}>
-          (empty)
-        </div>
-      )}
-    </div>
-  );
-});
-
-TreeNode.displayName = "TreeNode";
-
-// ========== HELPER: Collect expanded node IDs ==========
 const collectExpandedIds = (node: UaNode): string[] => {
   const ids: string[] = [];
   if (node.expanded) ids.push(node.nodeId);
@@ -115,7 +45,6 @@ const collectExpandedIds = (node: UaNode): string[] => {
   return ids;
 };
 
-// ========== HELPER: Load saved expanded state ==========
 const loadExpandedIds = (): Set<string> => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY_EXPANDED);
@@ -125,39 +54,64 @@ const loadExpandedIds = (): Set<string> => {
   }
 };
 
-// ========== MAIN COMPONENT ==========
-export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect }) => {
+const uaNodeToTreeData = (
+  node: UaNode,
+  onNodeSelect: (node: UaNode) => void,
+  setSelectedKeys: (keys: string[]) => void,
+  addSubscription: (node: UaNode) => void,
+  addEventSubscription: (node: UaNode) => void,
+  openMethodDialog: (node: UaNode) => void
+): TreeDataNode => {
+  return {
+    title: (
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 2, overflow: 'hidden' }}
+        onContextMenu={e => {
+          e.preventDefault();
+          setSelectedKeys([node?.nodeId]);
+          onNodeSelect(node);
+        }}
+        title={node?.displayName + " " + node?.nodeId}
+      >
+        <span style={{ minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getNodeClassEmoji(node?.nodeClass)}{node?.displayName}</span>
+        {node?.nodeClass.toLowerCase() == "variable" && <button onClick={() => addSubscription(node)} className="button-ghost break-keep">Subscribe</button>}
+        {node?.nodeClass.toLowerCase() == "object" && <button onClick={() => addEventSubscription(node)} className="button-ghost break-keep">Subscribe</button>}
+        {node?.nodeClass.toLowerCase() == "method" && <button onClick={() => openMethodDialog(node)} className="button-ghost break-keep">Call</button>}
+      </div>
+    ),
+    key: node?.nodeId,
+    children: node?.children?.map(c => uaNodeToTreeData(c, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog)),
+    isLeaf: !isLikelyExpandable(node),
+    selectable: true
+  };
+};
+
+export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, addSubscription, addEventSubscription, openMethodDialog }) => {
   const [root, setRoot] = useState<UaNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Track expanded nodes for persistence
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  const [autoExpandParent, setAutoExpandParent] = useState(true);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+
   const expandedIdsRef = useRef<Set<string>>(loadExpandedIds());
 
-  // ========== SAVE EXPANDED STATE on visibility change (minimize) ==========
-  // We save continuously so minimize preserves state, but close handler clears it
   useEffect(() => {
     if (!root) return;
-    
-    // Save current expanded state
     const ids = collectExpandedIds(root);
     localStorage.setItem(STORAGE_KEY_EXPANDED, JSON.stringify(ids));
+    setExpandedKeys(ids);
   }, [root]);
 
-  // ========== RECURSIVE LOAD FOR SAVED EXPANDED NODES ==========
   const loadExpandedChildren = useCallback(async (
     nodeId: string,
     savedExpanded: Set<string>
   ): Promise<UaNode[]> => {
     const children = await fetchChildren(opcUaUrl, nodeId);
-    
-    // For each child that should be expanded, recursively load its children
     const childrenWithState = await Promise.all(
       children.map(async (child) => {
         const shouldExpand = savedExpanded.has(child.nodeId);
-        
         if (shouldExpand && isLikelyExpandable(child)) {
-          // Recursively load this child's children
           try {
             const grandchildren = await loadExpandedChildren(child.nodeId, savedExpanded);
             return {
@@ -172,28 +126,20 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect }
             return { ...child, expanded: false };
           }
         }
-        
         return { ...child, expanded: false };
       })
     );
-    
     return childrenWithState;
   }, [opcUaUrl]);
 
-  // ========== LOAD ROOT (JSON GET) ==========
   useEffect(() => {
     if (!opcUaUrl) return;
-
     const loadRoot = async () => {
       try {
         setLoading(true);
         setError(null);
-
         const savedExpanded = expandedIdsRef.current;
-        
-        // Load root children with recursive expansion for saved state
         const children = await loadExpandedChildren("i=84", savedExpanded);
-
         setRoot({
           nodeId: "i=84",
           displayName: "Root",
@@ -201,7 +147,7 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect }
           nodeClass: "Object",
           children,
           loaded: true,
-          expanded: savedExpanded.has("i=84") || savedExpanded.size === 0, // Default open if no saved state
+          expanded: savedExpanded.has("i=84") || savedExpanded.size === 0,
           loading: false,
         });
       } catch (e: any) {
@@ -212,86 +158,80 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect }
         setLoading(false);
       }
     };
-
     loadRoot();
   }, [opcUaUrl, loadExpandedChildren]);
 
-  // ========== TOGGLE NODE - OPTIMIZED (single state update) ==========
-  const toggleNode = useCallback(async (nodeId: string) => {
-    if (!root) return;
-
-    // Find node to check current state
-    const node = findNodeById(root, nodeId);
-    if (!node) return;
-
-    const willExpand = !node.expanded;
-    const needsLoad = willExpand && !node.loaded && !node.loading;
-
-    if (needsLoad) {
-      // Set loading state and expand in ONE update
-      setRoot((prev) => {
-        if (!prev) return prev;
-        return updateNodeById(prev, nodeId, (n) => ({
-          ...n,
-          expanded: true,
-          loading: true,
-        }));
-      });
-
-      try {
-        // Load children with recursive expansion for saved state
-        const savedExpanded = expandedIdsRef.current;
-        const childrenWithState = await loadExpandedChildren(nodeId, savedExpanded);
-
-        setRoot((prev) => {
-          if (!prev) return prev;
-          return updateNodeById(prev, nodeId, (n) => ({
-            ...n,
-            children: childrenWithState,
-            loaded: true,
-            loading: false,
-          }));
-        });
-      } catch (e) {
-        console.error("[ASpaceBody] toggleNode error:", e);
-        setRoot((prev) => {
-          if (!prev) return prev;
-          return updateNodeById(prev, nodeId, (n) => ({
-            ...n,
-            loading: false,
-            loaded: true,
-            children: n.children ?? [],
-          }));
-        });
+  const onExpand = useCallback(async (keys: React.Key[], { expanded, node }) => {
+    setExpandedKeys(keys as string[]);
+    setAutoExpandParent(false);
+    if (expanded && node) {
+      const nodeId = node.key as string;
+      if (root) {
+        const found = findNodeById(root, nodeId);
+        if (found && !found.loaded && !found.loading) {
+          setRoot((prev) => {
+            if (!prev) return prev;
+            return updateNodeById(prev, nodeId, (n) => ({
+              ...n,
+              expanded: true,
+              loading: true,
+            }));
+          });
+          try {
+            const childrenWithState = await loadExpandedChildren(nodeId, expandedIdsRef.current);
+            setRoot((prev) => {
+              if (!prev) return prev;
+              return updateNodeById(prev, nodeId, (n) => ({
+                ...n,
+                children: childrenWithState,
+                loaded: true,
+                loading: false,
+              }));
+            });
+          } catch (e) {
+            setRoot((prev) => {
+              if (!prev) return prev;
+              return updateNodeById(prev, nodeId, (n) => ({
+                ...n,
+                loading: false,
+                loaded: true,
+                children: n.children ?? [],
+              }));
+            });
+          }
+        }
       }
-    } else {
-      // Just toggle expanded (already loaded or collapsing)
-      setRoot((prev) => {
-        if (!prev) return prev;
-        return updateNodeById(prev, nodeId, (n) => ({ ...n, expanded: !n.expanded }));
-      });
     }
-  }, [root, opcUaUrl]);
+  }, [root, loadExpandedChildren]);
 
-  // ========== RENDER ==========
-  if (!opcUaUrl) {
-    return <div style={{ color: "#aaa" }}>Please connect to an OPC UA server first.</div>;
-  }
+  const onSelectTree = useCallback((selectedKeys: React.Key[]) => {
+    setSelectedKeys(selectedKeys as string[]);
+    if (root && selectedKeys.length > 0) {
+      const node = findNodeById(root, selectedKeys[0] as string);
+      if (node) onNodeSelect(node);
+    }
+  }, [root, onNodeSelect]);
 
-  if (loading) {
-    return <div style={{ color: "#aaa" }}>Loading Address Space from {opcUaUrl}…</div>;
-  }
-
-  if (error) {
-    return <div style={{ color: "#f66" }}>Error: {error}</div>;
-  }
-
-  if (!root) {
-    return <div style={{ color: "#888" }}>No data loaded.</div>;
-  }
+  const treeData: TreeDataNode[] = [uaNodeToTreeData(root, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog)];
 
   return (
-      <TreeNode node={root} level={0} onToggle={toggleNode} onSelect={onNodeSelect} />
+      <Tree
+        className="address-space-tree"
+        treeData={treeData}
+        expandedKeys={expandedKeys}
+        autoExpandParent={autoExpandParent}
+        selectedKeys={selectedKeys}
+        onExpand={onExpand}
+        onSelect={onSelectTree}
+        showLine={{ showLeafIcon: false }}
+        // Optionally, you can set showIcon={true} if you want
+        style={{
+          background: "rgb(var(--panel))",
+          color: "rgb(var(--fg))",
+          borderRadius: 0,
+          padding: "0.5rem 0.5rem 0.5rem 0.5rem"
+        }}
+      />
   );
 };
 

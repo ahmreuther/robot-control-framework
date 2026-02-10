@@ -115,7 +115,7 @@ export function SliderInput({
         <div className="w-full hover-surface">
             <div className='flex mb-1'>
                 <div className="">
-                    <label className="text-sm text-white/80">JOINT {i}:</label>
+                    <label className="text-xs text-white/80">JOINT {i}:</label>
                 </div>
                 <div className="flex-1 flex justify-end space-x-2">
                     <input
@@ -144,10 +144,10 @@ export function SliderInput({
                     </span>
                 </div>
             </div>
-            <div className='block w-full'>
+            <div className='block w-full py-1'>
                 <input
                     type="range"
-                    className="block w-full"
+                    className="slider w-full"
                     min={minDispLocal}
                     max={maxDispLocal}
                     step={stepDisp}

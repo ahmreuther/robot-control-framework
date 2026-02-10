@@ -36,7 +36,6 @@ export function URDFSelector(props : URDFSelectorProps) {
     if (!selectedModel) return;
     const name = robotName.trim() || selectedModel.label;
     props.addRobot(name);
- 
     props.onSelect(selectedModel);
     setSelectedModel(selectedModel);
     setRobotName("");
@@ -75,27 +74,19 @@ return(
           className="input-ghost w-full text-left"
         />
       <div className="mt-2">
-        <div className="text-xs text-white/70 mb-2">
-          Select URDF Model: {selectedModel && <span className="text-blue-400">({selectedModel.label})</span>}
-        </div>
       </div>
     <ul className="list-panel mb-2">
       {urdfOptions.map(opt => (
         <li
           key={opt.url}
-          className=""
+          className={selectedModel?.id === opt.id ? "text-[rgb(var(--brand))]" : ""}
           onClick={() => {setSelectedModel(opt)}}
         >
           {opt.label}
         </li>
       ))}
     </ul>
-    <button
-            onClick={handleAddRobot}
-            className="button-ghost"
-          >
-            Add Robot
-          </button>
+    <button onClick={handleAddRobot} className="button-ghost">Add Robot</button>
     </div>
   </section>
   </div>,

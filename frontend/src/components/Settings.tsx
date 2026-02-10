@@ -30,13 +30,7 @@ export default function Settings(props : SettingsProps) {
         <div className="panel fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 flex-col overflow-hidden">
           <div className="panel-header">
             <div className="panel-title">Settings</div>
-
-            <button
-              onClick={() => setOpen(false)}
-              className="button-ghost"
-            >
-              ✕
-            </button>
+            <button onClick={() => setOpen(false)} className="button-ghost">✕</button>
           </div>
 
           <div className="panel-body">

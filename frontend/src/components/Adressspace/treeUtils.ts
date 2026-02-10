@@ -1,10 +1,5 @@
-// Tree utility functions
-
 import { UaNode } from "./types";
 
-/**
- * Recursively updates a node by ID in the tree
- */
 export const updateNodeById = (
   root: UaNode,
   nodeId: string,
@@ -19,9 +14,6 @@ export const updateNodeById = (
   return same ? root : { ...root, children: newChildren };
 };
 
-/**
- * Finds a node by ID in the tree
- */
 export const findNodeById = (root: UaNode, nodeId: string): UaNode | null => {
   if (root.nodeId === nodeId) return root;
   for (const ch of root.children ?? []) {
@@ -31,10 +23,8 @@ export const findNodeById = (root: UaNode, nodeId: string): UaNode | null => {
   return null;
 };
 
-/**
- * Checks if a node is likely expandable (has potential children)
- */
-export const isLikelyExpandable = (node: UaNode): boolean => {
+export const isLikelyExpandable = (node: UaNode | null): boolean => {
+  if (!node) return;
   const cls = (node.nodeClass ?? "").toLowerCase();
   return cls === "object" || cls === "variable";
 };

@@ -57,7 +57,6 @@ export function JointAnglesPanel({
           onCollisionMeshToggle?.(checked);
         }}
       />
-
       <CheckBox
         label="Show Radians"
         value={showRadians}
@@ -65,12 +64,11 @@ export function JointAnglesPanel({
       />
     </div>
 
-    {/* sliders list */}
     <div className="space-y-2">
       {localAngles.map((angle, i) => {
-        const property = jointProperties?.[i] ?? undefined;
-        if (property === null) return null;
-        if (property && property.min === property.max) return null;
+        const property = jointProperties?.[i];
+        if (property == null) return null;
+        if (property.min === property.max) return null;
 
         const minDisp = property.min;
         const maxDisp = property.max;

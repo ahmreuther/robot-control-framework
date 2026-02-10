@@ -1,23 +1,30 @@
 
-//twin dashboard showing basic information about the connected twin
-function  Twin_Dashboard() {
+export default function  Twin_Dashboard() {
     return (
         <section className="panel">
             <header className="panel-header">
             <div className="panel-title">Twin Information</div>
             </header>
             <div className="panel-body">
-            <p className="text-white/80">Manufacturer : -</p>
-            <p className="text-white/80">Model : -</p>
-            <p className="text-white/80">Lockout : -</p>
-            <p className="text-white/80">Locking User : -</p>
-            <p className="text-white/80">Remaining Lock Time : -</p>
-            <p className="text-white/80">Remaining Session Time : -</p>
-            <p className="text-white/80">Waypoints : -</p>
-            <p className="text-white/80">Errors : <span className="text-green-400">None</span></p>
+                <StatusItem label="Manufacturer" value='-' />
+                <StatusItem label="Model" value='-' />
+                <StatusItem label="Lockout" value='-' />
+                <StatusItem label="Locking User" value='-' />
+                <StatusItem label="Remaining Lock Time" value='-' />
+                <StatusItem label="Remaining Session Time" value='-' />
+                <StatusItem label="Waypoints" value='-' />
+                <StatusItem label="Errors" value="None" valueClass="text-green-400" />
             </div>
         </section>
     );
 }
 
-export default Twin_Dashboard;
+function StatusItem({ label, value, valueClass = '', }: { label: string; value: string; valueClass?: string; }) {
+    return (
+        <div className="flex justify-between items-center gap-2 whitespace-nowrap">
+            <span className="text-gray-300">{label} :</span>
+            <span className={`code ${valueClass} truncate max-w-[60%] text-right`}title={String(value)}>{value}</span>
+        </div>
+    )
+}
+

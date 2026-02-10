@@ -3,18 +3,15 @@ import { createPortal } from "react-dom";
 import { UrlContext } from "../../contexts/UrlContext";
 import { useSendMessage } from "../../hooks/send-message";
 import { RobotInfoContext } from "../../contexts/RobotInfoContext";
-import { type JointStateManager } from "../../hooks/useJointState";
 
 export interface ConnectOPCUAProps {
-  jointManager: JointStateManager;
   addServer: (name: string, connectedUrl: string, backendport: string | null) => void;
 }
 
-function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
+function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
   const [localUrl, setLocalUrl] = useState("opc.tcp://127.0.0.1:4840/freeopcua/server/");
   const [serverName, setServerName] = useState("");
-  const { setUrl } = useContext(UrlContext);
   const { sendMessage } = useSendMessage();
   const isConnected = useContext(RobotInfoContext).robotStatus === "Connected";
   const [open, setOpen] = useState(false);
@@ -28,10 +25,6 @@ function ConnectOPCUA({ jointManager, addServer }: ConnectOPCUAProps) {
 
   function handleConnect() {
     sendMessage("connect", localUrl);
-    const trimmedUrl = localUrl.trim();
-    if (trimmedUrl) {
-      setUrl(trimmedUrl);
-    }
   }
   return (
     <div>

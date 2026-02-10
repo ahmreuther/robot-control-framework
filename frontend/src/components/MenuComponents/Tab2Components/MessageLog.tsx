@@ -27,7 +27,7 @@ export function MessageLog() {
   }, [logs, filter]);
 
   return (
-    <section className="panel flex h-full flex-col">
+    <section className="panel flex h-full flex-col ml-2">
       <header className="panel-header">
         <div className="panel-title">Message Log</div>
         <div className="flex items-center gap-2">
@@ -35,18 +35,14 @@ export function MessageLog() {
           <button onClick={clearLog} className="button-ghost ">Clear</button>
         </div>
       </header>
-
-      <div className="px-2 pt-3">
+      <div className="panel-body flex h-full flex-col">
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter"
-          className="input-ghost w-full text-left"
+          className="input-ghost w-full text-left mb-2"
         />
-      </div>
-
-      <div className="flex-1 p-2">
-        <div className="panel h-full p-2">
+        <div className="panel h-full">
           <Virtuoso
             data={lines}
             followOutput

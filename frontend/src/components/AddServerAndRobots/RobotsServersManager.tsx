@@ -40,7 +40,6 @@ export default function RobotsServersManager(props: Props) {
   const [serversOpen, setServersOpen] = useState(true);
   const [robotsOpen, setRobotsOpen] = useState(true);
 
-  // track which robot detail panels are open
   const [openRobotIds, setOpenRobotIds] = useState<Record<number, boolean>>({});
   const toggleRobotOpen = (id: number) => setOpenRobotIds(prev => ({ ...prev, [id]: !prev[id] }));
   const isRobotOpen = (id: number) => !!openRobotIds[id];
@@ -59,7 +58,6 @@ export default function RobotsServersManager(props: Props) {
             <div className="panel-title">Servers</div>
             <div className="flex items-center gap-2">
               <ConnectOPCUA
-                jointManager={jointManager}
                 addServer={addServer}
               />
               <button
@@ -73,8 +71,8 @@ export default function RobotsServersManager(props: Props) {
           </header> 
             {serversOpen && servers.map(server => (
               <section className="panel ml-4" key={server.id}>
-                <header className="panel-header">
-                  <div className="panel-title">{server.name}</div>
+                <header className="panel-header px-2 py-1">
+                  <div className="text-xs font-semibold tracking-wider">{server.name}</div>
                     <button
                       className="button-ghost"
                       onClick={() => handleRemoveServer(server.id)}
@@ -82,7 +80,7 @@ export default function RobotsServersManager(props: Props) {
                       Remove
                     </button>
                   </header>
-                  <div className='px-2 py-1 text-xs font-semibold uppercase'>
+                  <div className='px-2 py-1 text-xs'>
                     Connected Robots:
                   </div>
                     <ul className='list-panel'>
@@ -117,8 +115,8 @@ export default function RobotsServersManager(props: Props) {
               const open = isRobotOpen(robot.id);
               return (
               <section key={robot.id} className="panel ml-4">
-                  <header className="panel-header">
-                    <div className="panel-title">{robot.name}</div>
+                  <header className="panel-header px-2 py-1">
+                    <div className="text-xs font-semibold tracking-wider">{robot.name}</div>
                     <div className="flex items-center gap-2">
                     <Synchronize_Button jointManager={jointManager} />
                     <button
@@ -136,14 +134,14 @@ export default function RobotsServersManager(props: Props) {
                     </button>
                   </div>
                   </header>
-                  <div className='px-2 py-1 text-xs font-semibold uppercase'>
+                  <div className='px-2 py-1 text-xs'>
                     Connected Server:
                   </div>
                   <ul className='list-panel'>
                     <li>
                   <select
                     id={`connect-server-${robot.id}`}
-                    className=""
+                    className="select"
                     value={robot.serverId ?? ''}
                     onChange={e => {
                       const value = e.target.value;
@@ -155,11 +153,10 @@ export default function RobotsServersManager(props: Props) {
                       }
                     }}
                   >
-                    <option value="">None</option>
+                    <option className="select" value="">None</option>
                     {servers.map(server => (
-                      <option key={server.id} value={server.id}>{server.name}</option>
+                      <option className="select" key={server.id} value={server.id}>{server.name}</option>
                     ))}
-
                   </select>
                   </li>
                   {open && (

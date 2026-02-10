@@ -1,21 +1,22 @@
-import { EventSubscription } from "../hooks/useEventSubscriptions";
+import { Subscription } from "../hooks/useSubscriptions";
 
-type EventsPanelProps = {
-  subscriptions: EventSubscription[];
+type VariablesPanelProps = {
+  subscriptions: Subscription[];
   onRemove: (nodeId: string) => void;
 };
 
-export const EventsPanel = ({ subscriptions, onRemove }: EventsPanelProps) => {
+export const VariablesPanel = ({subscriptions, onRemove}:VariablesPanelProps) => {
   return (
     <div className="panel mb-2">
       <header className="panel-header">
-        <div className="panel-title flex">Event Subscriptions</div>
+        <div className="panel-title flex">Variable Subscriptions</div>
       </header>
       <table className="panel-table">
       <thead>
         <tr>
-          <th>Object</th>
+          <th>Variable</th>
           <th>NodeId</th>
+          <th>Value</th>
           <th></th>
         </tr>
       </thead>
@@ -31,11 +32,12 @@ export const EventsPanel = ({ subscriptions, onRemove }: EventsPanelProps) => {
           <tr key={s.nodeId}>
             <td className="cell-muted">{s.displayName}</td>
             <td className="cell-mono" title={s.nodeId}>{s.nodeId}</td>
+            <td className="cell-mono">{s.value ?? ""}</td>
             <td className="text-right"><button onClick={() => onRemove(s.nodeId)} className="button-ghost">Unsubscribe</button></td>
           </tr>
         ))}
       </tbody>
-      </table>
+    </table>
     </div>
   );
 };

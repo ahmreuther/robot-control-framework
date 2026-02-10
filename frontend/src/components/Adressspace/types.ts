@@ -1,5 +1,3 @@
-// Shared types for Address Space components
-
 export type UaNode = {
   nodeId: string;
   displayName: string;

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import './App.css';
 
 import { Panel, Group } from 'react-resizable-panels'
 import { Viewport } from "./components/viewport/Viewport";
@@ -15,9 +14,9 @@ import useIsMobile from './hooks/useIsMobile';
 import MobilePanelControls from './components/MobilePanelControls';
 import MessageLog from './components/MenuComponents/Tab2Components/MessageLog';
 import { JointAnglesPanel } from "./components/MenuComponents/ControlsComponents/JointAnglesPanel";
-import { ASpaceWindow } from './components/Adressspace';
-import Settings from './components/Settings';
+import { ASpaceWindow } from './components/Adressspace/ASpaceWindow';
 import RobotsServersManager from './components/AddServerAndRobots/RobotsServersManager';
+import Settings from './components/Settings';
 
 export type SettingsState = {
   environment: boolean;
@@ -77,12 +76,6 @@ function App() {
 
   const isMobile = useIsMobile();
   const [mobilePanelState, setMobilePanelState] = useState<'none'|'main'|'side'|'bot'>('none');
-    // Address Space window state - NOT persisted (always starts closed)
-  const [isAddressSpaceOpen, setIsAddressSpaceOpen] = useState(false);
-
-  const toggleAddressSpace = () => {
-    setIsAddressSpaceOpen(prev => !prev);
-  };
 
   useEffect(() => {
     const active = servers.find(s => s.id === activeASpaceServerId);
@@ -97,14 +90,14 @@ function App() {
     <SocketProvider url={websocketUrl}>
     <LogProvider logs={logs} setLogs={setLogs}>
     <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
-    <div className="w-screen h-[100svh] min-h-0 overflow-hidden">
+    <div className="w-full h-screen overflow-hidden">
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
+      <WebSocketReciever jointManager={jointManager} />
+      <Group orientation='vertical'>
       <header className='panel-header'>
         <div className='panel-title text-sm'>Digital Twin Robots</div>
         <Settings settings={settings} toggleSettings={toggleSettings} />
       </header>
-      <WebSocketReciever jointManager={jointManager} />
-      {!(isMobile && mobilePanelState !== 'none') ? (
         <Group>
         <Panel defaultSize="85%">
           <Group orientation="vertical">
@@ -134,38 +127,40 @@ function App() {
                   </Panel>   
               </Group>
             </Panel>
-            <Panel defaultSize="20%">
-            <section className='panel h-full'>
+            <Panel defaultSize="35%">
+            <div className="panel flex flex-col h-full">
               <header className="panel-header">
-                <div className='panel-title'>Servers:</div>
-                <nav className="panel-nav" role="tablist" aria-label="Address Space servers">
-                  {servers.length ? servers.map(s => (
-                    <button
-                      key={s.id}
-                      role="tab"
-                      className="panel-tab"
-                      aria-selected={s.id === activeASpaceServerId}
-                      onClick={() => setActiveASpaceServerId(s.id)}
-                      type="button"
-                    >
-                      {s.name}
-                    </button>
-                  )) : (
-                    null
-                  )}
-                </nav>
+                <div className="flex items-center gap-4">
+                  <div className='panel-title'>Servers:</div>
+                  <nav className="panel-nav" role="tablist" aria-label="Address Space servers">
+                    {servers.length ? servers.map(s => (
+                      <button
+                        key={s.id}
+                        role="tab"
+                        className="panel-tab"
+                        aria-selected={s.id === activeASpaceServerId}
+                        onClick={() => setActiveASpaceServerId(s.id)}
+                        type="button"
+                      >
+                        {s.name}
+                      </button>
+                    )) : (
+                      null
+                    )}
+                  </nav>
+                </div>
               </header>
-              <div className='panel-body h-full'>
-              <Group>
-                <Panel defaultSize="70%">
-                  <ASpaceWindow />
-                </Panel>
-                <Panel>
-                  <MessageLog />
-                </Panel>
-              </Group>
+              <div className="panel-body flex-1 overflow-auto">
+                <Group>
+                  <Panel defaultSize="70%">
+                    <ASpaceWindow />
+                  </Panel>
+                  <Panel>
+                    <MessageLog />
+                  </Panel>
+                </Group>
+              </div>
             </div>
-            </section>
             </Panel>
           </Group>
         </Panel>
@@ -184,63 +179,7 @@ function App() {
           />
         </Panel>
       </Group>
-      ) : (
-        <div className="md:hidden fixed inset-0 bg-black text-white p-4">
-          <div className="flex items-center justify-between mb-2 z-50">
-            <Settings settings={settings} toggleSettings={toggleSettings} />
-            <MobilePanelControls className="flex items-center gap-2" mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={true} />
-          </div>
-          <div>
-            {mobilePanelState === 'main' && (
-              <div className="h-full gap-2 flex flex-col">
-                <div className="w-full h-[60vh]">
-                  <Viewport 
-                    key={reloadKey}
-                    urdfPath={selectedRobot.url}
-                    jointManager={jointManager}
-                    onJointLimitsLoaded={setJointLimits}
-                    showCollisionMesh={showCollisionMesh}
-                    setHoveredJointMesh={setHoveredJointMesh}
-                    effectComposer={settings.effectComposer}
-                    environment={settings.environment}
-                  />
-                </div>
-                <div className="w-full z-50 max-h-[30vh] overflow-auto">
-                  <JointAnglesPanel
-                    jointManager={jointManager}
-                    jointProperties={jointProperties}
-                    showCollisionMesh={showCollisionMesh}
-                    setShowCollisionMesh={setShowCollisionMesh}
-                    reloadKey={reloadKey}
-                    hoveredJointMesh={hoveredJointMesh}
-                  />
-                </div>
-              </div>
-            )}
-            {mobilePanelState === 'side' && (
-              <div className="flex flex-col gap-4">
-                <RobotsServersManager
-                  servers={servers}
-                  robots={robots}
-                  jointManager={jointManager}
-                  addServer={addServer}
-                  removeServer={removeServer}
-                  addRobot={addRobot}
-                  removeRobot={removeRobot}
-                  connectRobotToServer={connectRobotToServer}
-                  disconnectRobot={disconnectRobot}
-                />
-              </div>
-            )}
-            {mobilePanelState === 'bot' && (
-              <div>
-                <MessageLog />
-              </div>
-              
-            )}
-          </div>
-        </div>
-      )}
+      </Group>
     </div>
     </UrlProvider>
     </LogProvider>
