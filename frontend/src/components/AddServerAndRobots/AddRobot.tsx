@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Input, Button } from "@heroui/react";
-import { URDFSelector, type ModelConfig } from "../MenuComponents/ControlsComponents/URDFSelector";
+import { type ModelConfig } from "../MenuComponents/ControlsComponents/URDFSelector";
 
 export interface AddRobotProps {
   addRobot: (name: string) => void;

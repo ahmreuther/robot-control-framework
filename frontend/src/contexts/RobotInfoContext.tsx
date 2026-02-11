@@ -30,13 +30,13 @@ type RobotInfoContextType = {
 };
 
 export const RobotInfoContext = createContext<RobotInfoContextType>({
-  robotName: '-',
+  robotName: null,
   setRobotName: () => {},
 
   robotStatus: 'Not Connected',
   setRobotStatus: () => {},
 
-  robotMode: '-',
+  robotMode: null,
   setRobotMode: () => {},
 
   axleValues: {},

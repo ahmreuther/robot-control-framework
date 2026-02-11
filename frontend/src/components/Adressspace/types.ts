@@ -44,5 +44,4 @@ export const typeMap: Record<number, string> = {
   25: "DiagnosticInfo",
 };
 
-// Backend configuration
 export const REST_BACKEND_BASE = "http://127.0.0.1:8001";

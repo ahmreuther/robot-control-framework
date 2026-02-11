@@ -1,5 +1,3 @@
-import React from 'react';
-
 type MobilePanelState = 'none' | 'main' | 'side' | 'bot';
 
 interface Props {
@@ -13,7 +11,7 @@ export default function MobilePanelControls({ className = '', mobilePanelState, 
   return (
     <div className={className}>
       <button
-        className={`px-2 py-1 rounded ${mobilePanelState === 'main' ? 'bg-blue-600' : 'bg-gray-700'}`}
+        className={`button-ghost ${mobilePanelState === 'main' ? 'button-ghost-active' : 'button-ghost'}`}
         onClick={() => setMobilePanelState('main')}
         aria-pressed={mobilePanelState === 'main'}
         aria-label="Show main panel"
@@ -22,7 +20,7 @@ export default function MobilePanelControls({ className = '', mobilePanelState, 
       </button>
 
       <button
-        className={`px-2 py-1 rounded ${mobilePanelState === 'side' ? 'bg-blue-600' : 'bg-gray-700'}`}
+        className={`button-ghost ${mobilePanelState === 'side' ? 'button-ghost-active' : 'button-ghost'}`}
         onClick={() => setMobilePanelState('side')}
         aria-pressed={mobilePanelState === 'side'}
         aria-label="Show side panel"
@@ -31,7 +29,7 @@ export default function MobilePanelControls({ className = '', mobilePanelState, 
       </button>
 
       <button
-        className={`px-2 py-1 rounded ${mobilePanelState === 'bot' ? 'bg-blue-600' : 'bg-gray-700'}`}
+        className={`button-ghost ${mobilePanelState === 'bot' ? 'button-ghost-active' : 'button-ghost'}`}
         onClick={() => setMobilePanelState('bot')}
         aria-pressed={mobilePanelState === 'bot'}
         aria-label="Show bottom panel"
@@ -40,7 +38,7 @@ export default function MobilePanelControls({ className = '', mobilePanelState, 
       </button>
 
       {showClose && (
-        <button className="px-2 py-1 rounded bg-gray-700" onClick={() => setMobilePanelState('none')} aria-label="Close overlay">✕</button>
+        <button className="button-ghost" onClick={() => setMobilePanelState('none')} aria-label="Close overlay">✕</button>
       )}
     </div>
   );

@@ -3,7 +3,9 @@ import { useUrlContext } from "../../contexts/UrlContext";
 import { useSocket } from "../../hooks/use-socket";
 import { ASpaceBody } from "./ASpaceBody";
 import { UaNode } from "./types";
-import { useEventSubscriptions, useMethodCall, useSubscriptions } from "./hooks";
+import { useEventSubscriptions } from "./hooks/useEventSubscriptions";
+import { useMethodCall } from "./hooks/useMethodCall";
+import { useSubscriptions } from "./hooks/useSubscriptions";
 import { ASpaceDetailsPanel } from "./panels/ASpaceDetailsPanel";
 import { MethodDialog } from "./panels/MethodDialog";
 

@@ -1,5 +1,5 @@
 import { useFrame } from "@react-three/fiber";
-import { TransformControls, Html } from "@react-three/drei";
+import { TransformControls } from "@react-three/drei";
 import { useRef, useEffect, useState } from "react";
 import { Mesh } from "three";
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from "../../hooks/useJointState";

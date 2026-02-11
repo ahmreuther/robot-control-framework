@@ -2,30 +2,46 @@ import { useRobotInfoContext} from '../../../contexts/RobotInfoContext';
 
 export default function Live_Status() {
     const {robotName, robotStatus, robotMode, axleValues, robotInfo} = useRobotInfoContext();
-    const jointsText = Object.keys(axleValues).length === 0 ? '-' : Object.entries(axleValues).map(([k, v]) => `${k}: ${v.toFixed(2)}`).join(', ');
+    const jointsText = Object.keys(axleValues).length === 0 ? '' : Object.entries(axleValues).map(([k, v]) => `${k}: ${v.toFixed(2)}`).join(', ');
+
+    const rows: [string, string][] = [
+        ["Connected Robot", robotName ? robotName : ''],
+        ["Manufacturer", robotInfo.manufacturer ? robotInfo.manufacturer : ''],
+        ["Serial Number", robotInfo.serialNumber ? robotInfo.serialNumber : ''],
+        ["Status", robotStatus ? robotStatus : ''],
+        ["Mode", robotMode ? robotMode : ''],
+        ["Joints", jointsText],
+        ["Lockout", ''],
+        ["Locking User", ''],
+        ["Remaining Lock Time", ''],
+        ["Remaining Session Time", ''],
+        ["Waypoints", ''],
+    ];
 
     return (
         <section className="panel">
-            <header className="panel-header">
-                <div className='panel-title'>Live Status</div>
-            </header>
-            <div className="panel-body overflow-auto">
-                <StatusItem label="Connected Robot" value={robotName} />
-                <StatusItem label="Status" value={robotStatus} valueClass={robotStatus === 'Connected' ? 'text-green-400' : 'text-yellow-400'} />
-                <StatusItem label="Mode" value={robotMode} />
-                <StatusItem label="Joints" value={jointsText} />
-                <StatusItem label="Manufacturer" value={robotInfo.manufacturer ? robotInfo.manufacturer : '-'} />
-                <StatusItem label="Serial Number" value={robotInfo.serialNumber ? robotInfo.serialNumber : '-'} />
+            <div className="overflow-auto">
+                <table className="panel-table">
+                    <thead>
+                        <tr>
+                            <th>Property</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map(([label, value]) => (
+                            <tr key={label}>
+                                <td className="cell-muted">{label}</td>
+                                <td className={
+                                    label === 'Status'
+                                        ? (robotStatus === 'Connected' ? 'cell-mono text-green-400' : 'cell-mono text-yellow-400')
+                                        : 'cell-mono'
+                                }>{String(value)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </section>
     );
-}
-
-function StatusItem({ label, value, valueClass = '', }: { label: string; value: string; valueClass?: string; }) {
-    return (
-        <div className="flex justify-between items-center gap-2 whitespace-nowrap">
-            <span className="text-gray-300">{label} :</span>
-            <span className={`code ${valueClass} truncate max-w-[60%] text-right`}title={String(value)}>{value}</span>
-        </div>
-    )
 }

@@ -1,5 +1,3 @@
-// API functions for OPC UA Address Space - JSON Sending/Receiving
-
 import { UaNode, REST_BACKEND_BASE } from "./types";
 
 /**
@@ -38,7 +36,7 @@ export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<U
 };
 
 /**
- * Fetches the value of a node (for subscriptions polling)
+ * Fetches the value of a node
  * GET /node_value?url=...&nodeid=...
  * Returns JSON: { value: ... }
  */
@@ -62,15 +60,12 @@ export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<
     payload = await res.text();
   }
 
-  // Wenn payload ein Objekt mit value-Feld ist, gib value direkt zurück (kann Array, Objekt, String, Zahl sein)
   if (payload && typeof payload === "object" && "value" in payload) {
     return payload.value;
   }
-  // Fallback: gib das Payload direkt zurück
   return payload;
 };
 
-// ========== NODE DETAILS (Properties Panel) ==========
 export interface NodeDetails {
   nodeId: string;
   browseName: string;
@@ -100,7 +95,6 @@ export const fetchNodeDetails = async (opcUaUrl: string, nodeId: string): Promis
   return await res.json();
 };
 
-// ========== REFERENCES ==========
 export interface NodeReference {
   ReferenceType: string;
   NodeId: string;

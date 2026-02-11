@@ -61,11 +61,10 @@ export default function useServersAndRobots() {
     ));
   };
 
-  // active server (address space) selection
   const [activeASpaceServerId, setActiveASpaceServerId] = useState<number | null>(null);
 
   useEffect(() => {
-    // Reset activeASpaceServerId to null if the currently active server was deleted
+
     if (activeASpaceServerId !== null && !servers.find(s => s.id === activeASpaceServerId)) {
       setActiveASpaceServerId(null);
     }

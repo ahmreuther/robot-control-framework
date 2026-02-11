@@ -78,7 +78,7 @@
   }
   
   .input-ghost {
-    @apply bg-transparent border px-1 py-0 text-xs outline-none transition-colors duration-150;
+    @apply bg-transparent border px-2 py-1 text-xs outline-none transition-colors duration-150;
     border-color: rgb(var(--panel-border) / 0.20);
     color: rgb(var(--fg) / 0.75);
   }

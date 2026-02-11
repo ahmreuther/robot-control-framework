@@ -1,6 +1,5 @@
 import { useState, useContext, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { UrlContext } from "../../contexts/UrlContext";
 import { useSendMessage } from "../../hooks/send-message";
 import { RobotInfoContext } from "../../contexts/RobotInfoContext";
 
@@ -9,17 +8,23 @@ export interface ConnectOPCUAProps {
 }
 
 function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
-  const [savedUrl, setSavedUrl] = useState<string | null>(null);
-  const [localUrl, setLocalUrl] = useState("opc.tcp://127.0.0.1:4840/freeopcua/server/");
+  const defaultUrls = [
+    "opc.tcp://127.0.0.1:4840/freeopcua/server/",
+    "opc.tcp://10.10.38.26:4840/freeopcua/server/",
+    "opc.tcp://10.10.38.27:4840/freeopcua/server/",
+    "opc.tcp://10.10.38.28:4840/freeopcua/server/"
+  ];
   const [serverName, setServerName] = useState("");
+  const [open, setOpen] = useState(false);
+  const [savedUrls, setSavedUrls] = useState<string[]>(defaultUrls);
+  const [localUrl, setLocalUrl] = useState<string>();
   const { sendMessage } = useSendMessage();
   const isConnected = useContext(RobotInfoContext).robotStatus === "Connected";
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const lastUrl = localStorage.getItem("lastOpcUaUrl");
-    if (lastUrl) {
-      setSavedUrl(lastUrl);
+    if (lastUrl && !savedUrls.includes(lastUrl)) {
+      setSavedUrls((prev) => [...prev, lastUrl]);
     }
   }, []);
 
@@ -28,30 +33,16 @@ function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
   }
   return (
     <div>
-      <button
-        onClick={() => setOpen(true)}
-        className="button-ghost"
-      >
-        +
-      </button>
-
+      <button onClick={() => setOpen(true)} className="button-ghost">+</button>
       {open && createPortal(
         <div
           className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center"
           onClick={() => setOpen(false)}
         >
-          <section 
-            className="panel z-50 flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <section className="panel z-50 flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="panel-header">
               <div className="panel-title">OPCUA Connect</div>
-              <button
-                onClick={() => setOpen(false)}
-                className="button-ghost"
-              >
-                ✕
-              </button>
+              <button onClick={() => setOpen(false)} className="button-ghost">✕</button>
             </div>
             <div className="panel-body space-y-2">
               <input
@@ -59,15 +50,15 @@ function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
                 onChange={(e) => setLocalUrl(e.target.value)}
                 aria-label="Server-Adress"
                 placeholder="OPC UA Server URL"
-                list={savedUrl ? "savedUrls" : undefined}
+                list="savedUrls"
                 disabled={isConnected}
                 className="input-ghost w-full text-left"
               />
-              {savedUrl && (
-                <datalist id="savedUrls">
-                  <option value={savedUrl}>{savedUrl}</option>
-                </datalist>
-              )}
+              <datalist id="savedUrls">
+                {savedUrls.map((url) => (
+                  <option key={url} value={url}>{url}</option>
+                ))}
+              </datalist>
               <input
                 value={serverName}
                 onChange={(e) => setServerName(e.target.value)}
@@ -98,3 +89,5 @@ function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
 }
 
 export default ConnectOPCUA;
+
+

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import Live_Status from '../MenuComponents/TwinDashboardComponents/Live_Status';
-import Twin_Dashboard from '../MenuComponents/TwinDashboardComponents/Twin_Dashboard';
 import ConnectOPCUA from './ConnectOPCUA';
 import type { JointStateManager } from '../../hooks/useJointState';
 import { useSendMessage } from '../../hooks/send-message';
@@ -47,6 +46,7 @@ export default function RobotsServersManager(props: Props) {
   const { sendMessage } = useSendMessage();
 
   function handleRemoveServer(serverId: number) {
+    //TODO: toggle all robot sync on false connected to this server
     sendMessage("disconnect");
     removeServer(serverId);
   }
@@ -126,17 +126,10 @@ export default function RobotsServersManager(props: Props) {
                     >
                       {open ? 'Hide' : 'Details'}
                     </button>
-                    <button
-                      className="button-ghost"
-                      onClick={() => removeRobot(robot.id)}
-                    >
-                      Remove
-                    </button>
+                    <button className="button-ghost" onClick={() => removeRobot(robot.id)}>Remove</button>
                   </div>
                   </header>
-                  <div className='px-2 py-1 text-xs'>
-                    Connected Server:
-                  </div>
+                  <div className='px-2 py-1 text-xs'>Connected Server:</div>
                   <ul className='list-panel'>
                     <li>
                   <select
@@ -160,10 +153,7 @@ export default function RobotsServersManager(props: Props) {
                   </select>
                   </li>
                   {open && (
-                  <div>
-                    <Live_Status />
-                    <Twin_Dashboard />
-                  </div>
+                  <Live_Status />
                 )}
                   </ul>
               </section>

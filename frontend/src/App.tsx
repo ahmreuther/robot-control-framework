@@ -80,7 +80,7 @@ function App() {
   useEffect(() => {
     const active = servers.find(s => s.id === activeASpaceServerId);
     setOpcuaUrl(active?.connectedUrl ?? null);
-  }, [activeASpaceServerId, servers, setOpcuaUrl]);
+  }, [activeASpaceServerId, setOpcuaUrl]);
 
   return (
     <RobotInfoProvider robotName={robotName} robotInfo={robotInfo} robotMode={robotMode}
@@ -93,6 +93,7 @@ function App() {
     <div className="w-full h-screen overflow-hidden">
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
       <WebSocketReciever jointManager={jointManager} />
+      {!(isMobile && mobilePanelState !== 'none') ? (
       <Group orientation='vertical'>
       <header className='panel-header'>
         <div className='panel-title text-sm'>Digital Twin Robots</div>
@@ -180,6 +181,84 @@ function App() {
         </Panel>
       </Group>
       </Group>
+      ) : (
+        <div className='px-2 py-2'>
+          <div className="flex items-center justify-between mb-2 z-50">
+            <Settings settings={settings} toggleSettings={toggleSettings} />
+            <MobilePanelControls className="flex items-center gap-2" mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={true} />
+          </div>
+          <div>
+            {mobilePanelState === 'main' && (
+              <div className="h-full gap-2 flex flex-col">
+                <div className="w-full h-[60vh]">
+                  <Viewport 
+                    key={reloadKey}
+                    urdfPath={selectedRobot.url}
+                    jointManager={jointManager}
+                    onJointLimitsLoaded={setJointLimits}
+                    showCollisionMesh={showCollisionMesh}
+                    setHoveredJointMesh={setHoveredJointMesh}
+                    effectComposer={settings.effectComposer}
+                    environment={settings.environment}
+                  />
+                </div>
+                <div className="w-full z-50 max-h-[30vh] overflow-auto">
+                  <JointAnglesPanel
+                    jointManager={jointManager}
+                    jointProperties={jointProperties}
+                    showCollisionMesh={showCollisionMesh}
+                    setShowCollisionMesh={setShowCollisionMesh}
+                    reloadKey={reloadKey}
+                    hoveredJointMesh={hoveredJointMesh}
+                  />
+                </div>
+              </div>
+            )}
+            {mobilePanelState === 'side' && (
+              <div className="flex flex-col gap-4">
+                <RobotsServersManager
+                  servers={servers}
+                  robots={robots}
+                  jointManager={jointManager}
+                  addServer={addServer}
+                  removeServer={removeServer}
+                  addRobot={addRobot}
+                  removeRobot={removeRobot}
+                  connectRobotToServer={connectRobotToServer}
+                  disconnectRobot={disconnectRobot}
+                />
+              </div>
+            )}
+            {mobilePanelState === 'bot' && (
+              <div>
+                <header className="panel-header">
+                <div className="flex items-center gap-4">
+                  <div className='panel-title'>Servers:</div>
+                  <nav className="panel-nav" role="tablist" aria-label="Address Space servers">
+                    {servers.length ? servers.map(s => (
+                      <button
+                        key={s.id}
+                        role="tab"
+                        className="panel-tab"
+                        aria-selected={s.id === activeASpaceServerId}
+                        onClick={() => setActiveASpaceServerId(s.id)}
+                        type="button"
+                      >
+                        {s.name}
+                      </button>
+                    )) : (
+                      null
+                    )}
+                  </nav>
+                </div>
+              </header>
+                <ASpaceWindow />
+                <MessageLog />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
     </UrlProvider>
     </LogProvider>

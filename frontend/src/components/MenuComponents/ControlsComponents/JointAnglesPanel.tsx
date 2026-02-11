@@ -47,7 +47,6 @@ export function JointAnglesPanel({
       </header>
 
   <div className="panel-body flex flex-col overflow-y-auto">
-    {/* toggles */}
     <div className="space-y-2">
       <CheckBox
         label="Collision Mesh"
@@ -63,7 +62,6 @@ export function JointAnglesPanel({
         onToggle={(checked) => setShowRadians(checked)}
       />
     </div>
-
     <div className="space-y-2">
       {localAngles.map((angle, i) => {
         const property = jointProperties?.[i];
