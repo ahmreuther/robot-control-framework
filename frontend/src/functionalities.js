@@ -550,11 +550,11 @@ function handleStatusMessage(robotRecord, data) {
         connectivity.connectedUrl = data.replace("✅ Connected to ", "").trim();
         loadDeviceSet(robotRecord, connectivity.connectedUrl);
         setInfoBoxState(true); //this is duplicate logic right?
-        
+        /*
         document.getElementById('info-box').style.width = "750px";
         document.getElementById('properties-box').style.width = "750px";
         document.getElementById('info-toggle-btn').textContent = "collapse »";
-
+        */
         document.getElementById('info-content').style.width = "700px";
         document.getElementById('properties-box').style.display = 'none';
     } else if (data.startsWith("Model:")) {
@@ -574,11 +574,13 @@ function handleStatusMessage(robotRecord, data) {
         if (connectivity.connectedUrl === url) {
             connectivity.connectedUrl = null;
         }
+
+        setInfoBoxState(false);
         document.getElementById('info-content').innerHTML = `
-        <h2>OPC UA Address Space</h2>
-        <p>Disconnected from Client</p>`;
+            <h2>OPC UA Address Space</h2>
+            <p>Disconnected from Client</p>`;
         document.getElementById('properties-box').style.display = 'none';
-        document.getElementById('info-box').style.width = "450px";
+        
         const subsTable = document.getElementById('subscriptions-table');
         if (subsTable) {
             const tbody = subsTable.querySelector('tbody');
@@ -1587,4 +1589,35 @@ export function sendMcpRobotStateUpdate(robotRecord) {
     connectivity.socketMcp.send('TCP|' + 'Pos: ' + manipulator.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + manipulator.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', '));
     const jointValues = getFormattedJointString(robotRecord);
     connectivity.socketMcp.send('ANGLES|' + jointValues.join(', '));
+}
+
+export function updateRobotSpecificUI(robotRecord) {
+    if (!robotRecord) return;
+    const { ui, connectivity, opcua, robotInfo } = robotRecord.state;
+    
+    // 1. Restore Address Space Tree
+    const infoContent = document.getElementById('info-content');
+    if (ui.addressSpaceHTML) {
+        infoContent.innerHTML = ui.addressSpaceHTML;
+        setInfoBoxState(!!connectivity.connectedUrl);
+    } else {
+        infoContent.innerHTML = `<h2>OPC UA Address Space</h2><p>Not connected.</p>`;
+        setInfoBoxState(false);
+    }
+
+    // 2. Restore Dashboard Stats
+    document.getElementById('robot-name-value').textContent = 
+        robotInfo.model ? `${robotInfo.model} (${robotInfo.serialNumber})` : '-';
+    document.getElementById('robot-status-value').textContent = 
+        connectivity.connectedUrl ? 'Connected' : 'Not Connected';
+
+    // 3. Sync the URL input field
+    const urlInput = document.getElementById('opc-ua-url');
+    if (urlInput) urlInput.value = connectivity.connectedUrl || "";
+    
+    // 4. Restore Sync Toggle state
+    const syncToggle = document.getElementById('opc-ua-sync-toggle');
+    if (syncToggle) {
+        syncToggle.checked = !!opcua.syncEnabled;
+    }
 }

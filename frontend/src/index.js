@@ -45,7 +45,7 @@ import {
     updateRevoluteJointStatus,
     handleManipulateEnd,
     handleHomeClick,
-    attachManipulatorEvents
+    updateRobotSpecificUI
 } from './functionalities.js';
 
 
@@ -200,10 +200,12 @@ function addRobotOption(id, name) {
     activeRobotSelect.appendChild(opt);
 }
 //TODO
-function setActiveRobotUI(robotId){
+function switchRobot(robotId){
     setActiveRobot(robotId);
+    const record = getActiveRobot();
     activeRobotSelect.value = robotId; 
-    ControlCenterSliders();  
+    ControlCenterSliders(); 
+    updateRobotSpecificUI(record);
 }
 
 async function addRobotByModel(model) {
@@ -252,7 +254,7 @@ async function addRobotByModel(model) {
     });
 
     manipulator.addEventListener('manipulate-start', (e) => {
-        setActiveRobotUI(record.id);
+        switchRobot(record.id);
         
         const j = document.querySelector(`li[joint-name="${e.detail}"]`);
         if (j) {
@@ -286,7 +288,7 @@ async function addRobotByModel(model) {
 
     });
     addRobotOption(record.id, model.name);
-    setActiveRobotUI(record.id);
+    switchRobot(record.id);
 
     robotCountValue.textContent = listRobots().length;
 }
@@ -341,17 +343,7 @@ deleteRobotBtn.addEventListener('click', async () => {
 });
 
 activeRobotSelect.addEventListener('change', () => {
-    const selectedId = activeRobotSelect.value;
-    setActiveRobot(selectedId);
-
-    const record = getActiveRobot();
-    if (record) {
-        const urlInput = document.getElementById('opcua-url');
-        if (urlInput) {
-            urlInput.value = record.state.connectivity.connectedUrl || "";
-        }
-    }
-    ControlCenterSliders();
+    switchRobot(activeRobotSelect.value);
 });
 
 // Global Functions
@@ -729,6 +721,7 @@ toggleBtn?.addEventListener("click", () => {
 });
 
 // have last connect url in opcua url box
+/* // this is not really needed/good if we want multiple robots. is currently overridde by updateRobotSpecificUI
 window.addEventListener('DOMContentLoaded', () => {
     const urlInput = document.getElementById('opc-ua-url');
     const lastUrl = localStorage.getItem('lastOpcUaUrl');
@@ -736,6 +729,7 @@ window.addEventListener('DOMContentLoaded', () => {
         urlInput.value = lastUrl;
     }
 });
+*/
 
 window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('radians-toggle')?.addEventListener('click', () => {
