@@ -14,7 +14,7 @@ import {
     toggleMcpIntegration,
     sendMcpRobotStateUpdate,
     updateConnectionStatus
-} from './functionalities/mcp.js';
+} from './functionalities.js';
 
 import {
     toggleOpcUaSection,
@@ -34,7 +34,7 @@ import {
     syncWidth,
     initWidthObserver,
     getToggleDimensions
-} from './functionalities/ui.js';
+} from './functionalities.js';
 
 import {
     handleSocketMessage,
@@ -42,15 +42,13 @@ import {
     disconnectOpcUa,
     handleOpcUaSyncToggle,
     handleOpcUaNodeSelection,
-    handleSubtreeClick
-} from './functionalities/opcua.js';
-
-import {
+    handleSubtreeClick,
     updateRevoluteJointStatus,
     handleManipulateEnd,
     handleHomeClick,
     attachManipulatorEvents
-} from './functionalities/robot.js';
+} from './functionalities.js';
+
 
 customElements.define('urdf-viewer', URDFIKManipulator);
 
