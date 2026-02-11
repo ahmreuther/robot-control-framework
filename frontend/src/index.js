@@ -12,8 +12,7 @@ import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNext
 import { spawnRobot, disposeRobotNode, renderForAFewFrames } from './sceneManager.js';
 import {
     toggleMcpIntegration,
-    sendMcpRobotStateUpdate,
-    updateConnectionStatus
+    sendMcpRobotStateUpdate
 } from './functionalities.js';
 
 import {
@@ -346,11 +345,7 @@ activeRobotSelect.addEventListener('change', () => {
     setActiveRobot(selectedId);
 
     const record = getActiveRobot();
-    const urlInput = document.getElementById('opcua-url');
     if (record) {
-        const isConnected = (record.state.connectivity.status === 'connected');
-        updateConnectionStatus(record, isConnected);
-
         const urlInput = document.getElementById('opcua-url');
         if (urlInput) {
             urlInput.value = record.state.connectivity.connectedUrl || "";
@@ -491,6 +486,7 @@ document.addEventListener('WebComponentsReady', () => {
     viewer.noAutoRecenter = true;
 });
 
+
 // ===== Robot Control Center Functions =====
 function ControlCenterSliders() {
     // Clear existing sliders
@@ -518,7 +514,10 @@ function ControlCenterSliders() {
             const joint = robot.joints[jointName];
 
             // if (joint.jointType === 'fixed') return;
-            if (joint.jointType === 'prismatic' && Array.isArray(joint.mimicJoints) && joint.mimicJoints.length === 0) return;
+            if (joint.jointType === 'prismatic' && 
+                Array.isArray(joint.mimicJoints) && 
+                joint.mimicJoints.length === 0
+            ) return;
 
             const li = document.createElement('li');
             li.innerHTML = `
@@ -577,22 +576,42 @@ function ControlCenterSliders() {
                     input.remove();
                     slider.remove();
             }
+            // Helpers
+            const startManipulating = () => {
+                record.state.interaction.isManipulating = true;
+            };
 
-            slider.addEventListener('input', () => {
-                const value = parseFloat(slider.value);
+            const stopManipulating = () => {
+                record.state.interaction.isManipulating = false;
+                handleManipulateEnd(record);
+                li.update();
+            };
+
+            const applyJointValue = (value) => {
                 if (manipulator?.setJointValue) {
                     manipulator.setJointValue(jointName, value);
                 }
                 li.update();
+            };
+
+            
+            slider.addEventListener('input', () => {
+                startManipulating();
+                applyJointValue(parseFloat(slider.value));
             });
+
+            // End manipulation reliably
+            slider.addEventListener('pointerup', stopManipulating);
+            slider.addEventListener('touchend', stopManipulating);
+            slider.addEventListener('change', stopManipulating); // fallback
 
             input.addEventListener('change', () => {
                 const degMultiplier = radiansToggle.classList.contains('checked') ? 1.0 : DEG2RAD;
                 const value = parseFloat(input.value) * degMultiplier;
-                if (manipulator?.setJointValue) {
-                    manipulator.setJointValue(jointName, value);
-                }
-                li.update();
+
+                startManipulating();
+                applyJointValue(value);
+                stopManipulating();
             });
 
             li.update();

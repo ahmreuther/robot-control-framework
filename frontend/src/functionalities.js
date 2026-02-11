@@ -1,711 +1,7 @@
 import { Vector3 } from "three";
-import { getActiveRobot } from "./robotManager.js";
+import { getActiveRobot } from './robotManager.js';
 
-//ui 
 
-// ui toggles
-
-function setInfoBoxState(expanded) {
-    // --- DOM Elements ---
-    const infoBox = document.getElementById('info-box');
-    const infoToggleBtn = document.getElementById('info-toggle-btn');
-    const propertiesBox = document.getElementById('properties-box');
-
-    infoToggleBtn.style.display = "block";
-    infoBox.style.width = expanded ? "750px" : "450px";
-    propertiesBox.style.width = expanded ? "750px" : "450px";
-    infoToggleBtn.textContent = expanded ? "collapse »" : "« expand";
-}
-
-// Toggle OPC UA panel (works)
-export function toggleOpcUaSection() {
-
-    const toggleOpcUa = document.getElementById('toggle-opc-ua');
-    const opcUaSection = document.getElementById('opc-ua');
-
-    toggleOpcUa.addEventListener('click', () => {
-        opcUaSection.classList.toggle('hidden');
-    });
-}
-
-// Toggle Robot Dashboard panel (works)
-export function toggleRobotDashboardSection() {
-    const toggleRobotDashboard = document.getElementById('toggle-robot-dashboard');
-    const robotDashboardSection = document.getElementById('robot-dashboard');
-
-    toggleRobotDashboard.addEventListener('click', () => {
-            robotDashboardSection.classList.toggle('hidden');
-    });
-}
-// tab switching
-export function switchTab(tabName) { //Done i think maybe TODO because different
-    const buttons = document.querySelectorAll(".tab-btn");
-    buttons.forEach((btn) => {
-        if (btn.getAttribute("data-tab") === tabName) {
-            btn.classList.add("active");
-        } else {
-            btn.classList.remove("active");
-        }
-    });
-
-    const contents = document.querySelectorAll(".tab-content");
-    contents.forEach((content) => {
-        if (content.id === `tab-${tabName}`) {
-            content.classList.add("active");
-        } else {
-            content.classList.remove("active");
-        }
-    });
-    console.log(`Switched UI to ${tabName} tab.`);
-}
-
-//node properties
-
-function showNodeProperties(element) {
-    const propertiesBox = document.getElementById("properties-box");
-    const table = document.getElementById("properties-table");
-
-    const dataset = element.dataset;
-    table.innerHTML = "";
-
-    for (const key in dataset) {
-        const row = document.createElement("tr");
-        const keyCell = document.createElement("td");
-        const valueCell = document.createElement("td");
-
-        keyCell.textContent = key.replace(/([A-Z])/g, ' $1').toUpperCase();
-
-        if (key.toLowerCase() === "value") {
-            valueCell.innerHTML = dataset[key];
-        } else {
-            valueCell.textContent = dataset[key];
-        }
-
-        row.appendChild(keyCell);
-        row.appendChild(valueCell);
-        table.appendChild(row);
-    }
-
-    propertiesBox.style.display = "block";
-}
-
-//reference table
-function updateReferencesTable(refs, clearFirst = false) {
-    const referencesTable = document.getElementById("references-table");
-    if (!referencesTable) return;
-    const oldTbody = referencesTable.querySelector("tbody");
-    const newTbody = document.createElement("tbody");
-
-    refs.forEach(refObj => {
-        const row = document.createElement("tr");
-
-        const makeCell = (value) => {
-            const td = document.createElement("td");
-            td.textContent = value || "";
-            return td;
-        };
-
-        row.appendChild(makeCell(refObj.ReferenceType));
-        row.appendChild(makeCell(refObj.NodeId));
-        row.appendChild(makeCell(refObj.BrowseName));
-        row.appendChild(makeCell(refObj.TypeDefinition));
-
-        newTbody.appendChild(row);
-    });
-
-    if (oldTbody) {
-        referencesTable.replaceChild(newTbody, oldTbody);
-    } else {
-        referencesTable.appendChild(newTbody);
-    }
-}
-
-
-// Node Tree Click Handling
-export function handleNodeClick(robotRecord, e) {
-    if(!robotRecord) return;
-    const { ui } = robotRecord.state;
-  if ((e.target.tagName === "SUMMARY" || e.target.tagName === "SPAN") && e.target.dataset.nodeId) {
-        ui.selectedNodeId = e.target.dataset.nodeId;
-        ui.selectedNodeElement = e.target;
-
-        const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
-
-        if (nodeClass == "2") {
-            if (e.target.tagName === "SPAN") {
-                refreshSelectedNode();
-            }
-        }
-
-        showNodeProperties(e.target);
-    }
-}
-
-
-export function refreshSelectedNode(robotRecord) {
-    if(!robotRecord) return;
-    const { ui, connectivity } = robotRecord.state;
-    if (!ui.selectedNodeId || !connectivity.connectedUrl) return;
-
-    let el = document.querySelector(`[data-node-id="${ui.selectedNodeId}"]`);
-    if (!el) return;
-
-    const nodeClass = el.dataset.nodeclass;
-    const li = el.closest('li');
-    if (!li) return;
-
-    if (nodeClass == "2") {
-        const hasChildren = li.querySelector('ul') && li.querySelector('ul').children.length > 0;
-        if (hasChildren) {
-
-            return;
-        }
-        const encodedUrl = encodeURIComponent(connectivity.connectedUrl);
-        const encodedNodeId = encodeURIComponent(ui.selectedNodeId);
-        fetch(`http://127.0.0.1:8000/node_rendered?url=${encodedUrl}&nodeid=${encodedNodeId}&children_depth=1`)
-            .then(res => res.text())
-            .then(html => {
-                const staging = document.createElement('div');
-                staging.innerHTML = html;
-                li.replaceWith(...staging.childNodes);
-
-                const newNode = document.querySelector(`[data-node-id="${ui.selectedNodeId}"]`);
-                if (newNode) {
-                    ui.selectedNodeElement = newNode;
-                    showNodeProperties(newNode);
-                }
-            });
-        return;
-    }
-
-    showNodeProperties(el);
-}
-// Context Menu
-export function handleContextMenu(robotRecord, e) {
-    if(!robotRecord) return;
-  const target = e.target;
-  const { ui } = robotRecord.state;
-
-  if ((target.matches("summary, span")) && target.dataset.nodeId) {
-        e.preventDefault();
-        ui.selectedNodeId = target.dataset.nodeId;
-        ui.selectedNodeElement = target;
-        const menu = document.getElementById("custom-context-menu");
-        menu.style.top = e.pageY + "px";
-        menu.style.left = e.pageX + "px";
-        menu.style.display = "block";
-    } else {
-        document.getElementById("custom-context-menu").style.display = "none";
-        ui.selectedNodeId = null;
-        ui.selectedNodeElement = null;
-    }
-}
-
-
-export function handleGlobalMouseDown(e) {
-    const menu = document.getElementById('custom-context-menu');
-    if (menu.style.display === 'block' && !menu.contains(e.target)) {
-        menu.style.display = 'none';
-    }
-}
-
-
-
-// Context Menu Actions
-
-export function handleContextCallMethod(robotRecord) {
-    if(!robotRecord) return;
-    const menu = document.getElementById("custom-context-menu");
-    menu.style.display = "none";
-
-    const { ui, connectivity}  = robotRecord.state;
-    if (!ui.selectedNodeId || !ui.selectedNodeElement){
-        alert('❌ No node selected. (nodeId missing)');
-        return;
-    } 
-
-    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
-    if (nodeClass !== "4") {
-        alert("❌ This node is not a method (NodeClass ≠ 4).");
-        return;
-    }
-
-    // Suche nach InputArguments in den Kind-Elementen
-    const inputNode = Array.from(
-        ui.selectedNodeElement.parentElement.querySelectorAll("summary, span")
-    ).find(el => el.dataset.name && el.dataset.name.endsWith('InputArguments'));
-
-
-    const methodStatus = document.getElementById('method-call-status');
-    const spinner = document.getElementById('method-spinner');
-    const statusText = document.getElementById('method-status-text');
-
-    if (inputNode) {
-        const rawValue = inputNode.getAttribute('data-value');
-        const nodeIdForCall = ui.selectedNodeId;
-        showInputParameterPopup(rawValue, (userInputs) => {
-            const payload = {
-                nodeId: nodeIdForCall,
-                inputs: userInputs,
-                url: connectivity.connectedUrl,
-            };
-            methodStatus.style.display = 'flex';
-            spinner.style.display = 'inline-block';
-            statusText.textContent = `Method is being executed...`;
-            connectivity.socket.send(`call|${JSON.stringify(payload)}`);
-        });
-    } else {
-        methodStatus.style.display = 'flex';
-        spinner.style.display = 'inline-block';
-        statusText.textContent = `Method is being executed...`;
-        const payload = {
-            nodeId: ui.selectedNodeId,
-            inputs: "",
-            url: connectivity.connectedUrl,
-        };
-        connectivity.socket.send(`call|${JSON.stringify(payload)}`);
-    }
-}
-
-export function handleContextSubscribe(robotRecord) {
-    if(!robotRecord) return;
-    document.getElementById("custom-context-menu").style.display = "none";
-
-    const { ui, connectivity } = robotRecord.state;
-
-    if (!ui.selectedNodeId || !ui.selectedNodeElement) {
-        alert('❌ No node selected. (nodeId missing)');
-        return;
-    }
-
-    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
-    if (nodeClass !== "2") {
-        alert("❌ This node is not a variable (NodeClass ≠ 2).");
-        return;
-    }
-    if (ui.selectedNodeId && connectivity.connectedUrl) {
-        const payload = {
-            url: connectivity.connectedUrl,
-            nodeId: ui.selectedNodeId
-        };
-        connectivity.socket.send("subscribe|" + JSON.stringify(payload));
-        ui.showSubscriptionsTabOnNextCustom = true;
-    }
-}
-
-export function handleContextUnsubscribe(robotRecord) {
-    if(!robotRecord) return;
-    document.getElementById("custom-context-menu").style.display = "none";
-    const { ui, connectivity } = robotRecord.state;
-    if (!ui.selectedNodeId || !ui.selectedNodeElement) {
-        alert('❌ No node selected. (nodeId missing)');
-        return;
-    }
-
-    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
-    if (nodeClass !== "2") {
-        alert("❌ This node is not a variable (NodeClass ≠ 2).");
-        return;
-    }
-    if (ui.selectedNodeId && connectivity.connectedUrl) {
-        const payload = {
-            url: connectivity.connectedUrl,
-            nodeId: ui.selectedNodeId
-        };
-        connectivity.socket.send("unsubscribe|" + JSON.stringify(payload));
-    }
-}
-
-export function handleContextSubscribeEvent(robotRecord) {
-    if(!robotRecord) return;
-    document.getElementById("custom-context-menu").style.display = "none";
-    const { ui, connectivity } = robotRecord.state;
-    if (!ui.selectedNodeId || !ui.selectedNodeElement) {
-        alert('❌ No node selected. (nodeId missing)');
-        return;
-    }
-
-    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
-    if (nodeClass !== "1") {
-        alert("❌ This node is not an object (NodeClass ≠ 1).");
-        return;
-    }
-    if (ui.selectedNodeId && connectivity.connectedUrl) {
-        const payload = {
-            url: connectivity.connectedUrl,
-            nodeId: ui.selectedNodeId
-        };
-        connectivity.socket.send("subscribeEvent|" + JSON.stringify(payload));
-        ui.showSubscriptionsTabOnNextCustom = true;
-    }
-}
-
-export function handleContextUnsubscribeEvent(robotRecord) {
-    if(!robotRecord) return;
-    document.getElementById("custom-context-menu").style.display = "none";
-    const { ui, connectivity } = robotRecord.state;
-    if (!ui.selectedNodeId || !ui.selectedNodeElement) {
-        alert('❌ No node selected. (nodeId missing)');
-        return;
-    }
-
-    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
-    if (nodeClass !== "1") {
-        alert("❌ This node is not an object (NodeClass ≠ 1).");
-        return;
-    }
-    if (ui.selectedNodeId && connectivity.connectedUrl) {
-        const payload = {
-            url: connectivity.connectedUrl,
-            nodeId: ui.selectedNodeId
-        };
-        connectivity.socket.send("unsubscribeEvent|" + JSON.stringify(payload));
-    }
-}
-
-// logging
-export function logMessageToBox(msg) {
-    const logContainer = document.getElementById('message-log');
-    const line = document.createElement('div');
-    line.classList.add('log-entry');
-    line.textContent = msg;
-    logContainer.prepend(line);
-}
-//done
-export function clearLog() {
-    document.getElementById('message-log').innerHTML ='';
-}
-
-//ui utilities
-
-/**
- * Forces the target element to match the source element's width
- */
-export const syncWidth = (source, target) => {
-    if (source && target) {
-        target.style.width = source.style.width;
-    }
-};
-
-/**
- * Creates an observer that ensures target width follows source width
- */
-export const initWidthObserver = (source, target) => {
-    const observer = new MutationObserver(() => syncWidth(source, target));
-    observer.observe(source, { attributes: true, attributeFilter: ['style'] });
-    return observer;
-};
-
-/**
- * Pure logic to determine the next UI state based on current expansion
- */
-export const getToggleDimensions = (isCurrentlyExpanded) => {
-    return {
-        width: isCurrentlyExpanded ? "450px" : "750px",
-        label: isCurrentlyExpanded ? "« expand" : "collapse »",
-    };
-};
-
-
-function showInputParameterPopup(rawHtml, callback) {
-    let htmlToParse = rawHtml.trim();
-    if (!/^<ul[\s>]/i.test(htmlToParse)) {
-        htmlToParse = `<ul>${htmlToParse}</ul>`;
-    }
-    const container = document.createElement('div');
-    container.innerHTML = htmlToParse;
-    const items = container.querySelectorAll('li.arg-item');
-
-    // Overlay
-    const overlay = document.createElement('div');
-    overlay.classList.add('ds-overlay');
-
-    // Modal
-    const modal = document.createElement('div');
-    modal.classList.add('ds-modal');
-
-    const header = document.createElement('h4');
-    header.textContent = 'Methoden-Parameter eingeben';
-    header.classList.add('ds-modal-title');
-    modal.appendChild(header);
-
-    const form = document.createElement('form');
-    form.classList.add('ds-form');
-
-    items.forEach(item => {
-        const name = item.querySelector('.arg-name').textContent;
-        const desc = item.querySelector('.arg-description').textContent.replace(' – ', '');
-        const meta = item.querySelector('.arg-meta').textContent.match(/Type:\s*([^,]+)/)[1];
-
-        const fieldWrapper = document.createElement('div');
-        fieldWrapper.classList.add('ds-form-group');
-
-        const label = document.createElement('label');
-        label.classList.add('ds-label');
-        label.innerHTML = `<span class="ds-param-name">${name}</span> 
-                           <span class="ds-param-desc">(${desc})</span> 
-                           <span class="ds-param-type">[${meta}]</span>`;
-        fieldWrapper.appendChild(label);
-
-        const input = document.createElement('input');
-        input.name = name;
-        input.type = 'text';
-        input.classList.add('ds-input');
-        fieldWrapper.appendChild(input);
-
-        form.appendChild(fieldWrapper);
-    });
-
-    const btnWrap = document.createElement('div');
-    btnWrap.classList.add('ds-form-actions');
-
-    const submitBtn = document.createElement('button');
-    submitBtn.type = 'submit';
-    submitBtn.textContent = 'Aufrufen';
-    submitBtn.classList.add('ds-btn', 'ds-btn-primary');
-    btnWrap.appendChild(submitBtn);
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.textContent = 'Abbrechen';
-    cancelBtn.classList.add('ds-btn', 'ds-btn-secondary');
-    cancelBtn.addEventListener('click', () => document.body.removeChild(overlay));
-    btnWrap.appendChild(cancelBtn);
-
-    form.appendChild(btnWrap);
-    modal.appendChild(form);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const data = {};
-        new FormData(form).forEach((value, key) => data[key] = value);
-        document.body.removeChild(overlay);
-        callback(data);
-    });
-}
-
-//mcp 
-
-//connect and setup method if mcp socket doesn't exist. called in 
-function setup_mcp_socket(robotRecord) {
-    if (!robotRecord) return;
-    const { connectivity } = robotRecord.state;
-    if (connectivity.socketMcp) {
-        console.warn("MCP socket already open for this robot.");
-        return;
-    }
-
-    connectivity.socketMcp = new WebSocket("ws://127.0.0.1:8000/ws_mcp");
-    connectivity.status = 'connecting';
-
-    connectivity.socketMcp.onopen = () => {
-        console.log("MCP WebSocket connection established.");
-        connectivity.status = 'connected';
-        connectivity.socketMcp.send("status");
-    };
-
-    connectivity.socketMcp.onmessage = (event) => {
-        const data = event.data;
-        console.log("MCP Message from server:", data);
-
-        const manipulator = robotRecord.manipulator;
-        if (!manipulator) return;
-        let r = manipulator.robot;
-
-        if (event.data.startsWith("TCP_POS|")) {
-            let tcp_coords = event.data.replace("TCP_POS|", "").split(",");
-            let position = new Vector3(
-                parseFloat(tcp_coords[0]),
-                parseFloat(tcp_coords[1]),
-                parseFloat(tcp_coords[2])
-            )
-            manipulator.targetObject.position.set(...position);
-            // console.log('Target pos2:', manipulator.targetObject.position);
-            manipulator.solve();
-            manipulator.dispatchEvent(new Event('manipulate-end'));
-            manipulator.dispatchEvent(new Event('change'));
-
-        } else if (event.data.startsWith("JOINTS|")) {
-            let joint_raw_data = event.data.replace("JOINTS|", "").replace("°", "").split(", ");
-
-            const jointValuesRad = {};
-            let idx = 0;
-
-            for (const name in r.joints) {
-                const joint = r.joints[name];
-                if (joint.jointType === 'revolute') {
-                    jointValuesRad[name] = joint_raw_data[idx] / 180 * Math.PI;
-                    idx++;
-                }
-            }
-
-            manipulator.setJointValues(jointValuesRad);
-        } /*else if (event.data.startsWith("JOINT|")) {
-            let joint_raw_data = event.data.replace("JOINT|", "").split("|");
-            let joint_index = joint_raw_data[0];
-            let joint_angle = joint_raw_data[1];
-        } else if (event.data.startsWith("OPCUA-NODE|")) {
-
-        }*/
-    };
-
-    connectivity.socketMcp.onerror = (error) => {
-        console.error("MCP WebSocket error:", error);
-        connectivity.status = 'error';
-    };
-
-    connectivity.socketMcp.onclose = () => {
-        console.log("MCP WebSocket connection closed.");
-        connectivity.status = 'disconnected';
-        connectivity.socketMcp = null;
-    };
-}
-
-function disconnect_mcp_socket(robotRecord) {
-    if (!robotRecord) return;
-
-    const robotId = robotRecord.id;
-    const { connectivity } = robotRecord.state
-
-    if (connectivity.socketMcp) {
-        connectivity.socketMcp.close();
-        connectivity.socketMcp = null;
-        connectivity.status = 'disconnected';
-        console.log(`[${robotId}] MCP WebSocket disconnected successfully.`);
-    }
-}
-
-export function toggleMcpIntegration(robotRecord, event) {
-    if (!robotRecord) return;
-    if (event.target.checked) {
-        setup_mcp_socket(robotRecord);
-        robotRecord.opcua.syncEnabled = true;
-    } else {
-        disconnect_mcp_socket(robotRecord);
-        robotRecord.opcua.syncEnabled = false;
-    }
-}
-
-export function sendMcpRobotStateUpdate(robotRecord) {
-    const manipulator = robotRecord.manipulator;
-    const { connectivity } = robotRecord.state;
-
-    // Check if the specific socket for this robot is open
-    if (!connectivity.socketMcp || connectivity.socketMcp.readyState !== WebSocket.OPEN) return;
-    if (!manipulator || !manipulator.robot) return;
-
-    connectivity.socketMcp.send('TCP|' + 'Pos: ' + manipulator.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + manipulator.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', '));
-    const jointValues = getFormattedJointString(robotRecord);
-    connectivity.socketMcp.send('ANGLES|' + jointValues.join(', '));
-}
-
-
-//TODO not yet working
-export function updateConnectionStatus(robotRecord, isConnected) {
-    // Only update the UI if the robot we are changing is the one currently visible
-    if (!robotRecord) return;
-
-    const dot = document.getElementById('connection-status-dot');
-    const text = document.getElementById('connection-status-text');
-    
-    if (isConnected) {
-        dot.style.backgroundColor = '#4CAF50'; // Green
-        text.textContent = 'Connected';
-    } else {
-        dot.style.backgroundColor = '#f44336'; // Red
-        text.textContent = 'Disconnected';
-    }
-}
-
-//opcua
-//Device set / address space
-function loadDeviceSet(robotRecord, opcUaUrl) {
-    const encodedUrl = encodeURIComponent(opcUaUrl);
-    fetch(`http://127.0.0.1:8000/device_set_rendered?url=${encodedUrl}`)
-        .then(res => res.text())
-        .then(html => {
-            robotRecord.state.ui.addressSpaceHTML = html;
-            if (robotRecord === getActiveRobot()) {
-                document.getElementById('info-content').innerHTML = html;
-            }
-        });
-}
-
-// Subscription table helpers
-function updateSubscriptionTable(nodeId, value) {
-    const table = document.getElementById("subscriptions-table");
-    if (!table) return;
-    let row = table.querySelector(`tr[data-node-id="${nodeId}"]`);
-    if (!row) {
-        row = document.createElement("tr");
-        row.setAttribute("data-node-id", nodeId);
-
-        // NodeId 
-        const cellNodeId = document.createElement("td");
-        cellNodeId.textContent = nodeId;
-        row.appendChild(cellNodeId);
-
-        // Value 
-        const cellValue = document.createElement("td");
-        cellValue.className = "subscription-value";
-        cellValue.textContent = value;
-        row.appendChild(cellValue);
-
-        table.querySelector("tbody").appendChild(row);
-    } else {
-        // Value update
-        const cellValue = row.querySelector(".subscription-value");
-        if (cellValue) cellValue.textContent = value;
-    }
-}
-
-function removeSubscriptionRow(nodeId) {
-    const table = document.getElementById("subscriptions-table");
-    if (!table) return;
-    const row = table.querySelector(`tr[data-node-id="${nodeId}"]`);
-    if (row) row.remove();
-}
-
-// helper robot start
-
-function buildAxisToJointMap(robotRecord, anglesMsg) {
-    // OPC UA sort Axis
-    const axisNames = Object.keys(anglesMsg.angles).sort((a, b) => {
-        const ai = parseInt(a.match(/(\d+)$/)?.[1] || "0", 10);
-        const bi = parseInt(b.match(/(\d+)$/)?.[1] || "0", 10);
-        return ai - bi;
-    });
-
-    // Find URDF joints in a chain
-    const urdfJointNames = getOrderedRevoluteJointNames(robotRecord);
-
-    // Take the minimum of the two (if the robot has fewer axes than OPC or vice versa)
-    const n = Math.min(axisNames.length, urdfJointNames.length);
-
-    const map = {};
-    for (let i = 0; i < n; i++) {
-        map[axisNames[i]] = urdfJointNames[i];
-    }
-    const { opcua } = robotRecord.state;
-    opcua.axisToJointMap = map;
-
-    //Debug
-    console.group("Axis → URDF Mapping");
-    axisNames.forEach((axis, i) => {
-        console.log(`${axis} → ${map[axis] || "(no URDF Joint)"}`);
-    });
-    console.groupEnd();
-
-    try {
-        buildEndEffectorMap(robotRecord);
-    } catch (e) {
-        console.warn("⚠️ Endeffektor-Map Fehler:", e);
-    }
-
-    return map;
-}
 // Utils: Extract URDF joints from viewer
 function normalizeMapLike(mapLike) {
     const out = {};
@@ -894,6 +190,43 @@ function getOrderedRevoluteJointNames(robotRecord) {
 
 
 
+function buildAxisToJointMap(robotRecord, anglesMsg) {
+    // OPC UA sort Axis
+    const axisNames = Object.keys(anglesMsg.angles).sort((a, b) => {
+        const ai = parseInt(a.match(/(\d+)$/)?.[1] || "0", 10);
+        const bi = parseInt(b.match(/(\d+)$/)?.[1] || "0", 10);
+        return ai - bi;
+    });
+
+    // Find URDF joints in a chain
+    const urdfJointNames = getOrderedRevoluteJointNames(robotRecord);
+
+    // Take the minimum of the two (if the robot has fewer axes than OPC or vice versa)
+    const n = Math.min(axisNames.length, urdfJointNames.length);
+
+    const map = {};
+    for (let i = 0; i < n; i++) {
+        map[axisNames[i]] = urdfJointNames[i];
+    }
+    const { opcua } = robotRecord.state;
+    opcua.axisToJointMap = map;
+
+    //Debug
+    console.group("Axis → URDF Mapping");
+    axisNames.forEach((axis, i) => {
+        console.log(`${axis} → ${map[axis] || "(no URDF Joint)"}`);
+    });
+    console.groupEnd();
+
+    try {
+        buildEndEffectorMap(robotRecord);
+    } catch (e) {
+        console.warn("⚠️ Endeffektor-Map Fehler:", e);
+    }
+
+    return map;
+}
+
 
 function buildEndEffectorMap(robotRecord) {
     const manipulator = robotRecord.manipulator;
@@ -957,193 +290,54 @@ function buildEndEffectorMap(robotRecord) {
     return opcua.endEffectorMap;
 }
 
-// Robot — Drag End Helpers
-// Merker für letzte EEF-Positionen
-function getVal(j) {
-    return Array.isArray(j.jointValue) ? Number(j.jointValue[0]) : Number(j.angle || 0);
-}
-function getLimits(j) {
-    const lim = j?.limit || j?._limit || j?._raw?.limit || {};
-    const toNum = v => (v === undefined || v === null || v === '' ? NaN : Number(v));
-    return { lower: toNum(lim.lower ?? lim.min), upper: toNum(lim.upper ?? lim.max) };
-}
-function getEEFMasters(robot) { //TODO is this endEffector the old variable or something else
-//maybe we need to give it a recordRobot parameter so it uses the correct endeffectormap of the robot
-    if (window.endEffectorMap?.byName) {
-        return Object.keys(endEffectorMap.byName)
-            .map(n => robot.joints[n])
-            .filter(j => j && j.jointType === 'prismatic' && !j.mimic);
-    }
-    return Object.values(robot.joints).filter(j => j.jointType === 'prismatic' && !j.mimic);
-}
 
-function getFormattedJointString(robotRecord) {
-    const manipulator = robotRecord.manipulator;
-    const r = manipulator.robot;
-    const radiansToggle = document.getElementById('radians-toggle');
-    const useRadians = radiansToggle && radiansToggle.classList.contains('checked');
 
-    if (!r || !r.joints) return;
-
-    const jointValues = [];
-    let idx = 1;
-
-    for (const name in r.joints) {
-        const joint = r.joints[name];
-        if (joint.jointType === 'revolute') {
-            let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
-            if (!useRadians) value *= 180 / Math.PI;
-            let num = parseFloat(value);
-            let formatted;
-            if (!useRadians) {
-                formatted = num.toFixed(1);
-            } else {
-                if (Math.abs(num) < 1) {
-                    formatted = num.toPrecision(2);
-                } else {
-                    formatted = num.toFixed(2).replace(/\.0+$/, '').replace(/(\.[1-9]*)0+$/, '$1');
-                }
+function loadDeviceSet(robotRecord, opcUaUrl) {
+    const encodedUrl = encodeURIComponent(opcUaUrl);
+    fetch(`http://127.0.0.1:8000/device_set_rendered?url=${encodedUrl}`)
+        .then(res => res.text())
+        .then(html => {
+            robotRecord.state.ui.addressSpaceHTML = html;
+            if (robotRecord === getActiveRobot()) {
+                document.getElementById('info-content').innerHTML = html;
             }
-            jointValues.push(`j${idx}:${formatted}${useRadians ? 'rad' : '°'}`);
-            idx++;
-        }
-    }
-    return jointValues;
+        });
 }
 
-export function updateRevoluteJointStatus(robotRecord) {
-    
-    const jointValues = getFormattedJointString(robotRecord);
-    const statusField = document.getElementById('robot-position-value');
-    const manipulator = robotRecord?.manipulator || null;
-    
-    if (statusField) {
-        statusField.textContent = jointValues.join(', ');
-    }
-    const TCPField = document.getElementById('robot-tcp-value');
+function updateSubscriptionTable(nodeId, value) {
+    const table = document.getElementById("subscriptions-table");
+    if (!table) return;
+    let row = table.querySelector(`tr[data-node-id="${nodeId}"]`);
+    if (!row) {
+        row = document.createElement("tr");
+        row.setAttribute("data-node-id", nodeId);
 
-    if (TCPField) {
-        if (manipulator && manipulator.targetObject) {
-        TCPField.textContent = 'Pos: ' + manipulator.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + manipulator.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', ');
-        } else {
-            TCPField.textContent = 'Pos: (n/a) ;Rot: (n/a)';
-        }
-    }
-}
+        // NodeId 
+        const cellNodeId = document.createElement("td");
+        cellNodeId.textContent = nodeId;
+        row.appendChild(cellNodeId);
 
-export function handleManipulateEnd(robotRecord) {
-    const manipulator = robotRecord.manipulator;
-    const { opcua, connectivity, interaction } = robotRecord.state;
-    //interaction.isManipulating = false; //already done in index.js
+        // Value 
+        const cellValue = document.createElement("td");
+        cellValue.className = "subscription-value";
+        cellValue.textContent = value;
+        row.appendChild(cellValue);
 
-    const syncToggle = document.getElementById('opc-ua-sync-toggle');
-    if (!syncToggle?.checked) return;
-
-    const r = manipulator.robot;
-    if (!r?.joints) return;
-
-    const eefMasters = getEEFMasters(r);
-    let eefTriggered = false;
-
-    // --- Endeffektor prüfen ---
-    for (const j of eefMasters) {
-        const cur = getVal(j);
-        const last = opcua.lastEEFPositions?.[j.name];
-        const changed = (last !== undefined) && (cur !== last);
-
-        if (changed) {
-            const { lower, upper } = getLimits(j);
-            const atLower = (cur === lower);
-            const atUpper = (cur === upper);
-
-            if (atLower || atUpper) {
-                const nodeId = opcua.metadata.toggleEndEffMethodNodeId;
-                if (!nodeId) {
-                    logMessageToBox('⚠️ “toggleEndEff” method not yet known. Please connect or try again.');
-                    break;
-                }
-
-                const payload = { nodeId, url: connectivity.connectedUrl };
-                console.log("Send End Effector after limit reached:", payload);
-
-                if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
-                    connectivity.socket.send(`call|${JSON.stringify(payload)}`);
-                    eefTriggered = true;
-                }
-                break; // nur ein EEF-Call
-            }
-        }
-    }
-
-    // letzte EEF-Positionen merken
-    eefMasters.forEach(j => { 
-        if (!opcua.lastEEFPositions) {
-            opcua.lastEEFPositions = {};
-        }
-        opcua.lastEEFPositions[j.name] = getVal(j);
-    });
-
-    if (eefTriggered) return; // nur Endeffektor gesendet → fertig
-
-    // --- Revolute prüfen: nur senden, wenn sich was geändert hat ---
-    const jointValuesRad = [];
-    let revoluteChanged = false;
-
-    for (const name in r.joints) {
-        const joint = r.joints[name];
-        if (joint.jointType === 'revolute') {
-            const value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
-            jointValuesRad.push(parseFloat(value.toFixed(6)));
-
-            // prüfen ob sich gegenüber letztem Stand geändert hat
-            const lastEEFPositions = opcua.lastEEFPositions?.[name];
-            if (lastEEFPositions === undefined || lastEEFPositions !== value) {
-                revoluteChanged = true;
-            }
-        }
-    }
-
-    if (!revoluteChanged) return; // nix Neues → kein GoTo
-
-    const jointsString = JSON.stringify(jointValuesRad);
-    const nodeId = opcua.metadata.gotoMethodNodeId;
-
-    if (!nodeId) {
-        logMessageToBox('⚠️ “Go To” method not yet known. Please connect or try again.');
-        return;
-    }
-
-    const payload = {
-        nodeId,
-        inputs: {
-            mode: 'automatic',
-            joints: jointsString,
-            "max-Speed": '',
-            time: '',
-            tcp_config: '',
-            avoidance_zones: ''
-        },
-        url: connectivity.connectedUrl
-    };
-
-    console.log("Send Go To after drag end:", payload);
-    if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
-        connectivity.socket.send(`call|${JSON.stringify(payload)}`);
-    }
-}
-
-// Robot Reset
-export function handleHomeClick(robotRecord) {
-    const manipulator = robotRecord.manipulator;
-    if (manipulator) {
-        manipulator.dispatchEvent(new Event('reset-angles'));
+        table.querySelector("tbody").appendChild(row);
+    } else {
+        // Value update
+        const cellValue = row.querySelector(".subscription-value");
+        if (cellValue) cellValue.textContent = value;
     }
 }
 
 
-// robot helper end
-
-// Websocket / OPCUA message handling
+function removeSubscriptionRow(nodeId) {
+    const table = document.getElementById("subscriptions-table");
+    if (!table) return;
+    const row = table.querySelector(`tr[data-node-id="${nodeId}"]`);
+    if (row) row.remove();
+}
 
 export function handleSocketMessage(robotRecord, event) {
     console.log("Message from server:", event.data);
@@ -1241,11 +435,11 @@ function handleProtocolMessage(robotRecord, data) {
             }
 
             if (payload.gotoMethodNodeId) {
-                opcua.metadata.gotoMethodNodeId = payload.gotoMethodNodeId ?? null;
+                opcua.gotoMethodNodeId = payload.gotoMethodNodeId ?? null;
             }
 
             if (payload.toggleEndEffMethodNodeId) {
-                opcua.metadata.toggleEndEffMethodNodeId = payload.toggleEndEffMethodNodeId ?? null;
+                opcua.toggleEndEffMethodNodeId = payload.toggleEndEffMethodNodeId ?? null;
             }
         } catch (e) {
             console.warn("Event parse error", e);
@@ -1321,31 +515,6 @@ function handleProtocolMessage(robotRecord, data) {
         }
     }
 }
-function updateRobotLockToggleVisibility(robotRecord) {
-    const container = document.getElementById('robot-lock-toggle-container');
-    if (!container) return;
-
-    if (!robotRecord) {
-        container.style.display = 'none';
-        return;
-    }
-    const { metadata } = robotRecord.state.opcua;
-    const hasRoboticsNamespace = metadata.hasRoboticsNamespace === true;
-    container.style.display = hasRoboticsNamespace ? '' : 'none';
-}
-
-function setInfoBoxState(expanded) {
-    // --- DOM Elements ---
-    const infoBox = document.getElementById('info-box');
-    const infoToggleBtn = document.getElementById('info-toggle-btn');
-    const propertiesBox = document.getElementById('properties-box');
-
-    infoToggleBtn.style.display = "block";
-    infoBox.style.width = expanded ? "750px" : "450px";
-    propertiesBox.style.width = expanded ? "750px" : "450px";
-    infoToggleBtn.textContent = expanded ? "collapse »" : "« expand";
-}
-
 
 function handleStatusMessage(robotRecord, data) {
     logMessageToBox(`🔔 ${data}`);
@@ -1367,12 +536,12 @@ function handleStatusMessage(robotRecord, data) {
     }
 
     if (data.startsWith("✅ OPC UA server supports 'Robotics Namespace'")) {
-        opcua.metadata.hasRoboticsNamespace = true
+        opcua.hasRoboticsNamespace = true
         updateRobotLockToggleVisibility(robotRecord);
     }
 
     if (data.startsWith("❌ 'Robotics Namespace' not listed")) {
-        opcua.metadata.hasRoboticsNamespace = false
+        opcua.hasRoboticsNamespace = false
         updateRobotLockToggleVisibility(robotRecord);
     }
 
@@ -1426,7 +595,7 @@ function handleStatusMessage(robotRecord, data) {
         // Collapse-Button 
         document.getElementById('info-toggle-btn').style.display = "none";
         // Lock-Toggle 
-        opcua.metadata.hasRoboticsNamespace = null;
+        opcua.hasRoboticsNamespace = null;
         updateRobotLockToggleVisibility(robotRecord);
     } else if (data.startsWith("❌ No client found")) {
         document.getElementById('info-content').innerHTML = `
@@ -1442,7 +611,41 @@ function handleStatusMessage(robotRecord, data) {
     }
 }
 
-//connect / disconnect
+function setInfoBoxState(expanded) {
+    // --- DOM Elements ---
+    const infoBox = document.getElementById('info-box');
+    const infoToggleBtn = document.getElementById('info-toggle-btn');
+    const propertiesBox = document.getElementById('properties-box');
+
+    infoToggleBtn.style.display = "block";
+    infoBox.style.width = expanded ? "750px" : "450px";
+    propertiesBox.style.width = expanded ? "750px" : "450px";
+    infoToggleBtn.textContent = expanded ? "collapse »" : "« expand";
+}
+
+// Toggle OPC UA panel (works)
+export function toggleOpcUaSection() {
+
+    const toggleOpcUa = document.getElementById('toggle-opc-ua');
+    const opcUaSection = document.getElementById('opc-ua');
+
+    toggleOpcUa.addEventListener('click', () => {
+        opcUaSection.classList.toggle('hidden');
+    });
+}
+
+
+// Toggle Robot Dashboard panel (works)
+export function toggleRobotDashboardSection() {
+    const toggleRobotDashboard = document.getElementById('toggle-robot-dashboard');
+    const robotDashboardSection = document.getElementById('robot-dashboard');
+
+    toggleRobotDashboard.addEventListener('click', () => {
+            robotDashboardSection.classList.toggle('hidden');
+    });
+}
+
+
 export function connectOpcUa(robotRecord) {
     const infoToggleBtn = document.getElementById("info-toggle-btn");
     infoToggleBtn.style.display = "none";
@@ -1492,8 +695,33 @@ export function disconnectOpcUa(robotRecord) {
     }
 }
 
+function showNodeProperties(element) {
+    const propertiesBox = document.getElementById("properties-box");
+    const table = document.getElementById("properties-table");
 
-// Node selection & subtree
+    const dataset = element.dataset;
+    table.innerHTML = "";
+
+    for (const key in dataset) {
+        const row = document.createElement("tr");
+        const keyCell = document.createElement("td");
+        const valueCell = document.createElement("td");
+
+        keyCell.textContent = key.replace(/([A-Z])/g, ' $1').toUpperCase();
+
+        if (key.toLowerCase() === "value") {
+            valueCell.innerHTML = dataset[key];
+        } else {
+            valueCell.textContent = dataset[key];
+        }
+
+        row.appendChild(keyCell);
+        row.appendChild(valueCell);
+        table.appendChild(row);
+    }
+
+    propertiesBox.style.display = "block";
+}
 
 
 // --- OPC UA Sync Toggle State ---
@@ -1513,7 +741,7 @@ export function handleOpcUaSyncToggle(robotRecord, event) {
         logMessageToBox('❌ No OPC UA client connected. Please connect first.');
         return;
     }
-    if (!opcua.metadata.hasRoboticsNamespace) {
+    if (!opcua.hasRoboticsNamespace) {
         checkbox.checked = false;
         opcua.syncEnabled = false;
         logMessageToBox('❌ No OPC UA robotics server connected.');
@@ -1563,7 +791,36 @@ export function handleOpcUaSyncToggle(robotRecord, event) {
     }
 }
 
+function updateReferencesTable(refs, clearFirst = false) {
+    const referencesTable = document.getElementById("references-table");
+    if (!referencesTable) return;
+    const oldTbody = referencesTable.querySelector("tbody");
+    const newTbody = document.createElement("tbody");
 
+    refs.forEach(refObj => {
+        const row = document.createElement("tr");
+
+        const makeCell = (value) => {
+            const td = document.createElement("td");
+            td.textContent = value || "";
+            return td;
+        };
+
+        row.appendChild(makeCell(refObj.ReferenceType));
+        row.appendChild(makeCell(refObj.NodeId));
+        row.appendChild(makeCell(refObj.BrowseName));
+        row.appendChild(makeCell(refObj.TypeDefinition));
+
+        newTbody.appendChild(row);
+    });
+
+    if (oldTbody) {
+        referencesTable.replaceChild(newTbody, oldTbody);
+    } else {
+        referencesTable.appendChild(newTbody);
+    }
+}
+//done
 export function handleOpcUaNodeSelection(robotRecord, event) {
     if (!robotRecord) {
         logMessageToBox('❌ No active robot.');
@@ -1634,4 +891,700 @@ export async function handleSubtreeClick(robotRecord, e) {
     ui.selectedNodeId = summary.dataset.nodeId;
     ui.selectedNodeElement = summary;
     showNodeProperties(summary);
+}
+export function switchTab(tabName) { //Done i think maybe TODO because different
+    const buttons = document.querySelectorAll(".tab-btn");
+    buttons.forEach((btn) => {
+        if (btn.getAttribute("data-tab") === tabName) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
+        }
+    });
+
+    const contents = document.querySelectorAll(".tab-content");
+    contents.forEach((content) => {
+        if (content.id === `tab-${tabName}`) {
+            content.classList.add("active");
+        } else {
+            content.classList.remove("active");
+        }
+    });
+    console.log(`Switched UI to ${tabName} tab.`);
+}
+
+export function logMessageToBox(msg) {
+    const logContainer = document.getElementById('message-log');
+    const line = document.createElement('div');
+    line.classList.add('log-entry');
+    line.textContent = msg;
+    logContainer.prepend(line);
+}
+//done
+export function clearLog() {
+    document.getElementById('message-log').innerHTML ='';
+}
+//done
+export function handleContextMenu(robotRecord, e) {
+    if(!robotRecord) return;
+  const target = e.target;
+  const { ui } = robotRecord.state;
+
+  if ((target.matches("summary, span")) && target.dataset.nodeId) {
+        e.preventDefault();
+        ui.selectedNodeId = target.dataset.nodeId;
+        ui.selectedNodeElement = target;
+        const menu = document.getElementById("custom-context-menu");
+        menu.style.top = e.pageY + "px";
+        menu.style.left = e.pageX + "px";
+        menu.style.display = "block";
+    } else {
+        document.getElementById("custom-context-menu").style.display = "none";
+        ui.selectedNodeId = null;
+        ui.selectedNodeElement = null;
+    }
+}
+export function handleNodeClick(robotRecord, e) {
+    if(!robotRecord) return;
+    const { ui } = robotRecord.state;
+  if ((e.target.tagName === "SUMMARY" || e.target.tagName === "SPAN") && e.target.dataset.nodeId) {
+        ui.selectedNodeId = e.target.dataset.nodeId;
+        ui.selectedNodeElement = e.target;
+
+        const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
+
+        if (nodeClass == "2") {
+            if (e.target.tagName === "SPAN") {
+                refreshSelectedNode();
+            }
+        }
+
+        showNodeProperties(e.target);
+    }
+}
+//done
+export function handleContextCallMethod(robotRecord) {
+    if(!robotRecord) return;
+    const menu = document.getElementById("custom-context-menu");
+    menu.style.display = "none";
+
+    const { ui, connectivity}  = robotRecord.state;
+    if (!ui.selectedNodeId || !ui.selectedNodeElement){
+        alert('❌ No node selected. (nodeId missing)');
+        return;
+    } 
+
+    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
+    if (nodeClass !== "4") {
+        alert("❌ This node is not a method (NodeClass ≠ 4).");
+        return;
+    }
+
+    // Suche nach InputArguments in den Kind-Elementen
+    const inputNode = Array.from(
+        ui.selectedNodeElement.parentElement.querySelectorAll("summary, span")
+    ).find(el => el.dataset.name && el.dataset.name.endsWith('InputArguments'));
+
+
+    const methodStatus = document.getElementById('method-call-status');
+    const spinner = document.getElementById('method-spinner');
+    const statusText = document.getElementById('method-status-text');
+
+    if (inputNode) {
+        const rawValue = inputNode.getAttribute('data-value');
+        const nodeIdForCall = ui.selectedNodeId;
+        showInputParameterPopup(rawValue, (userInputs) => {
+            const payload = {
+                nodeId: nodeIdForCall,
+                inputs: userInputs,
+                url: connectivity.connectedUrl,
+            };
+            methodStatus.style.display = 'flex';
+            spinner.style.display = 'inline-block';
+            statusText.textContent = `Method is being executed...`;
+            connectivity.socket.send(`call|${JSON.stringify(payload)}`);
+        });
+    } else {
+        methodStatus.style.display = 'flex';
+        spinner.style.display = 'inline-block';
+        statusText.textContent = `Method is being executed...`;
+        const payload = {
+            nodeId: ui.selectedNodeId,
+            inputs: "",
+            url: connectivity.connectedUrl,
+        };
+        connectivity.socket.send(`call|${JSON.stringify(payload)}`);
+    }
+}
+//done
+export function handleContextSubscribe(robotRecord) {
+    if(!robotRecord) return;
+    document.getElementById("custom-context-menu").style.display = "none";
+
+    const { ui, connectivity } = robotRecord.state;
+
+    if (!ui.selectedNodeId || !ui.selectedNodeElement) {
+        alert('❌ No node selected. (nodeId missing)');
+        return;
+    }
+
+    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
+    if (nodeClass !== "2") {
+        alert("❌ This node is not a variable (NodeClass ≠ 2).");
+        return;
+    }
+    if (ui.selectedNodeId && connectivity.connectedUrl) {
+        const payload = {
+            url: connectivity.connectedUrl,
+            nodeId: ui.electedNodeId
+        };
+        connectivity.socket.send("subscribe|" + JSON.stringify(payload));
+        ui.showSubscriptionsTabOnNextCustom = true;
+    }
+}//done
+export function handleContextUnsubscribe(robotRecord) {
+    if(!robotRecord) return;
+    document.getElementById("custom-context-menu").style.display = "none";
+    const { ui, connectivity } = robotRecord.state;
+    if (!ui.selectedNodeId || !ui.selectedNodeElement) {
+        alert('❌ No node selected. (nodeId missing)');
+        return;
+    }
+
+    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
+    if (nodeClass !== "2") {
+        alert("❌ This node is not a variable (NodeClass ≠ 2).");
+        return;
+    }
+    if (ui.selectedNodeId && connectivity.connectedUrl) {
+        const payload = {
+            url: connectivity.connectedUrl,
+            nodeId: ui.selectedNodeId
+        };
+        connectivity.socket.send("unsubscribe|" + JSON.stringify(payload));
+    }
+}//done
+export function handleContextSubscribeEvent(robotRecord) {
+    if(!robotRecord) return;
+    document.getElementById("custom-context-menu").style.display = "none";
+    const { ui, connectivity } = robotRecord.state;
+    if (!ui.selectedNodeId || !ui.selectedNodeElement) {
+        alert('❌ No node selected. (nodeId missing)');
+        return;
+    }
+
+    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
+    if (nodeClass !== "1") {
+        alert("❌ This node is not an object (NodeClass ≠ 1).");
+        return;
+    }
+    if (ui.selectedNodeId && connectivity.connectedUrl) {
+        const payload = {
+            url: connectivity.connectedUrl,
+            nodeId: ui.selectedNodeId
+        };
+        connectivity.socket.send("subscribeEvent|" + JSON.stringify(payload));
+        ui.showSubscriptionsTabOnNextCustom = true;
+    }
+} // done
+export function handleContextUnsubscribeEvent(robotRecord) {
+    if(!robotRecord) return;
+    document.getElementById("custom-context-menu").style.display = "none";
+    const { ui, connectivity } = robotRecord.state;
+    if (!ui.selectedNodeId || !ui.selectedNodeElement) {
+        alert('❌ No node selected. (nodeId missing)');
+        return;
+    }
+
+    const nodeClass = ui.selectedNodeElement.dataset.nodeclass;
+    if (nodeClass !== "1") {
+        alert("❌ This node is not an object (NodeClass ≠ 1).");
+        return;
+    }
+    if (ui.selectedNodeId && connectivity.connectedUrl) {
+        const payload = {
+            url: connectivity.connectedUrl,
+            nodeId: ui.selectedNodeId
+        };
+        connectivity.socket.send("unsubscribeEvent|" + JSON.stringify(payload));
+    }
+}
+function showInputParameterPopup(rawHtml, callback) {
+    let htmlToParse = rawHtml.trim();
+    if (!/^<ul[\s>]/i.test(htmlToParse)) {
+        htmlToParse = `<ul>${htmlToParse}</ul>`;
+    }
+    const container = document.createElement('div');
+    container.innerHTML = htmlToParse;
+    const items = container.querySelectorAll('li.arg-item');
+
+    // Overlay
+    const overlay = document.createElement('div');
+    overlay.classList.add('ds-overlay');
+
+    // Modal
+    const modal = document.createElement('div');
+    modal.classList.add('ds-modal');
+
+    const header = document.createElement('h4');
+    header.textContent = 'Methoden-Parameter eingeben';
+    header.classList.add('ds-modal-title');
+    modal.appendChild(header);
+
+    const form = document.createElement('form');
+    form.classList.add('ds-form');
+
+    items.forEach(item => {
+        const name = item.querySelector('.arg-name').textContent;
+        const desc = item.querySelector('.arg-description').textContent.replace(' – ', '');
+        const meta = item.querySelector('.arg-meta').textContent.match(/Type:\s*([^,]+)/)[1];
+
+        const fieldWrapper = document.createElement('div');
+        fieldWrapper.classList.add('ds-form-group');
+
+        const label = document.createElement('label');
+        label.classList.add('ds-label');
+        label.innerHTML = `<span class="ds-param-name">${name}</span> 
+                           <span class="ds-param-desc">(${desc})</span> 
+                           <span class="ds-param-type">[${meta}]</span>`;
+        fieldWrapper.appendChild(label);
+
+        const input = document.createElement('input');
+        input.name = name;
+        input.type = 'text';
+        input.classList.add('ds-input');
+        fieldWrapper.appendChild(input);
+
+        form.appendChild(fieldWrapper);
+    });
+
+    const btnWrap = document.createElement('div');
+    btnWrap.classList.add('ds-form-actions');
+
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'submit';
+    submitBtn.textContent = 'Aufrufen';
+    submitBtn.classList.add('ds-btn', 'ds-btn-primary');
+    btnWrap.appendChild(submitBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Abbrechen';
+    cancelBtn.classList.add('ds-btn', 'ds-btn-secondary');
+    cancelBtn.addEventListener('click', () => document.body.removeChild(overlay));
+    btnWrap.appendChild(cancelBtn);
+
+    form.appendChild(btnWrap);
+    modal.appendChild(form);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        const data = {};
+        new FormData(form).forEach((value, key) => data[key] = value);
+        document.body.removeChild(overlay);
+        callback(data);
+    });
+}
+export function handleGlobalMouseDown(e) {
+    const menu = document.getElementById('custom-context-menu');
+    if (menu.style.display === 'block' && !menu.contains(e.target)) {
+        menu.style.display = 'none';
+    }
+}
+
+/**
+ * Forces the target element to match the source element's width
+ */
+export const syncWidth = (source, target) => {
+    if (source && target) {
+        target.style.width = source.style.width;
+    }
+};
+
+/**
+ * Creates an observer that ensures target width follows source width
+ */
+export const initWidthObserver = (source, target) => {
+    const observer = new MutationObserver(() => syncWidth(source, target));
+    observer.observe(source, { attributes: true, attributeFilter: ['style'] });
+    return observer;
+};
+
+/**
+ * Creates an observer that prevents the 'checked' class from being applied.
+ * Starts the observer immediately after calling the method
+ */
+export const initAnimationBlocker = (element) => {
+    if (!element) return null;
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.target.classList.contains('checked')) {
+                mutation.target.classList.remove('checked');
+            }
+        });
+    });
+    observer.observe(element, { attributes: true, attributeFilter: ['class'] });
+    return observer;
+};
+
+/**
+ * Pure logic to determine the next UI state based on current expansion
+ */
+export const getToggleDimensions = (isCurrentlyExpanded) => {
+    return {
+        width: isCurrentlyExpanded ? "450px" : "750px",
+        label: isCurrentlyExpanded ? "« expand" : "collapse »",
+    };
+};
+
+// Merker für letzte EEF-Positionen
+function getVal(j) {
+    return Array.isArray(j.jointValue) ? Number(j.jointValue[0]) : Number(j.angle || 0);
+}
+function getLimits(j) {
+    const lim = j?.limit || j?._limit || j?._raw?.limit || {};
+    const toNum = v => (v === undefined || v === null || v === '' ? NaN : Number(v));
+    return { lower: toNum(lim.lower ?? lim.min), upper: toNum(lim.upper ?? lim.max) };
+}
+//helper method that get a robotRecord.manipulator.robot
+function getEEFMasters(robot) {
+    if (window.endEffectorMap?.byName) {
+        return Object.keys(endEffectorMap.byName)
+            .map(n => robot.joints[n])
+            .filter(j => j && j.jointType === 'prismatic' && !j.mimic);
+    }
+    return Object.values(robot.joints).filter(j => j.jointType === 'prismatic' && !j.mimic);
+}
+function getFormattedJointString(robotRecord) {
+    const manipulator = robotRecord.manipulator;
+    const r = manipulator.robot;
+    const radiansToggle = document.getElementById('radians-toggle');
+    const useRadians = radiansToggle && radiansToggle.classList.contains('checked');
+
+    if (!r || !r.joints) return;
+
+    const jointValues = [];
+    let idx = 1;
+
+    for (const name in r.joints) {
+        const joint = r.joints[name];
+        if (joint.jointType === 'revolute') {
+            let value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
+            if (!useRadians) value *= 180 / Math.PI;
+            let num = parseFloat(value);
+            let formatted;
+            if (!useRadians) {
+                formatted = num.toFixed(1);
+            } else {
+                if (Math.abs(num) < 1) {
+                    formatted = num.toPrecision(2);
+                } else {
+                    formatted = num.toFixed(2).replace(/\.0+$/, '').replace(/(\.[1-9]*)0+$/, '$1');
+                }
+            }
+            jointValues.push(`j${idx}:${formatted}${useRadians ? 'rad' : '°'}`);
+            idx++;
+        }
+    }
+    return jointValues;
+}
+
+export function updateRevoluteJointStatus(robotRecord) {
+    
+    const jointValues = getFormattedJointString(robotRecord);
+    const statusField = document.getElementById('robot-position-value');
+    const manipulator = robotRecord?.manipulator || null;
+    
+    if (statusField) {
+        statusField.textContent = jointValues.join(', ');
+    }
+    const TCPField = document.getElementById('robot-tcp-value');
+
+    if (TCPField) {
+        if (manipulator && manipulator.targetObject) {
+        TCPField.textContent = 'Pos: ' + manipulator.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + manipulator.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', ');
+        } else {
+            TCPField.textContent = 'Pos: (n/a) ;Rot: (n/a)';
+        }
+    }
+}
+export function handleManipulateEnd(robotRecord) {
+    const { connectivity } = robotRecord.state;
+    if (!connectivity.socket || 
+        connectivity.socket.readyState !== WebSocket.OPEN || 
+        !connectivity.connectedUrl) {
+        return; 
+    }
+
+    const manipulator = robotRecord.manipulator;
+    const { opcua, interaction } = robotRecord.state;
+    interaction.isManipulating = false;
+
+    const syncToggle = document.getElementById('opc-ua-sync-toggle');
+    if (!syncToggle?.checked) return;
+
+    const r = manipulator.robot;
+    if (!r?.joints) return;
+
+    const eefMasters = getEEFMasters(r);
+    let eefTriggered = false;
+
+    // --- Endeffektor prüfen ---
+    for (const j of eefMasters) {
+        const cur = getVal(j);
+        const last = opcua.lastEEFPositions?.[j.name];
+        const changed = (last !== undefined) && (cur !== last);
+
+        if (changed) {
+            const { lower, upper } = getLimits(j);
+            const atLower = (cur === lower);
+            const atUpper = (cur === upper);
+
+            if (atLower || atUpper) {
+                const nodeId = opcua.toggleEndEffMethodNodeId;
+                if (!nodeId) {
+                    logMessageToBox('⚠️ “toggleEndEff” method not yet known. Please connect or try again.');
+                    break;
+                }
+
+                const payload = { nodeId, url: connectivity.connectedUrl };
+                console.log("Send End Effector after limit reached:", payload);
+
+                if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
+                    connectivity.socket.send(`call|${JSON.stringify(payload)}`);
+                    eefTriggered = true;
+                }
+                break; // nur ein EEF-Call
+            }
+        }
+    }
+
+    // letzte EEF-Positionen merken
+    eefMasters.forEach(j => { 
+        if (!opcua.lastEEFPositions) {
+            opcua.lastEEFPositions = {};
+        }
+        opcua.lastEEFPositions[j.name] = getVal(j);
+    });
+
+    if (eefTriggered) return; // nur Endeffektor gesendet → fertig
+
+    // --- Revolute prüfen: nur senden, wenn sich was geändert hat ---
+    const jointValuesRad = [];
+    let revoluteChanged = false;
+
+    for (const name in r.joints) {
+        const joint = r.joints[name];
+        if (joint.jointType === 'revolute') {
+            const value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
+            jointValuesRad.push(parseFloat(value.toFixed(6)));
+
+            // prüfen ob sich gegenüber letztem Stand geändert hat
+            const lastEEFPositions = opcua.lastEEFPositions?.[name];
+            if (lastEEFPositions === undefined || lastEEFPositions !== value) {
+                revoluteChanged = true;
+            }
+        }
+    }
+
+    if (!revoluteChanged) return; // nix Neues → kein GoTo
+
+    const jointsString = JSON.stringify(jointValuesRad);
+    const nodeId = opcua.gotoMethodNodeId;
+
+    if (!nodeId) {
+        logMessageToBox('⚠️ “Go To” method not yet known. Please connect or try again.');
+        return;
+    }
+
+    const payload = {
+        nodeId,
+        inputs: {
+            mode: 'automatic',
+            joints: jointsString,
+            "max-Speed": '',
+            time: '',
+            tcp_config: '',
+            avoidance_zones: ''
+        },
+        url: connectivity.connectedUrl
+    };
+
+    console.log("Send Go To after drag end:", payload);
+    if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
+        connectivity.socket.send(`call|${JSON.stringify(payload)}`);
+    }
+}
+
+export function refreshSelectedNode(robotRecord) {
+    if(!robotRecord) return;
+    const { ui, connectivity } = robotRecord.state;
+    if (!ui.selectedNodeId || !connectivity.connectedUrl) return;
+
+    let el = document.querySelector(`[data-node-id="${ui.selectedNodeId}"]`);
+    if (!el) return;
+
+    const nodeClass = el.dataset.nodeclass;
+    const li = el.closest('li');
+    if (!li) return;
+
+    if (nodeClass == "2") {
+        const hasChildren = li.querySelector('ul') && li.querySelector('ul').children.length > 0;
+        if (hasChildren) {
+
+            return;
+        }
+        const encodedUrl = encodeURIComponent(connectivity.connectedUrl);
+        const encodedNodeId = encodeURIComponent(ui.selectedNodeId);
+        fetch(`http://127.0.0.1:8000/node_rendered?url=${encodedUrl}&nodeid=${encodedNodeId}&children_depth=1`)
+            .then(res => res.text())
+            .then(html => {
+                const staging = document.createElement('div');
+                staging.innerHTML = html;
+                li.replaceWith(...staging.childNodes);
+
+                const newNode = document.querySelector(`[data-node-id="${ui.selectedNodeId}"]`);
+                if (newNode) {
+                    ui.selectedNodeElement = newNode;
+                    showNodeProperties(newNode);
+                }
+            });
+        return;
+    }
+
+    showNodeProperties(el);
+}
+
+function updateRobotLockToggleVisibility(robotRecord) {
+    const container = document.getElementById('robot-lock-toggle-container');
+    if (!container) return;
+
+    if (!robotRecord) {
+        container.style.display = 'none';
+        return;
+    }
+    const hasRoboticsNamespace = robotRecord.state.opcua.hasRoboticsNamespace === true;
+    container.style.display = hasRoboticsNamespace ? '' : 'none';
+}
+
+export function handleHomeClick(robotRecord) {
+    const manipulator = robotRecord.manipulator;
+    if (manipulator) {
+        manipulator.dispatchEvent(new Event('reset-angles'));
+    }
+}
+
+//connect and setup method if mcp socket doesn't exist. called in 
+function setup_mcp_socket(robotRecord) {
+    if (!robotRecord) return;
+    const { connectivity } = robotRecord.state;
+    if (connectivity.socketMcp) {
+        console.warn("MCP socket already open for this robot.");
+        return;
+    }
+
+    connectivity.socketMcp = new WebSocket("ws://127.0.0.1:8000/ws_mcp");
+    connectivity.status = 'connecting';
+
+    connectivity.socketMcp.onopen = () => {
+        console.log("MCP WebSocket connection established.");
+        connectivity.status = 'connected';
+        connectivity.socketMcp.send("status");
+    };
+
+    connectivity.socketMcp.onmessage = (event) => {
+        const data = event.data;
+        console.log("MCP Message from server:", data);
+
+        const manipulator = robotRecord.manipulator;
+        if (!manipulator) return;
+        let r = manipulator.robot;
+
+        if (event.data.startsWith("TCP_POS|")) {
+            let tcp_coords = event.data.replace("TCP_POS|", "").split(",");
+            let position = new Vector3(
+                parseFloat(tcp_coords[0]),
+                parseFloat(tcp_coords[1]),
+                parseFloat(tcp_coords[2])
+            )
+            manipulator.targetObject.position.set(...position);
+            // console.log('Target pos2:', manipulator.targetObject.position);
+            manipulator.solve();
+            manipulator.dispatchEvent(new Event('manipulate-end'));
+            manipulator.dispatchEvent(new Event('change'));
+
+        } else if (event.data.startsWith("JOINTS|")) {
+            let joint_raw_data = event.data.replace("JOINTS|", "").replace("°", "").split(", ");
+
+            const jointValuesRad = {};
+            let idx = 0;
+
+            for (const name in r.joints) {
+                const joint = r.joints[name];
+                if (joint.jointType === 'revolute') {
+                    jointValuesRad[name] = joint_raw_data[idx] / 180 * Math.PI;
+                    idx++;
+                }
+            }
+
+            manipulator.setJointValues(jointValuesRad);
+        } /*else if (event.data.startsWith("JOINT|")) {
+            let joint_raw_data = event.data.replace("JOINT|", "").split("|");
+            let joint_index = joint_raw_data[0];
+            let joint_angle = joint_raw_data[1];
+        } else if (event.data.startsWith("OPCUA-NODE|")) {
+
+        }*/ // code is useless right? delete?
+    };
+
+    connectivity.socketMcp.onerror = (error) => {
+        console.error("MCP WebSocket error:", error);
+        connectivity.status = 'error';
+    };
+
+    connectivity.socketMcp.onclose = () => {
+        console.log("MCP WebSocket connection closed.");
+        connectivity.status = 'disconnected';
+        connectivity.socketMcp = null;
+    };
+}
+
+function disconnect_mcp_socket(robotRecord) {
+    if (!robotRecord) return;
+
+    const robotId = robotRecord.id;
+    const { connectivity } = robotRecord.state
+
+    if (connectivity.socketMcp) {
+        connectivity.socketMcp.close();
+        connectivity.socketMcp = null;
+        connectivity.status = 'disconnected';
+        console.log(`[${robotId}] MCP WebSocket disconnected successfully.`);
+    }
+}
+
+export function toggleMcpIntegration(robotRecord, event) {
+    if (!robotRecord) return;
+    if (event.target.checked) {
+        setup_mcp_socket(robotRecord);
+        robotRecord.opcua.syncEnabled = true;
+    } else {
+        disconnect_mcp_socket(robotRecord);
+        robotRecord.opcua.syncEnabled = false;
+    }
+}
+
+export function sendMcpRobotStateUpdate(robotRecord) {
+    const manipulator = robotRecord.manipulator;
+    const { connectivity } = robotRecord.state;
+
+    // Check if the specific socket for this robot is open
+    if (!connectivity.socketMcp || connectivity.socketMcp.readyState !== WebSocket.OPEN) return;
+    if (!manipulator || !manipulator.robot) return;
+
+    connectivity.socketMcp.send('TCP|' + 'Pos: ' + manipulator.targetObject.position.toArray().map(coord => coord.toFixed(3)).join(', ') + ' ;Rot: ' + manipulator.targetObject.quaternion.toArray().map(coord => coord.toFixed(3)).join(', '));
+    const jointValues = getFormattedJointString(robotRecord);
+    connectivity.socketMcp.send('ANGLES|' + jointValues.join(', '));
 }

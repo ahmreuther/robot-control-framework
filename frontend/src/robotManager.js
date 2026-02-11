@@ -95,11 +95,9 @@ class RobotManager {
                     lastEEFPositions: null,
                     axisToJointMap: null,
                     endEffectorMap: null,
-                    metadata: {
-                        hasRoboticsNamespace: false,
-                        gotoMethodNodeId: null,
-                        toggleEndEffMethodNodeId: null,
-                    }
+                    hasRoboticsNamespace: false,
+                    gotoMethodNodeId: null,
+                    toggleEndEffMethodNodeId: null,
                 },
                 interaction: {
                     isManipulating: false,
