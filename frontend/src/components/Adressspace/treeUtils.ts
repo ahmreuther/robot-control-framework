@@ -1,4 +1,5 @@
 import { UaNode } from "./types";
+import type { TreeDataNode } from "antd";
 
 export const updateNodeById = (
   root: UaNode,
@@ -27,4 +28,43 @@ export const isLikelyExpandable = (node: UaNode | null): boolean => {
   if (!node) return;
   const cls = (node.nodeClass ?? "").toLowerCase();
   return cls === "object" || cls === "variable";
+};
+
+export const getNodeClassEmoji = (nodeClass: string): string => {
+  switch ((nodeClass ?? "").toLowerCase()) {
+    case "object":
+      return "🔴";
+    case "variable":
+      return "🔢";
+    case "method":
+      return "(x)";
+    case "view":
+      return "🧱";
+    case "objecttype":
+      return "🔢📏";
+    case "variabletype":
+      return "🔗";
+    case "referencetype":
+      return "💾";
+    case "datatype":
+      return "👁️";
+    default:
+      return "🚫";
+  }
+};
+
+export const collectExpandedIds = (node: UaNode): string[] => {
+  const ids: string[] = [];
+  if (node.expanded) ids.push(node.nodeId);
+  node.children?.forEach(c => ids.push(...collectExpandedIds(c)));
+  return ids;
+};
+
+export const loadExpandedIds = (storageKey: string): Set<string> => {
+  try {
+    const saved = localStorage.getItem(storageKey);
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  } catch {
+    return new Set();
+  }
 };

@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { UaNode } from "./types";
 import { fetchChildren } from "./api";
-import { updateNodeById, findNodeById, isLikelyExpandable } from "./treeUtils";
+import { updateNodeById, findNodeById, isLikelyExpandable, loadExpandedIds, collectExpandedIds, getNodeClassEmoji } from "./treeUtils";
 import { Tree } from "antd";
 import type { TreeDataNode } from "antd";
 import { useLoading } from "../../contexts/LoadingContext";
@@ -16,46 +16,7 @@ type ASpaceBodyProps = {
 
 const STORAGE_KEY_EXPANDED = "addressSpace_expandedNodes";
 
-const getNodeClassEmoji = (nodeClass: string): string => {
-  switch ((nodeClass ?? "").toLowerCase()) {
-    case "object":
-      return "🔴";
-    case "variable":
-      return "🔢";
-    case "method":
-      return "(x)";
-    case "view":
-      return "🧱";
-    case "objecttype":
-      return "🔢📏";
-    case "variabletype":
-      return "🔗";
-    case "referencetype":
-      return "💾";
-    case "datatype":
-      return "👁️";
-    default:
-      return "🚫";
-  }
-};
-
-const collectExpandedIds = (node: UaNode): string[] => {
-  const ids: string[] = [];
-  if (node.expanded) ids.push(node.nodeId);
-  node.children?.forEach(c => ids.push(...collectExpandedIds(c)));
-  return ids;
-};
-
-const loadExpandedIds = (): Set<string> => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY_EXPANDED);
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  } catch {
-    return new Set();
-  }
-};
-
-const uaNodeToTreeData = (
+export const uaNodeToTreeData = (
   node: UaNode,
   onNodeSelect: (node: UaNode) => void,
   setSelectedKeys: (keys: string[]) => void,
@@ -94,7 +55,8 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const { executeWithLoading } = useLoading();
 
-  const expandedIdsRef = useRef<Set<string>>(loadExpandedIds());
+  
+  const expandedIdsRef = useRef<Set<string>>(loadExpandedIds(STORAGE_KEY_EXPANDED));
 
   useEffect(() => {
     if (!root) return;
@@ -138,15 +100,13 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
     return childrenWithState;
   }, [opcUaUrl, executeWithLoading]);
 
-//root laden
-
   useEffect(() => {
     if (!opcUaUrl) return;
     const loadRoot = async () => {
       const savedExpanded = expandedIdsRef.current;
       const children = await executeWithLoading(
         "Loading address space root",
-        () => loadExpandedChildren("i=84", savedExpanded),
+        () => loadExpandedChildren("i=84", savedExpanded),  //TODO HArd coded Root? 
         {
           errorMessage: `Failed to load address space root from ${opcUaUrl}`,
         }
@@ -169,9 +129,6 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
     });
   }, [opcUaUrl, loadExpandedChildren, executeWithLoading]);
 
-
-  //Expand 
-
   const onExpand = useCallback(async (keys: React.Key[], { expanded, node }) => {
     setExpandedKeys(keys as string[]);
     setAutoExpandParent(false);
@@ -190,9 +147,7 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
           });
           
           try {
-            // loadExpandedChildren already uses executeWithLoading internally
             const childrenWithState = await loadExpandedChildren(nodeId, expandedIdsRef.current);
-            
             setRoot((prev) => {
               if (!prev) return prev;
               return updateNodeById(prev, nodeId, (n) => ({
@@ -217,16 +172,38 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
       }
     }
   }, [root, loadExpandedChildren]);
+ 
+function buildNodeIndex(root: UaNode | null): Map<string, UaNode> {
+  const map = new Map<string, UaNode>();
+  if (!root) return map;
 
-  const onSelectTree = useCallback((selectedKeys: React.Key[]) => {
-    setSelectedKeys(selectedKeys as string[]);
-    if (root && selectedKeys.length > 0) {
-      const node = findNodeById(root, selectedKeys[0] as string);
-      if (node) onNodeSelect(node);
-    }
-  }, [root, onNodeSelect]);
+  const stack: UaNode[] = [root];
+  while (stack.length) {
+    const n = stack.pop()!;
+    map.set(n.nodeId, n);
+    if (n.children?.length) stack.push(...n.children);
+  }
+  return map;
+}
 
-  const treeData: TreeDataNode[] = [uaNodeToTreeData(root, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog)];
+const nodeIndex = useMemo(() => buildNodeIndex(root ?? null), [root]);
+
+ const setSelectTree = useCallback(
+  (selectedKeys: React.Key[]) => {
+    const keys = selectedKeys as string[];
+    setSelectedKeys(keys);
+
+    const id = keys[0];
+    if (!id) return;
+
+    const node = nodeIndex.get(id);
+    if (node) onNodeSelect(node);
+  },
+  [nodeIndex, onNodeSelect]
+);
+
+
+  const treeData: TreeDataNode[] = useMemo(() => [uaNodeToTreeData(root, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog)], [root, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog]);
 
   return (
       <Tree
@@ -236,7 +213,7 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
         autoExpandParent={autoExpandParent}
         selectedKeys={selectedKeys}
         onExpand={onExpand}
-        onSelect={onSelectTree}
+        onSelect={setSelectTree}
         showLine={{ showLeafIcon: false }}
         // Optionally, you can set showIcon={true} if you want
         style={{
@@ -248,5 +225,3 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
       />
   );
 };
-
-export default ASpaceBody;

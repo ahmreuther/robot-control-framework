@@ -17,26 +17,13 @@ export function useSubscriptions(opcUaUrl: string, socket: WebSocket | null) {
 
   // ========== ADD SUBSCRIPTION ==========
   const addSubscription = useCallback((node: UaNode) => {
-    // Nur Variables (NodeClass 2) können abonniert werden
-    if (node.nodeClass.toLowerCase() !== "variable") {
-      console.warn("[useSubscriptions] Can only subscribe to Variables");
-      return;
-    }
-
-    // Prüfen ob bereits abonniert
-    if (subscriptions.find(s => s.nodeId === node.nodeId)) {
-      console.log("[useSubscriptions] Already subscribed to", node.nodeId);
-      return;
-    }
+    if (node.nodeClass.toLowerCase() !== "variable") return;
+    if (subscriptions.find(s => s.nodeId === node.nodeId)) return;
 
     // WebSocket-Nachricht senden
-    if (socket && socket.readyState === WebSocket.OPEN && opcUaUrl) {
-      const payload = JSON.stringify({ url: opcUaUrl, nodeId: node.nodeId });
-      const msg = `subscribe|${payload}`;
-      socket.send(msg);
-      console.log("[useSubscriptions] Sent subscribe:", msg);
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(`subscribe|${JSON.stringify({ url: opcUaUrl, nodeId: node.nodeId })}`);
     }
-
     // State aktualisieren
     setSubscriptions(prev => [
       ...prev,
@@ -47,13 +34,9 @@ export function useSubscriptions(opcUaUrl: string, socket: WebSocket | null) {
   // ========== REMOVE SUBSCRIPTION ==========
   const removeSubscription = useCallback((nodeId: string) => {
     // WebSocket-Nachricht senden
-    if (socket && socket.readyState === WebSocket.OPEN && opcUaUrl) {
-      const payload = JSON.stringify({ url: opcUaUrl, nodeId });
-      const msg = `unsubscribe|${payload}`;
-      socket.send(msg);
-      console.log("[useSubscriptions] Sent unsubscribe:", msg);
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(`unsubscribe|${JSON.stringify({ url: opcUaUrl, nodeId })}`);
     }
-
     // State aktualisieren
     setSubscriptions(prev => prev.filter(s => s.nodeId !== nodeId));
   }, [socket, opcUaUrl]);
@@ -73,21 +56,11 @@ export function useSubscriptions(opcUaUrl: string, socket: WebSocket | null) {
             const res = await fetch(
               `${REST_BACKEND_BASE}/node_value?url=${encodedUrl}&nodeid=${encodedNodeId}`
             );
+            if (!res.ok) return { nodeId: s.nodeId, value: `error(${res.status})` };
 
-            if (!res.ok) {
-              return { nodeId: s.nodeId, value: `error(${res.status})` };
-            }
-            //receives JSON or Plaintext
-            let payload: any;
-            try {
-              payload = await res.json();
-            } catch {
-              payload = await res.text();
-            }
+            const payload = await res.json();
+            const value = payload?.value ?? payload;
 
-            const value = payload?.value ?? 
-              (typeof payload === "string" ? payload : JSON.stringify(payload));
-            
             return { nodeId: s.nodeId, value: String(value) };
           } catch (err: any) {
             console.error("[useSubscriptions] Poll error:", s.nodeId, err);

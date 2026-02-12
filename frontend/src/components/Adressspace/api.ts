@@ -37,11 +37,39 @@ export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<U
   }));
 };
 
-/**
- * Fetches the value of a node
- * GET /node_value?url=...&nodeid=...
- * Returns JSON: { value: ... }
- */
+export const fetchAllMethods = async (opcUaUrl: string, startNodeId: string = "i=84"): Promise<UaNode[]> => {
+  const methods: UaNode[] = [];
+  const visited = new Set<string>();
+
+  const explore = async (nodeId: string): Promise<void> => {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+
+    try {
+      const children = await fetchChildren(opcUaUrl, nodeId);
+      
+      for (const child of children) {
+        if (child.nodeClass.toLowerCase() === "method") {
+          methods.push(child);
+        }
+        
+        
+        if (child.nodeClass.toLowerCase() === "object" || child.nodeClass.toLowerCase() === "variable") {
+          await explore(child.nodeId);
+        }
+      }
+    } catch (e) {
+      console.warn(`[fetchAllMethods] Failed to explore ${nodeId}:`, e);
+    }
+  };
+
+  await explore(startNodeId);
+  
+  // Sort lexicographically by displayName
+  return methods.sort((a, b) => a.displayName.localeCompare(b.displayName));
+};
+
+
 export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<any> => {
   const encodedUrl = encodeURIComponent(opcUaUrl);
   const encodedNodeId = encodeURIComponent(nodeId);
@@ -50,22 +78,9 @@ export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<
     `${REST_BACKEND_BASE}/node_value?url=${encodedUrl}&nodeid=${encodedNodeId}`
   );
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "<no-body>");
-    throw new Error(`HTTP ${res.status}: ${txt}`);
-  }
-
-  let payload: any = null;
-  try {
-    payload = await res.json();
-  } catch {
-    payload = await res.text();
-  }
-
-  if (payload && typeof payload === "object" && "value" in payload) {
-    return payload.value;
-  }
-  return payload;
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const payload = await res.json();
+  return payload?.value ?? payload;
 };
 
 export interface NodeDetails {
@@ -91,11 +106,7 @@ export const fetchNodeDetails = async (opcUaUrl: string, nodeId: string): Promis
     `${REST_BACKEND_BASE}/node_details?url=${encodedUrl}&node_id=${encodedNodeId}`
   );
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "<no-body>");
-    throw new Error(`HTTP ${res.status}: ${txt}`);
-  }
-
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return await res.json();
 };
 
@@ -114,12 +125,8 @@ export const fetchReferences = async (opcUaUrl: string, nodeId: string): Promise
     `${REST_BACKEND_BASE}/references?url=${encodedUrl}&nodeid=${encodedNodeId}`
   );
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "<no-body>");
-    throw new Error(`HTTP ${res.status}: ${txt}`);
-  }
-
+ if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
-  return data as NodeReference[];
+  return data;
 };
