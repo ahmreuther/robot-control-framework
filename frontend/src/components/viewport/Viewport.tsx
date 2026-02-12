@@ -9,17 +9,24 @@ import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import { JointProperty } from "../../hooks/useSceneState";
 import { message, notification } from "antd";
 
-// Fallback component for Suspense - shows loading UI while environment loads
 function EnvironmentLoader() {
   useEffect(() => {
     const hide = message.loading("Loading environment (HDR)", 0);
-    return () => hide(); // Cleanup when environment finishes loading
+    return () => hide(); 
   }, []);
   
   return null;
 }
 
-// Error Boundary for Environment loading - falls back to simple lights on error
+function RobotLoader() {
+  useEffect(() => {
+    const hide = message.loading("Loading robot model", 0);
+    return () => hide(); 
+  }, []);
+  
+  return null;
+}
+
 class EnvironmentErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
   { hasError: boolean; hideLoading?: () => void }
@@ -34,12 +41,11 @@ class EnvironmentErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error) {
-    // Hide any loading messages
+
     if (this.state.hideLoading) {
       this.state.hideLoading();
     }
     
-    // Show error notification
     notification.error({
       message: "Failed to load environment",
       description: `Could not load HDR environment: ${error.message}. Falling back to simple lighting.`,
@@ -127,7 +133,7 @@ export function Viewport(props: ViewportProps) {
         <OrbitControls enabled={!drag} />
 
         {/* Robot with IK */}
-        <Suspense fallback={null}>
+        <Suspense fallback={<RobotLoader />}>
           <Robot 
             urdfPath={props.urdfPath}
             drag={drag}
