@@ -6,6 +6,7 @@ import { VariablesPanel } from "./VariablesPanel";
 import { Panel, Group } from 'react-resizable-panels'
 import { Subscription } from "../hooks/useSubscriptions";
 import { EventSubscription } from "../hooks/useEventSubscriptions";
+import { useLoading } from "../../../contexts/LoadingContext";
 
 type ASpaceDetailsPanelProps = {
   node: UaNode | null;
@@ -19,10 +20,7 @@ type ASpaceDetailsPanelProps = {
 export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, opcUaUrl, eventSubscriptions, onRemoveEventSubscription, variableSubscriptions, onRemoveVariableSubscription }) => {
   const [details, setDetails] = useState<NodeDetails | null>(null);
   const [references, setReferences] = useState<NodeReference[]>([]);
-
-  //TODO LOADING INFRA!!!
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { executeWithLoading } = useLoading();
 
   useEffect(() => {
     if (!node || !opcUaUrl) {
@@ -30,25 +28,23 @@ export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, op
       setReferences([]);
       return;
     }
+
     const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [d, r] = await Promise.all([
+      const [d, r] = await executeWithLoading(
+        `Loading details for node ${node.displayName} (${node.nodeId})`,
+        () => Promise.all([
           fetchNodeDetails(opcUaUrl, node.nodeId),
           fetchReferences(opcUaUrl, node.nodeId),
-        ]);
-        setDetails(d);
-        setReferences(r);
-      } catch (e: any) {
-        setError(e?.message ?? "Error loading details");
-      } finally {
-        setLoading(false);
-      }
+        ]),
+        {
+          errorMessage: `Failed to load node details for "${node.displayName}" (${node.nodeId}) from ${opcUaUrl}`,
+        }
+      );
+      setDetails(d);
+      setReferences(r);
     };
-
     load();
-  }, [node?.nodeId, opcUaUrl]);
+  }, [node?.nodeId, opcUaUrl, executeWithLoading]);
 
   return (
       <Group orientation="vertical">

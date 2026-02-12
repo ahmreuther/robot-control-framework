@@ -6,6 +6,8 @@ import { UaNode, REST_BACKEND_BASE } from "./types";
  * Returns JSON: { children: UaNode[] }
  */
 export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<UaNode[]> => {
+ 
+  
   const encodedUrl = encodeURIComponent(opcUaUrl);
   const encodedNodeId = encodeURIComponent(nodeId);
   
@@ -80,6 +82,8 @@ export interface NodeDetails {
 }
 
 export const fetchNodeDetails = async (opcUaUrl: string, nodeId: string): Promise<NodeDetails> => {
+ 
+  
   const encodedUrl = encodeURIComponent(opcUaUrl);
   const encodedNodeId = encodeURIComponent(nodeId);
   

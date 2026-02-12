@@ -4,6 +4,7 @@ import { fetchChildren } from "./api";
 import { updateNodeById, findNodeById, isLikelyExpandable } from "./treeUtils";
 import { Tree } from "antd";
 import type { TreeDataNode } from "antd";
+import { useLoading } from "../../contexts/LoadingContext";
 
 type ASpaceBodyProps = {
   opcUaUrl: string;
@@ -88,11 +89,10 @@ const uaNodeToTreeData = (
 
 export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, addSubscription, addEventSubscription, openMethodDialog }) => {
   const [root, setRoot] = useState<UaNode | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [autoExpandParent, setAutoExpandParent] = useState(true);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const { executeWithLoading } = useLoading();
 
   const expandedIdsRef = useRef<Set<string>>(loadExpandedIds());
 
@@ -107,7 +107,14 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
     nodeId: string,
     savedExpanded: Set<string>
   ): Promise<UaNode[]> => {
-    const children = await fetchChildren(opcUaUrl, nodeId);
+    const children = await executeWithLoading(
+      `Loading children of ${nodeId}`,
+      () => fetchChildren(opcUaUrl, nodeId),
+      {
+        errorMessage: `Failed to load children for node ${nodeId} from ${opcUaUrl}`,
+      }
+    );
+    
     const childrenWithState = await Promise.all(
       children.map(async (child) => {
         const shouldExpand = savedExpanded.has(child.nodeId);
@@ -122,7 +129,6 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
               children: grandchildren,
             };
           } catch (e) {
-            console.warn(`[ASpaceBody] Failed to load children of ${child.nodeId}:`, e);
             return { ...child, expanded: false };
           }
         }
@@ -130,36 +136,41 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
       })
     );
     return childrenWithState;
-  }, [opcUaUrl]);
+  }, [opcUaUrl, executeWithLoading]);
+
+//root laden
 
   useEffect(() => {
     if (!opcUaUrl) return;
     const loadRoot = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const savedExpanded = expandedIdsRef.current;
-        const children = await loadExpandedChildren("i=84", savedExpanded);
-        setRoot({
-          nodeId: "i=84",
-          displayName: "Root",
-          browseName: "0:RootFolder",
-          nodeClass: "Object",
-          children,
-          loaded: true,
-          expanded: savedExpanded.has("i=84") || savedExpanded.size === 0,
-          loading: false,
-        });
-      } catch (e: any) {
-        console.error("[ASpaceBody] Root load error:", e);
-        setError(e?.message ?? "Unknown error");
-        setRoot(null);
-      } finally {
-        setLoading(false);
-      }
+      const savedExpanded = expandedIdsRef.current;
+      const children = await executeWithLoading(
+        "Loading address space root",
+        () => loadExpandedChildren("i=84", savedExpanded),
+        {
+          errorMessage: `Failed to load address space root from ${opcUaUrl}`,
+        }
+      );
+      
+      setRoot({
+        nodeId: "i=84",
+        displayName: "Root",
+        browseName: "0:RootFolder",
+        nodeClass: "Object",
+        children,
+        loaded: true,
+        expanded: savedExpanded.has("i=84") || savedExpanded.size === 0,
+        loading: false,
+      });
     };
-    loadRoot();
-  }, [opcUaUrl, loadExpandedChildren]);
+    
+    loadRoot().catch(() => {
+      setRoot(null);
+    });
+  }, [opcUaUrl, loadExpandedChildren, executeWithLoading]);
+
+
+  //Expand 
 
   const onExpand = useCallback(async (keys: React.Key[], { expanded, node }) => {
     setExpandedKeys(keys as string[]);
@@ -177,8 +188,11 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, 
               loading: true,
             }));
           });
+          
           try {
+            // loadExpandedChildren already uses executeWithLoading internally
             const childrenWithState = await loadExpandedChildren(nodeId, expandedIdsRef.current);
+            
             setRoot((prev) => {
               if (!prev) return prev;
               return updateNodeById(prev, nodeId, (n) => ({

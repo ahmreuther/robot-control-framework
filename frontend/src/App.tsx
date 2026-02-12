@@ -8,6 +8,7 @@ import { UrlProvider } from './contexts/UrlContext';
 import { useJointState } from "./hooks/useJointState";
 import WebSocketReciever  from './components/WebsocketReciever';
 import { LogProvider} from './contexts/LogContext';
+import { LoadingProvider } from './contexts/LoadingContext';
 import { RobotInfoProvider, AxleValues, RobotInfo } from './contexts/RobotInfoContext';
 import useServersAndRobots from './hooks/useServersAndRobots';
 import useIsMobile from './hooks/useIsMobile';
@@ -89,6 +90,7 @@ function App() {
                  setRobotName={setRobotName} setRobotStatus={setRobotStatus}>
     <SocketProvider url={websocketUrl}>
     <LogProvider logs={logs} setLogs={setLogs}>
+    <LoadingProvider>
     <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
     <div className="w-full h-screen overflow-hidden">
       <MobilePanelControls className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`} mobilePanelState={mobilePanelState} setMobilePanelState={setMobilePanelState} showClose={false} />
@@ -261,6 +263,7 @@ function App() {
       )}
     </div>
     </UrlProvider>
+    </LoadingProvider>
     </LogProvider>
     </SocketProvider>
     </RobotInfoProvider>
