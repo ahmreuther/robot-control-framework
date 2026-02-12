@@ -56,11 +56,11 @@ export function ASpaceWindow(){
           {opcUaUrl && !methodDialogOpen && (
             <ASpaceBody  
               key={bodyKey} 
-              opcUaUrl={opcUaUrl} 
-              onNodeSelect={setSelectedNode} 
+              opcUaUrl={opcUaUrl}  
               addSubscription={addSubscription} 
               addEventSubscription={addEventSubscription} 
-              openMethodDialog={openMethodDialog} 
+              openMethodDialog={openMethodDialog}
+              onNodeSelect={setSelectedNode}
             /> 
           )}
           {methodDialogOpen &&

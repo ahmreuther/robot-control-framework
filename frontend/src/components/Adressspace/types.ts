@@ -9,9 +9,22 @@ export type UaNode = {
   loading?: boolean;
 };
 
-export type SelectedNodeInfo = {
-  nodeId: string;
-  attributes: Record<string, string>;
+export type UaNodeState = {
+  loading?: boolean;
+  loaded?: boolean;
+};
+
+export type UaStore = {
+  rootId: string | null;
+
+  // Server-provided node data, keyed by nodeId
+  nodes: Map<string, UaNode>;
+
+  // For each nodeId, the list of its children's nodeIds (if loaded)
+  childrenById: Map<string, string[]>;
+
+  // UI-ID-based state, not from server loaded/loading
+  stateById: Map<string, UaNodeState>;
 };
 
 // hardcoded typemapping from library : asyncua.ua.uatypes

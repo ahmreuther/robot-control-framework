@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { UaNode } from "./types";
+import { UaNode, UaStore } from "./types";
 import { fetchChildren } from "./api";
-import { updateNodeById, findNodeById, isLikelyExpandable, loadExpandedIds, collectExpandedIds, getNodeClassEmoji } from "./treeUtils";
+import { updateNodeById, findNodeById, isLikelyExpandable, loadExpandedIds, collectExpandedIds, getNodeClassEmoji, upsertNodes, setChildren, setNodeState } from "./treeUtils";
 import { Tree } from "antd";
 import type { TreeDataNode } from "antd";
 import { useLoading } from "../../contexts/LoadingContext";
+import type { Key } from "react";
+import type { TreeProps } from "antd";
 
 type ASpaceBodyProps = {
   opcUaUrl: string;
@@ -16,204 +18,234 @@ type ASpaceBodyProps = {
 
 const STORAGE_KEY_EXPANDED = "addressSpace_expandedNodes";
 
-export const uaNodeToTreeData = (
-  node: UaNode,
+type LoadChildrenFn = (nodeId: string) => Promise<UaNode[]>;
+
+export function buildTreeData(
+  store: UaStore,
   onNodeSelect: (node: UaNode) => void,
   setSelectedKeys: (keys: string[]) => void,
   addSubscription: (node: UaNode) => void,
   addEventSubscription: (node: UaNode) => void,
   openMethodDialog: (node: UaNode) => void
-): TreeDataNode => {
-  return {
-    title: (
-      <div
-        style={{ display: "flex", alignItems: "center", gap: 2, overflow: 'hidden' }}
-        onContextMenu={e => {
-          e.preventDefault();
-          setSelectedKeys([node?.nodeId]);
-          onNodeSelect(node);
-        }}
-        title={node?.displayName + " " + node?.nodeId}
-      >
-        <span style={{ minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getNodeClassEmoji(node?.nodeClass)}{node?.displayName}</span>
-        {node?.nodeClass.toLowerCase() == "variable" && <button onClick={() => addSubscription(node)} className="button-ghost break-keep">Subscribe</button>}
-        {node?.nodeClass.toLowerCase() == "object" && <button onClick={() => addEventSubscription(node)} className="button-ghost break-keep">Subscribe</button>}
-        {node?.nodeClass.toLowerCase() == "method" && <button onClick={() => openMethodDialog(node)} className="button-ghost break-keep">Call</button>}
-      </div>
-    ),
-    key: node?.nodeId,
-    children: node?.children?.map(c => uaNodeToTreeData(c, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog)),
-    isLeaf: !isLikelyExpandable(node),
-    selectable: true
-  };
-};
+): TreeDataNode[] {
+  if (!store.rootId) return [];
 
-export const ASpaceBody: React.FC<ASpaceBodyProps> = ({ opcUaUrl, onNodeSelect, addSubscription, addEventSubscription, openMethodDialog }) => {
-  const [root, setRoot] = useState<UaNode | null>(null);
-  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
-  const [autoExpandParent, setAutoExpandParent] = useState(true);
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
-  const { executeWithLoading } = useLoading();
+  const build = (id: string): TreeDataNode => {
+    const node = store.nodes.get(id);
+    const st = store.stateById.get(id) ?? {};
+    const childIds = store.childrenById.get(id);
 
-  
-  const expandedIdsRef = useRef<Set<string>>(loadExpandedIds(STORAGE_KEY_EXPANDED));
+    const hasChildrenKnown = Array.isArray(childIds);
+    const children =
+      hasChildrenKnown
+        ? childIds!.map(build)
+        : st.loaded
+          ? []               // loaded but none
+          : [];              // unknown yet; keep [] so expand arrow can show when you want
 
-  useEffect(() => {
-    if (!root) return;
-    const ids = collectExpandedIds(root);
-    localStorage.setItem(STORAGE_KEY_EXPANDED, JSON.stringify(ids));
-    setExpandedKeys(ids);
-  }, [root]);
-
-  const loadExpandedChildren = useCallback(async (
-    nodeId: string,
-    savedExpanded: Set<string>
-  ): Promise<UaNode[]> => {
-    const children = await executeWithLoading(
-      `Loading children of ${nodeId}`,
-      () => fetchChildren(opcUaUrl, nodeId),
-      {
-        errorMessage: `Failed to load children for node ${nodeId} from ${opcUaUrl}`,
-      }
-    );
-    
-    const childrenWithState = await Promise.all(
-      children.map(async (child) => {
-        const shouldExpand = savedExpanded.has(child.nodeId);
-        if (shouldExpand && isLikelyExpandable(child)) {
-          try {
-            const grandchildren = await loadExpandedChildren(child.nodeId, savedExpanded);
-            return {
-              ...child,
-              expanded: true,
-              loaded: true,
-              loading: false,
-              children: grandchildren,
-            };
-          } catch (e) {
-            return { ...child, expanded: false };
-          }
-        }
-        return { ...child, expanded: false };
-      })
-    );
-    return childrenWithState;
-  }, [opcUaUrl, executeWithLoading]);
-
-  useEffect(() => {
-    if (!opcUaUrl) return;
-    const loadRoot = async () => {
-      const savedExpanded = expandedIdsRef.current;
-      const children = await executeWithLoading(
-        "Loading address space root",
-        () => loadExpandedChildren("i=84", savedExpanded),  //TODO HArd coded Root? 
-        {
-          errorMessage: `Failed to load address space root from ${opcUaUrl}`,
-        }
-      );
-      
-      setRoot({
-        nodeId: "i=84",
-        displayName: "Root",
-        browseName: "0:RootFolder",
-        nodeClass: "Object",
-        children,
-        loaded: true,
-        expanded: savedExpanded.has("i=84") || savedExpanded.size === 0,
-        loading: false,
-      });
+    return {
+      key: id,
+      title: node ? (
+        <div
+          style={{ display: "flex", alignItems: "center", gap: 2, overflow: 'hidden' }}
+          onContextMenu={e => {
+            e.preventDefault();
+            setSelectedKeys([node.nodeId]);
+            onNodeSelect(node);
+          }}
+          title={node.displayName + " " + node.nodeId}
+        >
+          <span style={{ minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {getNodeClassEmoji(node.nodeClass)}{node.displayName}
+          </span>
+          {node.nodeClass.toLowerCase() === "variable" && <button onClick={() => addSubscription(node)} className="button-ghost break-keep">Subscribe</button>}
+          {node.nodeClass.toLowerCase() === "object" && <button onClick={() => addEventSubscription(node)} className="button-ghost break-keep">Subscribe</button>}
+          {node.nodeClass.toLowerCase() === "method" && <button onClick={() => openMethodDialog(node)} className="button-ghost break-keep">Call</button>}
+        </div>
+      ) : id,
+      children: children,
+      isLeaf: st.loaded && (childIds?.length ?? 0) === 0,
+      selectable: true
     };
-    
-    loadRoot().catch(() => {
-      setRoot(null);
-    });
-  }, [opcUaUrl, loadExpandedChildren, executeWithLoading]);
+  };
 
-  const onExpand = useCallback(async (keys: React.Key[], { expanded, node }) => {
-    setExpandedKeys(keys as string[]);
-    setAutoExpandParent(false);
-    if (expanded && node) {
-      const nodeId = node.key as string;
-      if (root) {
-        const found = findNodeById(root, nodeId);
-        if (found && !found.loaded && !found.loading) {
-          setRoot((prev) => {
-            if (!prev) return prev;
-            return updateNodeById(prev, nodeId, (n) => ({
-              ...n,
-              expanded: true,
-              loading: true,
-            }));
-          });
-          
-          try {
-            const childrenWithState = await loadExpandedChildren(nodeId, expandedIdsRef.current);
-            setRoot((prev) => {
-              if (!prev) return prev;
-              return updateNodeById(prev, nodeId, (n) => ({
-                ...n,
-                children: childrenWithState,
-                loaded: true,
-                loading: false,
-              }));
-            });
-          } catch (e) {
-            setRoot((prev) => {
-              if (!prev) return prev;
-              return updateNodeById(prev, nodeId, (n) => ({
-                ...n,
-                loading: false,
-                loaded: true,
-                children: n.children ?? [],
-              }));
-            });
-          }
-        }
-      }
-    }
-  }, [root, loadExpandedChildren]);
- 
-function buildNodeIndex(root: UaNode | null): Map<string, UaNode> {
-  const map = new Map<string, UaNode>();
-  if (!root) return map;
-
-  const stack: UaNode[] = [root];
-  while (stack.length) {
-    const n = stack.pop()!;
-    map.set(n.nodeId, n);
-    if (n.children?.length) stack.push(...n.children);
-  }
-  return map;
+  return [build(store.rootId)];
 }
 
-const nodeIndex = useMemo(() => buildNodeIndex(root ?? null), [root]);
+export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
+  opcUaUrl,
+  addSubscription,
+  addEventSubscription,
+  openMethodDialog,
+  onNodeSelect
+}) => {
+  const initialRoot: UaNode = {
+    nodeId: "i=84",
+    displayName: "Root",
+    browseName: "0:RootFolder",
+    nodeClass: "Object",
+    children: [],
+    loaded: true,
+    expanded: true,
+    loading: false,
+  };
 
- const setSelectTree = useCallback(
-  (selectedKeys: React.Key[]) => {
-    const keys = selectedKeys as string[];
-    setSelectedKeys(keys);
+  const [store, setStore] = useState<UaStore>(() => ({
+    rootId: initialRoot.nodeId,
+    nodes: new Map([[initialRoot.nodeId, initialRoot]]),
+    childrenById: new Map(),
+    stateById: new Map([[initialRoot.nodeId, { loaded: false, loading: false }]]),
+  }));
 
-    const id = keys[0];
-    if (!id) return;
+  const [expandedKeys, setExpandedKeys] = useState<Key[]>(() => {
+    const saved = loadExpandedIds(STORAGE_KEY_EXPANDED);
+    return Array.from(saved);
+  });
+  const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
 
-    const node = nodeIndex.get(id);
-    if (node) onNodeSelect(node);
-  },
-  [nodeIndex, onNodeSelect]
-);
+  useEffect(() => {
+    if (expandedKeys.length > 0) {
+      localStorage.setItem(STORAGE_KEY_EXPANDED, JSON.stringify(expandedKeys));
+    }
+  }, [expandedKeys]);
 
+  const treeData = useMemo(
+    () => buildTreeData(store, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog),
+    [store, onNodeSelect, addSubscription, addEventSubscription, openMethodDialog]
+  );
 
-  const treeData: TreeDataNode[] = useMemo(() => [uaNodeToTreeData(root, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog)], [root, onNodeSelect, setSelectedKeys, addSubscription, addEventSubscription, openMethodDialog]);
+  const inflightRef = useRef<Map<string, Promise<void>>>(new Map());
+
+  const loadChildren: LoadChildrenFn = useCallback(
+    (nodeId: string) => fetchChildren(opcUaUrl, nodeId),
+    [opcUaUrl]
+  );
+
+  // Load root children and restore expanded state on mount
+  useEffect(() => {
+    if (!opcUaUrl) return;
+
+    const loadRootAndExpanded = async () => {
+      const savedExpanded = loadExpandedIds(STORAGE_KEY_EXPANDED);
+      
+      // Load root children first
+      const loadNode = async (nodeId: string) => {
+        const st = store.stateById.get(nodeId);
+        if (st?.loaded) return;
+
+        try {
+          const children = await loadChildren(nodeId);
+
+          setStore((prev) => {
+            let next = upsertNodes(prev, children);
+            next = setChildren(next, nodeId, children.map((c) => c.nodeId));
+            next = setNodeState(next, nodeId, { loaded: true, loading: false });
+
+            for (const c of children) {
+              if (!next.stateById.get(c.nodeId)) {
+                next = setNodeState(next, c.nodeId, { loaded: false, loading: false });
+              }
+            }
+            return next;
+          });
+
+          // Recursively load expanded children
+          for (const child of children) {
+            if (savedExpanded.has(child.nodeId)) {
+              await loadNode(child.nodeId);
+            }
+          }
+        } catch (e) {
+          console.error(`Failed to load node ${nodeId}:`, e);
+        }
+      };
+
+      await loadNode("i=84");
+      
+      // Set expanded keys after loading
+      if (savedExpanded.size > 0) {
+        setExpandedKeys(Array.from(savedExpanded));
+      }
+    };
+
+    loadRootAndExpanded();
+  }, [opcUaUrl, loadChildren]);
+
+const onSelect: TreeProps["onSelect"] = useCallback(
+    (keys, info) => {
+      setSelectedKeys(keys);
+
+      const id = (keys[0] as string) ?? null;
+      if (!id) return;
+
+      const node = store.nodes.get(id);
+      if (node) onNodeSelect(node);
+    },
+    [store.nodes, onNodeSelect]
+  );
+
+  const onExpand: TreeProps["onExpand"] = useCallback((keys) => {
+    setExpandedKeys(keys);
+  }, []);
+
+  const loadData: TreeProps["loadData"] = useCallback(
+    async (treeNode) => {
+      const id = treeNode.key as string;
+
+      // already loaded?
+      const st = store.stateById.get(id);
+      if (st?.loaded) return;
+
+      // de-dupe inflight
+      const existing = inflightRef.current.get(id);
+      if (existing) return existing;
+
+      const p = (async () => {
+        setStore((prev) => setNodeState(prev, id, { loading: true }));
+
+        try {
+          const children = await loadChildren(id);
+
+          setStore((prev) => {
+            // upsert nodes
+            let next = upsertNodes(prev, children);
+
+            // connect parent -> children ids
+            next = setChildren(next, id, children.map((c) => c.nodeId));
+
+            // mark loaded/loading flags
+            next = setNodeState(next, id, { loaded: true, loading: false });
+
+            // ensure children have default state entries (optional but nice)
+            for (const c of children) {
+              if (!next.stateById.get(c.nodeId)) {
+                next = setNodeState(next, c.nodeId, { loaded: false, loading: false });
+              }
+            }
+            return next;
+          });
+        } catch (e) {
+          setStore((prev) => setNodeState(prev, id, { loaded: true, loading: false }));
+        } finally {
+          inflightRef.current.delete(id);
+        }
+      })();
+
+      inflightRef.current.set(id, p);
+      return p;
+    },
+    [store.stateById, loadChildren]
+  );
 
   return (
       <Tree
         className="address-space-tree"
         treeData={treeData}
         expandedKeys={expandedKeys}
-        autoExpandParent={autoExpandParent}
         selectedKeys={selectedKeys}
         onExpand={onExpand}
-        onSelect={setSelectTree}
+        onSelect={onSelect}
+        loadData={loadData}
         showLine={{ showLeafIcon: false }}
         // Optionally, you can set showIcon={true} if you want
         style={{

@@ -1,4 +1,4 @@
-import { UaNode } from "./types";
+import { UaNode, UaStore, UaNodeState } from "./types";
 import type { TreeDataNode } from "antd";
 
 export const updateNodeById = (
@@ -68,3 +68,22 @@ export const loadExpandedIds = (storageKey: string): Set<string> => {
     return new Set();
   }
 };
+
+export function upsertNodes(store: UaStore, nodes: UaNode[]): UaStore {
+  const nextNodes = new Map(store.nodes);
+  for (const n of nodes) nextNodes.set(n.nodeId, n);
+  return { ...store, nodes: nextNodes };
+}
+
+export function setChildren(store: UaStore, parentId: string, childIds: string[]): UaStore {
+  const nextChildren = new Map(store.childrenById);
+  nextChildren.set(parentId, childIds);
+  return { ...store, childrenById: nextChildren };
+}
+
+export function setNodeState(store: UaStore, nodeId: string, patch: Partial<UaNodeState>): UaStore {
+  const nextState = new Map(store.stateById);
+  const prev = nextState.get(nodeId) ?? {};
+  nextState.set(nodeId, { ...prev, ...patch });
+  return { ...store, stateById: nextState };
+}
