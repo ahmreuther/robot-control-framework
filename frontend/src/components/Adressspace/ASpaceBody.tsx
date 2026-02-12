@@ -19,23 +19,23 @@ const STORAGE_KEY_EXPANDED = "addressSpace_expandedNodes";
 const getNodeClassEmoji = (nodeClass: string): string => {
   switch ((nodeClass ?? "").toLowerCase()) {
     case "object":
-      return "📁";
+      return "🔴";
     case "variable":
-      return "📊";
-    case "method":
-      return "💽";
-    case "view":
-      return "👁️";
-    case "objecttype":
-      return "📦";
-    case "variabletype":
-      return "📈";
-    case "referencetype":
-      return "🔗";
-    case "datatype":
       return "🔢";
+    case "method":
+      return "(x)";
+    case "view":
+      return "🧱";
+    case "objecttype":
+      return "🔢📏";
+    case "variabletype":
+      return "🔗";
+    case "referencetype":
+      return "💾";
+    case "datatype":
+      return "👁️";
     default:
-      return "📄";
+      return "🚫";
   }
 };
 
