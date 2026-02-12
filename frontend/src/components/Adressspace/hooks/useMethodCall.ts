@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { UaNode } from "../types";
 import { fetchReferences, fetchNodeValue } from "../api";
+import { useLoading } from "../../../contexts/LoadingContext";
+import { message } from "antd";
 
 
 export type InputArgTuple = [name: string, type: number];
@@ -13,6 +15,7 @@ export type MethodCallState = {
   inputValues: Record<string, string>;
   result: string | null;
   isLoading: boolean;
+  _hideLoading?: () => void;
 };
 
 export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
@@ -24,19 +27,21 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     result: null,
     isLoading: false,
   });
+  
+  const { executeWithLoading } = useLoading();
 
   // ========== OPEN DIALOG ==========
   const openMethodDialog = useCallback(async (node: UaNode) => {
-    if (node.nodeClass.toLowerCase() !== "method") {
-      console.warn("[useMethodCall] Can only call Methods");
-      return;
-    }
-    let inputArgTuples: InputArgTuple[] = [];
-    try {
-      // Hole die References und finde InputArguments-NodeId
-      const refs = await fetchReferences(opcUaUrl, node.nodeId);
-      const inputArgRef = refs.find(ref => ref.BrowseName === "0:InputArguments");
-      if (inputArgRef) {
+    const inputArgTuples = await executeWithLoading(
+      `Loading method details for ${node.displayName}`,
+      async () => {
+        const refs = await fetchReferences(opcUaUrl, node.nodeId);
+        const inputArgRef = refs.find(ref => ref.BrowseName === "0:InputArguments");
+        
+        if (!inputArgRef) {
+          return [];
+        }
+        
         try {
           const valueRaw = await fetchNodeValue(opcUaUrl, inputArgRef.NodeId);
           let value: any = [];
@@ -45,20 +50,24 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
           } catch {
             value = valueRaw;
           }
-          // OPC UA InputArguments ist meist ein Array von Argument-Objekten mit Name und DataType
+          
           if (Array.isArray(value)) {
-            inputArgTuples = value.map((arg: any) => [
+            return value.map((arg: any) => [
               arg.Name || "arg",
               arg.DataType && typeof arg.DataType === "object" && "Identifier" in arg.DataType ? arg.DataType.Identifier : arg.DataType
-            ]);
+            ] as InputArgTuple);
           }
         } catch (err) {
           console.warn("[useMethodCall] Error fetching/parsing InputArguments value:", err);
         }
+        
+        return [];
+      },
+      {
+        errorMessage: `Failed to load method details for "${node.displayName}" (${node.nodeId})`,
       }
-    } catch (e) {
-      console.warn("[useMethodCall] Could not fetch input arguments:", e);
-    }
+    );
+    
     setState({
       isOpen: true,
       node,
@@ -67,7 +76,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       result: null,
       isLoading: false,
     });
-  }, [opcUaUrl]);
+  }, [opcUaUrl, executeWithLoading]);
 
   // ========== CLOSE DIALOG ==========
   const closeMethodDialog = useCallback(() => {
@@ -101,15 +110,20 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       const msg = `call|${payload}`;
       socket.send(msg);
       console.log("[useMethodCall] Sent method call:", msg);
+      
+      // Show loading message
+      const hideLoading = message.loading(`Calling method ${state.node.displayName}`, 0);
+      
       setState(prev => ({
         ...prev,
         isLoading: true,
         result: "Calling method...",
+        _hideLoading: hideLoading,
       }));
     } catch (err: any) {
       setState(prev => ({
         ...prev,
-        result: `❌ Invalid JSON: ${err.message}`,
+        result: `Invalid JSON: ${err.message}`,
       }));
     }
   }, [state.node, state.inputValues, socket, opcUaUrl]);
@@ -123,17 +137,31 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
 
       if (message.startsWith("Method call result:")) {
         const result = message.replace("Method call result:", "").trim();
-        setState(prev => ({
-          ...prev,
-          result,
-          isLoading: false,
-        }));
+        setState(prev => {
+          // Hide loading UI if present
+          if (prev._hideLoading && typeof prev._hideLoading === 'function') {
+            prev._hideLoading();
+          }
+          return {
+            ...prev,
+            result,
+            isLoading: false,
+            _hideLoading: undefined,
+          };
+        });
       } else if (message.startsWith("❌") && message.toLowerCase().includes("method")) {
-        setState(prev => ({
-          ...prev,
-          result: message,
-          isLoading: false,
-        }));
+        setState(prev => {
+          // Hide loading UI if present
+          if (prev._hideLoading && typeof prev._hideLoading === 'function') {
+            prev._hideLoading();
+          }
+          return {
+            ...prev,
+            result: message,
+            isLoading: false,
+            _hideLoading: undefined,
+          };
+        });
       }
     };
 

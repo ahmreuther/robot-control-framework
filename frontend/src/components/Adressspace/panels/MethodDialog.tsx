@@ -38,7 +38,7 @@ export const MethodDialog = ({isOpen, node, inputs, inputValues, result, isLoadi
             </div>
           );
         })}
-        <button onClick={onCall} disabled={isLoading} className="button-ghost">{isLoading ? "Calling..." : "Call Method"}</button>
+        <button onClick={onCall} disabled={isLoading} className="button-ghost">Call Method</button>
       </div>
     </>
   );

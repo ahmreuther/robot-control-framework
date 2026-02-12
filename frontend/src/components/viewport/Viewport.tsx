@@ -1,12 +1,60 @@
 import { Canvas } from "@react-three/fiber";
 import { Environment, OrbitControls } from "@react-three/drei";
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useEffect, Component, type ReactNode } from "react";
 import { Robot } from "./Robot";
 import { Stats } from "./Stats";
 import { SolverStatus } from "./SolverStatus";
 import type { JointStateManager } from "../../hooks/useJointState";
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import { JointProperty } from "../../hooks/useSceneState";
+import { message, notification } from "antd";
+
+// Fallback component for Suspense - shows loading UI while environment loads
+function EnvironmentLoader() {
+  useEffect(() => {
+    const hide = message.loading("Loading environment (HDR)", 0);
+    return () => hide(); // Cleanup when environment finishes loading
+  }, []);
+  
+  return null;
+}
+
+// Error Boundary for Environment loading - falls back to simple lights on error
+class EnvironmentErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean; hideLoading?: () => void }
+> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    // Hide any loading messages
+    if (this.state.hideLoading) {
+      this.state.hideLoading();
+    }
+    
+    // Show error notification
+    notification.error({
+      message: "Failed to load environment",
+      description: `Could not load HDR environment: ${error.message}. Falling back to simple lighting.`,
+      duration: 5,
+      placement: "topRight",
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
 
 export interface ViewportProps {
   urdfPath: string;
@@ -35,24 +83,31 @@ export function Viewport(props: ViewportProps) {
       <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>
 
         {/* Environment */}
-        {props.environment &&
-          <Suspense fallback={null}> 
-            <Environment 
-              files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr"}
-              environmentIntensity={0.6}
-              backgroundIntensity={0.5} 
-              //ground={{ height: 5, radius: 40, scale: 20 }}
-              background={true}
-            />
-          </Suspense>
-        }
-
-        {!props.environment &&
+        {props.environment ? (
+          <EnvironmentErrorBoundary
+            fallback={
+              <>
+                <ambientLight intensity={2} />
+                <directionalLight position={[5, 10, 7.5]} intensity={1} />
+              </>
+            }
+          >
+            <Suspense fallback={<EnvironmentLoader />}> 
+              <Environment 
+                files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr"}
+                environmentIntensity={0.6}
+                backgroundIntensity={0.5} 
+                //ground={{ height: 5, radius: 40, scale: 20 }}
+                background={true}
+              />
+            </Suspense>
+          </EnvironmentErrorBoundary>
+        ) : (
           <>
             <ambientLight intensity={2} />
             <directionalLight position={[5, 10, 7.5]} intensity={1} />
           </>
-        }
+        )}
 
         {/* Postprocessing Effects */}
         {props.effectComposer && 
@@ -72,19 +127,6 @@ export function Viewport(props: ViewportProps) {
         <OrbitControls enabled={!drag} />
 
         {/* Robot with IK */}
-        <Suspense fallback={null}>
-          <Robot 
-            urdfPath={props.urdfPath}
-            drag={drag}
-            onSolveStatusesChange={setSolveStatusesState}
-            onDrag={setDrag}
-            jointManager={props.jointManager}
-            onJointLimitsLoaded={props.onJointLimitsLoaded}
-            showCollisionMesh={props.showCollisionMesh}
-            setHoveredJointMesh={props.setHoveredJointMesh}
-            setMovedDistance={setMovedDistance}
-          />
-        </Suspense>
         <Suspense fallback={null}>
           <Robot 
             urdfPath={props.urdfPath}
