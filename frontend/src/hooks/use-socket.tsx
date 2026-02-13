@@ -1,24 +1,24 @@
 //this hook ist used for providing a websocket connection throughout the app
 
-import { createContext, useContext, type PropsWithChildren } from "react";
-import useWebSocket, { ReadyState } from "react-use-websocket";
-import type { WebSocketHook, WebSocketLike } from "react-use-websocket/dist/lib/types";
+import { createContext, type PropsWithChildren, useContext } from 'react';
+import useWebSocket, { ReadyState } from 'react-use-websocket';
+import type { WebSocketHook, WebSocketLike } from 'react-use-websocket/dist/lib/types';
 
 //this context is later wrapped around the app in App.tsx in order to keep track of current websocket connection
-type SocketContextType = WebSocketHook | null
+type SocketContextType = WebSocketHook | null;
 
 export const SocketContext = createContext<SocketContextType>(null);
 
 export type SocketProviderProps = PropsWithChildren<{
-    readonly url: string
-}>
+  readonly url: string;
+}>;
 
 // Super Hacky. Refer to: https://github.com/oven-sh/bun/issues/3138
-const useWs = (useWebSocket as any).default as typeof useWebSocket
+const useWs = (useWebSocket as any).default as typeof useWebSocket;
 
 export function SocketProvider(props: SocketProviderProps) {
-    const wsCtx = useWs(props.url, undefined, true);
-   /* if (wsCtx.readyState !== ReadyState.OPEN) {
+  const wsCtx = useWs(props.url, undefined, true);
+  /* if (wsCtx.readyState !== ReadyState.OPEN) {
       return (
         <div>
           <pre>  {JSON.stringify(wsCtx, null, 2)}</pre>
@@ -28,11 +28,7 @@ export function SocketProvider(props: SocketProviderProps) {
       )
     }*/
 
-    return (
-        <SocketContext.Provider value={wsCtx}>
-          {props.children}
-        </SocketContext.Provider>
-    )
+  return <SocketContext.Provider value={wsCtx}>{props.children}</SocketContext.Provider>;
 }
 
 // used like : const socket = useSocket(); in order to use the websocket connection

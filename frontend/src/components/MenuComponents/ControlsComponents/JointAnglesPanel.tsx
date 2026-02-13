@@ -1,11 +1,13 @@
 const radToDeg = (rad: number) => (rad * 180) / Math.PI;
 const degToRad = (deg: number) => (deg * Math.PI) / 180;
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+import type { JointStateManager } from '../../../hooks/useJointState';
+import { WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
 import type { JointProperty } from '../../../hooks/useSceneState';
-import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
-import { SliderInput } from './SliderInput';
 import { CheckBox } from '../CheckBox';
+import { SliderInput } from './SliderInput';
 
 export interface JointAnglesPanelProps {
   jointManager: JointStateManager;
@@ -25,10 +27,10 @@ export function JointAnglesPanel({
   showCollisionMesh = false,
   setShowCollisionMesh,
   reloadKey,
-  hoveredJointMesh
+  hoveredJointMesh,
 }: JointAnglesPanelProps) {
   const [showRadians, setShowRadians] = useState(false);
-  const [localAngles, setLocalAngles] = useState<number[]>([]);;
+  const [localAngles, setLocalAngles] = useState<number[]>([]);
 
   useEffect(() => {
     if (setShowCollisionMesh) setShowCollisionMesh(false);
@@ -46,55 +48,54 @@ export function JointAnglesPanel({
         <div className="panel-title text-xs">Joint Angles</div>
       </header>
 
-  <div className="panel-body flex flex-col overflow-y-auto">
-    <div className="space-y-2">
-      <CheckBox
-        label="Collision Mesh"
-        value={showCollisionMesh}
-        onToggle={(checked) => {
-          setShowCollisionMesh(checked);
-          onCollisionMeshToggle?.(checked);
-        }}
-      />
-      <CheckBox
-        label="Show Radians"
-        value={showRadians}
-        onToggle={(checked) => setShowRadians(checked)}
-      />
-    </div>
-    <div className="space-y-2">
-      {localAngles.map((angle, i) => {
-        const property = jointProperties?.[i];
-        if (property == null) return null;
-        if (property.min === property.max) return null;
+      <div className="panel-body flex flex-col overflow-y-auto">
+        <div className="space-y-2">
+          <CheckBox
+            label="Collision Mesh"
+            value={showCollisionMesh}
+            onToggle={(checked) => {
+              setShowCollisionMesh(checked);
+              onCollisionMeshToggle?.(checked);
+            }}
+          />
+          <CheckBox
+            label="Show Radians"
+            value={showRadians}
+            onToggle={(checked) => setShowRadians(checked)}
+          />
+        </div>
+        <div className="space-y-2">
+          {localAngles.map((angle, i) => {
+            const property = jointProperties?.[i];
+            if (property == null) return null;
+            if (property.min === property.max) return null;
 
-        const minDisp = property.min;
-        const maxDisp = property.max;
-        const valueDisp = angle;
+            const minDisp = property.min;
+            const maxDisp = property.max;
+            const valueDisp = angle;
 
-        const highlight = hoveredJointMesh === i;
+            const highlight = hoveredJointMesh === i;
 
-        return (
-          <div key={i} className={`row ${highlight ? "row-hover" : ""}`}>
-            <SliderInput
-              minDisp={minDisp}
-              maxDisp={maxDisp}
-              valueDisp={valueDisp}
-              property={property}
-              showRadians={showRadians}
-              localAngles={localAngles}
-              setLocalAngles={setLocalAngles}
-              i={i}
-              jointManager={jointManager}
-              radToDeg={radToDeg}
-              degToRad={degToRad}
-            />
-          </div>
-        );
-      })}
-    </div>
-  </div>
-</section>
-
+            return (
+              <div key={i} className={`row ${highlight ? 'row-hover' : ''}`}>
+                <SliderInput
+                  minDisp={minDisp}
+                  maxDisp={maxDisp}
+                  valueDisp={valueDisp}
+                  property={property}
+                  showRadians={showRadians}
+                  localAngles={localAngles}
+                  setLocalAngles={setLocalAngles}
+                  i={i}
+                  jointManager={jointManager}
+                  radToDeg={radToDeg}
+                  degToRad={degToRad}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }

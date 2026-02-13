@@ -11,12 +11,15 @@ export function CheckBox({
     <div className="hover-surface flex space-x-1">
       <input
         type="checkbox"
-        id={label.toLowerCase().replace(/\s+/g, "-")}
+        id={label.toLowerCase().replace(/\s+/g, '-')}
         checked={value}
         onChange={(e) => onToggle(e.target.checked)}
         className="check-input cursor-pointer"
       />
-      <label htmlFor={label.toLowerCase().replace(/\s+/g, "-")} className="check-label px-1 py-0 text-xs">
+      <label
+        htmlFor={label.toLowerCase().replace(/\s+/g, '-')}
+        className="check-label px-1 py-0 text-xs"
+      >
         {label}
       </label>
     </div>

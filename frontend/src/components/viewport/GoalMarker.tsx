@@ -1,10 +1,12 @@
-import { useFrame } from "@react-three/fiber";
-import { TransformControls } from "@react-three/drei";
-import { useRef, useEffect, useState } from "react";
-import { Mesh } from "three";
-import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from "../../hooks/useJointState";
-import { URDFRobot } from "urdf-loader";
-import { URDFJoint } from "urdf-loader/src/URDFClasses";
+import { TransformControls } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import { useEffect, useRef, useState } from 'react';
+import type { Mesh } from 'three';
+import type { URDFRobot } from 'urdf-loader';
+import type { URDFJoint } from 'urdf-loader/src/URDFClasses';
+
+import type { JointStateManager } from '../../hooks/useJointState';
+import { WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
 
 interface GoalMarkerProps {
   onPositionChange: (position: [number, number, number]) => void;
@@ -29,30 +31,30 @@ function GoalMarker({
   converged = true,
   handleUnhover,
   setMovedDistance,
-  robot
+  robot,
 }: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
   const isDraggingRef = useRef(false);
   const lastPosRef = useRef<[number, number, number] | null>(null);
   const lastQuatRef = useRef<[number, number, number, number] | null>(null);
   const dragStartPosRef = useRef<[number, number, number] | null>(null);
-  const [mode, setMode] = useState<"translate" | "rotate">("translate");
+  const [mode, setMode] = useState<'translate' | 'rotate'>('translate');
   const [local, setLocal] = useState<boolean>(false);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName;
-      if (tag && ["INPUT", "TEXTAREA"].includes(tag)) return;
-      if (event.key === "w" || event.key === "W") {
-        setMode("translate");
-      } else if (event.key === "e" || event.key === "E") {
-        setMode("rotate");
-      } else if (event.key === "q" || event.key === "Q") {
+      if (tag && ['INPUT', 'TEXTAREA'].includes(tag)) return;
+      if (event.key === 'w' || event.key === 'W') {
+        setMode('translate');
+      } else if (event.key === 'e' || event.key === 'E') {
+        setMode('rotate');
+      } else if (event.key === 'q' || event.key === 'Q') {
         setLocal((prev) => !prev);
       }
     };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
   useEffect(() => {
@@ -76,7 +78,11 @@ function GoalMarker({
     if (!mesh) return;
     if (!isDraggingRef.current) return;
 
-    const currentPos: [number, number, number] = [mesh.position.x, mesh.position.y, mesh.position.z];
+    const currentPos: [number, number, number] = [
+      mesh.position.x,
+      mesh.position.y,
+      mesh.position.z,
+    ];
     const currentQuat: [number, number, number, number] = [
       mesh.quaternion.x,
       mesh.quaternion.y,
@@ -111,11 +117,11 @@ function GoalMarker({
       ];
     }
     setMovedDistance(0);
-    if (robot && robot.joints) {
+    if (robot?.joints) {
       Object.keys(robot.joints).forEach((jointName) => {
         handleUnhover(robot.joints[jointName]);
       });
-    } 
+    }
   };
 
   const handleMouseUp = () => {
@@ -130,16 +136,12 @@ function GoalMarker({
     <>
       <mesh ref={meshRef} position={goalPosition ?? [0, 0, 0]}>
         <sphereGeometry args={[0.03, 16, 16]} />
-        <meshBasicMaterial
-          color={converged ? "#00ff00" : "#ff0000"}
-          transparent
-          opacity={0.3}
-        />
+        <meshBasicMaterial color={converged ? '#00ff00' : '#ff0000'} transparent opacity={0.3} />
       </mesh>
       <TransformControls
         object={meshRef}
         mode={mode}
-        space={local ? "local" : "world"}
+        space={local ? 'local' : 'world'}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         size={0.7}

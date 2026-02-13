@@ -1,29 +1,30 @@
-import { Canvas } from "@react-three/fiber";
-import { Environment, OrbitControls } from "@react-three/drei";
-import { Suspense, useState, useCallback, useEffect, Component, type ReactNode } from "react";
-import { Robot } from "./Robot";
-import { Stats } from "./Stats";
-import { SolverStatus } from "./SolverStatus";
-import type { JointStateManager } from "../../hooks/useJointState";
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
-import { JointProperty } from "../../hooks/useSceneState";
-import { message, notification } from "antd";
+import { Environment, OrbitControls } from '@react-three/drei';
+import { Canvas } from '@react-three/fiber';
+import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
+import { message, notification } from 'antd';
+import { Component, type ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
+
+import type { JointStateManager } from '../../hooks/useJointState';
+import type { JointProperty } from '../../hooks/useSceneState';
+import { Robot } from './Robot';
+import { SolverStatus } from './SolverStatus';
+import { Stats } from './Stats';
 
 function EnvironmentLoader() {
   useEffect(() => {
-    const hide = message.loading("Loading environment (HDR)", 0);
-    return () => hide(); 
+    const hide = message.loading('Loading environment (HDR)', 0);
+    return () => hide();
   }, []);
-  
+
   return null;
 }
 
 function RobotLoader() {
   useEffect(() => {
-    const hide = message.loading("Loading robot model", 0);
-    return () => hide(); 
+    const hide = message.loading('Loading robot model', 0);
+    return () => hide();
   }, []);
-  
+
   return null;
 }
 
@@ -41,16 +42,15 @@ class EnvironmentErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error) {
-
     if (this.state.hideLoading) {
       this.state.hideLoading();
     }
-    
+
     notification.error({
-      message: "Failed to load environment",
+      message: 'Failed to load environment',
       description: `Could not load HDR environment: ${error.message}. Falling back to simple lighting.`,
       duration: 5,
-      placement: "topRight",
+      placement: 'topRight',
     });
   }
 
@@ -65,7 +65,7 @@ class EnvironmentErrorBoundary extends Component<
 export interface ViewportProps {
   urdfPath: string;
   jointManager: JointStateManager;
-  onJointLimitsLoaded: (limits: Array<JointProperty | null>) => void;
+  onJointLimitsLoaded: (limits: (JointProperty | null)[]) => void;
   showCollisionMesh: boolean;
   setHoveredJointMesh?: (index: number | null) => void;
   effectComposer?: boolean;
@@ -79,7 +79,6 @@ export function Viewport(props: ViewportProps) {
 
   return (
     <div className="relative h-full w-full z-0">
-
       {/* Viewport Stats (overlay) */}
       <div className="absolute top-0 left-0 z-50 flex gap-20">
         <Stats />
@@ -87,7 +86,6 @@ export function Viewport(props: ViewportProps) {
       </div>
 
       <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>
-
         {/* Environment */}
         {props.environment ? (
           <EnvironmentErrorBoundary
@@ -98,11 +96,13 @@ export function Viewport(props: ViewportProps) {
               </>
             }
           >
-            <Suspense fallback={<EnvironmentLoader />}> 
-              <Environment 
-                files={"https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr"}
+            <Suspense fallback={<EnvironmentLoader />}>
+              <Environment
+                files={
+                  'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr'
+                }
                 environmentIntensity={0.6}
-                backgroundIntensity={0.5} 
+                backgroundIntensity={0.5}
                 //ground={{ height: 5, radius: 40, scale: 20 }}
                 background={true}
               />
@@ -116,25 +116,25 @@ export function Viewport(props: ViewportProps) {
         )}
 
         {/* Postprocessing Effects */}
-        {props.effectComposer && 
+        {props.effectComposer && (
           <EffectComposer>
             <Bloom />
             <Vignette eskil={false} offset={0.1} darkness={0.3} />
           </EffectComposer>
-        }
+        )}
 
         {/* Grid Helper */}
         <gridHelper args={[10, 10]} rotation={[0, Math.PI / 2, 0]} />
 
         {/* Background color */}
-        <color attach="background" args={["#202025"]} />
+        <color attach="background" args={['#202025']} />
 
         {/* Mouse controls */}
         <OrbitControls enabled={!drag} />
 
         {/* Robot with IK */}
         <Suspense fallback={<RobotLoader />}>
-          <Robot 
+          <Robot
             urdfPath={props.urdfPath}
             drag={drag}
             onSolveStatusesChange={setSolveStatusesState}

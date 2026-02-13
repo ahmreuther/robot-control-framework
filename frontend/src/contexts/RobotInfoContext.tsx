@@ -1,17 +1,16 @@
-import { createContext, useContext, type PropsWithChildren } from "react";
+import { createContext, type PropsWithChildren, useContext } from 'react';
 
 export type AxleValues = Record<string, number>;
 
-export type RobotInfo = {
-    manufacturer?: string;
-    model?: string;
-    serialNumber?: string;
-    gotoMethodNodeId?: string;
-    toggleEndEffMethodNodeId?: string | null;
-};
+export interface RobotInfo {
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  gotoMethodNodeId?: string;
+  toggleEndEffMethodNodeId?: string | null;
+}
 
-
-type RobotInfoContextType = {
+interface RobotInfoContextType {
   robotName: string | null;
   setRobotName: (robotName: string | null) => void;
 
@@ -26,8 +25,7 @@ type RobotInfoContextType = {
 
   robotInfo: RobotInfo | null;
   setRobotInfo: (robotInfo: RobotInfo | null) => void;
-
-};
+}
 
 export const RobotInfoContext = createContext<RobotInfoContextType>({
   robotName: null,
@@ -44,7 +42,6 @@ export const RobotInfoContext = createContext<RobotInfoContextType>({
 
   robotInfo: {},
   setRobotInfo: () => {},
-  
 });
 
 export type RobotInfoProviderProps = PropsWithChildren<{
@@ -62,17 +59,24 @@ export type RobotInfoProviderProps = PropsWithChildren<{
 
   readonly robotInfo: RobotInfo | null;
   readonly setRobotInfo: (robotInfo: RobotInfo | null) => void;
-
 }>;
 
 export function RobotInfoProvider(props: RobotInfoProviderProps) {
   return (
-    <RobotInfoContext.Provider value={{ robotName: props.robotName, setRobotName: props.setRobotName 
-        ,robotStatus: props.robotStatus, setRobotStatus: props.setRobotStatus 
-        ,robotMode: props.robotMode, setRobotMode: props.setRobotMode
-        ,axleValues: props.axleValues, setAxleValues: props.setAxleValues
-        ,robotInfo: props.robotInfo, setRobotInfo: props.setRobotInfo
-    }}>
+    <RobotInfoContext.Provider
+      value={{
+        robotName: props.robotName,
+        setRobotName: props.setRobotName,
+        robotStatus: props.robotStatus,
+        setRobotStatus: props.setRobotStatus,
+        robotMode: props.robotMode,
+        setRobotMode: props.setRobotMode,
+        axleValues: props.axleValues,
+        setAxleValues: props.setAxleValues,
+        robotInfo: props.robotInfo,
+        setRobotInfo: props.setRobotInfo,
+      }}
+    >
       {props.children}
     </RobotInfoContext.Provider>
   );
@@ -81,7 +85,7 @@ export function RobotInfoProvider(props: RobotInfoProviderProps) {
 export function useRobotInfoContext() {
   const context = useContext(RobotInfoContext);
   if (!context) {
-    throw new Error("useRobotContext must be used within a RobotInfoProvider");
+    throw new Error('useRobotContext must be used within a RobotInfoProvider');
   }
   return context;
 }

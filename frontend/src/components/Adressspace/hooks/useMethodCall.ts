@@ -1,14 +1,14 @@
 // useMethodCall.ts - Hook für OPC UA Method Calls
 
-import { useState, useEffect, useCallback } from "react";
-import { UaNode } from "../types";
-import { fetchReferences, fetchNodeValue } from "../api";
-import { useLoading } from "../../../contexts/LoadingContext";
-import { message } from "antd";
+import { message } from 'antd';
+import { useCallback, useEffect, useState } from 'react';
 
+import { useLoading } from '../../../contexts/LoadingContext';
+import { fetchNodeValue, fetchReferences } from '../api';
+import type { UaNode } from '../types';
 
 export type InputArgTuple = [name: string, type: number];
-export type MethodCallState = {
+export interface MethodCallState {
   isOpen: boolean;
   node: UaNode | null;
   inputs: InputArgTuple[];
@@ -16,7 +16,7 @@ export type MethodCallState = {
   result: string | null;
   isLoading: boolean;
   _hideLoading?: () => void;
-};
+}
 
 export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
   const [state, setState] = useState<MethodCallState>({
@@ -27,56 +27,64 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     result: null,
     isLoading: false,
   });
-  
+
   const { executeWithLoading } = useLoading();
 
   // ========== OPEN DIALOG ==========
-  const openMethodDialog = useCallback(async (node: UaNode) => {
-    const inputArgTuples = await executeWithLoading(
-      `Loading method details for ${node.displayName}`,
-      async () => {
-        const refs = await fetchReferences(opcUaUrl, node.nodeId);
-        const inputArgRef = refs.find(ref => ref.BrowseName === "0:InputArguments");
-        
-        if (!inputArgRef) {
-          return [];
-        }
-        
-        try {
-          const valueRaw = await fetchNodeValue(opcUaUrl, inputArgRef.NodeId);
-          let value: any = [];
+  const openMethodDialog = useCallback(
+    async (node: UaNode) => {
+      const inputArgTuples = await executeWithLoading(
+        `Loading method details for ${node.displayName}`,
+        async () => {
+          const refs = await fetchReferences(opcUaUrl, node.nodeId);
+          const inputArgRef = refs.find((ref) => ref.BrowseName === '0:InputArguments');
+
+          if (!inputArgRef) {
+            return [];
+          }
+
           try {
-            value = JSON.parse(valueRaw);
-          } catch {
-            value = valueRaw;
+            const valueRaw = await fetchNodeValue(opcUaUrl, inputArgRef.NodeId);
+            let value: any = [];
+            try {
+              value = JSON.parse(valueRaw);
+            } catch {
+              value = valueRaw;
+            }
+
+            if (Array.isArray(value)) {
+              return value.map(
+                (arg: any) =>
+                  [
+                    arg.Name || 'arg',
+                    arg.DataType && typeof arg.DataType === 'object' && 'Identifier' in arg.DataType
+                      ? arg.DataType.Identifier
+                      : arg.DataType,
+                  ] as InputArgTuple,
+              );
+            }
+          } catch (err) {
+            console.warn('[useMethodCall] Error fetching/parsing InputArguments value:', err);
           }
-          
-          if (Array.isArray(value)) {
-            return value.map((arg: any) => [
-              arg.Name || "arg",
-              arg.DataType && typeof arg.DataType === "object" && "Identifier" in arg.DataType ? arg.DataType.Identifier : arg.DataType
-            ] as InputArgTuple);
-          }
-        } catch (err) {
-          console.warn("[useMethodCall] Error fetching/parsing InputArguments value:", err);
-        }
-        
-        return [];
-      },
-      {
-        errorMessage: `Failed to load method details for "${node.displayName}" (${node.nodeId})`,
-      }
-    );
-    
-    setState({
-      isOpen: true,
-      node,
-      inputs: inputArgTuples,
-      inputValues: {},
-      result: null,
-      isLoading: false,
-    });
-  }, [opcUaUrl, executeWithLoading]);
+
+          return [];
+        },
+        {
+          errorMessage: `Failed to load method details for "${node.displayName}" (${node.nodeId})`,
+        },
+      );
+
+      setState({
+        isOpen: true,
+        node,
+        inputs: inputArgTuples,
+        inputValues: {},
+        result: null,
+        isLoading: false,
+      });
+    },
+    [opcUaUrl, executeWithLoading],
+  );
 
   // ========== CLOSE DIALOG ==========
   const closeMethodDialog = useCallback(() => {
@@ -93,12 +101,12 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
   // ========== SET INPUTS ==========
   // Setze einen einzelnen Input-Wert
   const setInputValue = useCallback((name: string, value: string) => {
-    setState(prev => ({ ...prev, inputValues: { ...prev.inputValues, [name]: value } }));
+    setState((prev) => ({ ...prev, inputValues: { ...prev.inputValues, [name]: value } }));
   }, []);
 
   // ========== CALL METHOD ==========
   const callMethod = useCallback(() => {
-    if (!state.node || !socket || socket.readyState !== WebSocket.OPEN || !opcUaUrl) {
+    if (!state.node || socket?.readyState !== WebSocket.OPEN || !opcUaUrl) {
       return;
     }
     try {
@@ -109,19 +117,19 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       });
       const msg = `call|${payload}`;
       socket.send(msg);
-      console.log("[useMethodCall] Sent method call:", msg);
-      
+      console.log('[useMethodCall] Sent method call:', msg);
+
       // Show loading message
       const hideLoading = message.loading(`Calling method ${state.node.displayName}`, 0);
-      
-      setState(prev => ({
+
+      setState((prev) => ({
         ...prev,
         isLoading: true,
-        result: "Calling method...",
+        result: 'Calling method...',
         _hideLoading: hideLoading,
       }));
     } catch (err: any) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         result: `Invalid JSON: ${err.message}`,
       }));
@@ -135,9 +143,9 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
 
-      if (message.startsWith("Method call result:")) {
-        const result = message.replace("Method call result:", "").trim();
-        setState(prev => {
+      if (message.startsWith('Method call result:')) {
+        const result = message.replace('Method call result:', '').trim();
+        setState((prev) => {
           // Hide loading UI if present
           if (prev._hideLoading && typeof prev._hideLoading === 'function') {
             prev._hideLoading();
@@ -149,8 +157,8 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
             _hideLoading: undefined,
           };
         });
-      } else if (message.startsWith("❌") && message.toLowerCase().includes("method")) {
-        setState(prev => {
+      } else if (message.startsWith('❌') && message.toLowerCase().includes('method')) {
+        setState((prev) => {
           // Hide loading UI if present
           if (prev._hideLoading && typeof prev._hideLoading === 'function') {
             prev._hideLoading();
@@ -165,8 +173,8 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       }
     };
 
-    socket.addEventListener("message", handleMessage);
-    return () => socket.removeEventListener("message", handleMessage);
+    socket.addEventListener('message', handleMessage);
+    return () => socket.removeEventListener('message', handleMessage);
   }, [socket, state.isOpen]);
 
   return {

@@ -1,23 +1,17 @@
-import React, { useState, useEffect } from "react";
-import { UaNode } from "../types";
-import { fetchNodeDetails, fetchReferences, NodeDetails, NodeReference } from "../api";
-import { EventsPanel} from "./EventsPanel";
-import { VariablesPanel } from "./VariablesPanel";
-import { Panel, Group } from 'react-resizable-panels'
-import { Subscription } from "../hooks/useSubscriptions";
-import { EventSubscription } from "../hooks/useEventSubscriptions";
-import { useLoading } from "../../../contexts/LoadingContext";
+import React, { useEffect, useState } from 'react';
+import { Group, Panel } from 'react-resizable-panels';
 
-type ASpaceDetailsPanelProps = {
+import { useLoading } from '../../../contexts/LoadingContext';
+import type { NodeDetails, NodeReference } from '../api';
+import { fetchNodeDetails, fetchReferences } from '../api';
+import type { UaNode } from '../types';
+
+interface ASpaceDetailsPanelProps {
   node: UaNode | null;
   opcUaUrl: string;
-  eventSubscriptions: EventSubscription[];
-  onRemoveEventSubscription: (nodeId: string) => void;
-  variableSubscriptions: Subscription[];
-  onRemoveVariableSubscription: (nodeId: string) => void;
-};
+}
 
-export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, opcUaUrl, eventSubscriptions, onRemoveEventSubscription, variableSubscriptions, onRemoveVariableSubscription }) => {
+export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, opcUaUrl }) => {
   const [details, setDetails] = useState<NodeDetails | null>(null);
   const [references, setReferences] = useState<NodeReference[]>([]);
   const { executeWithLoading } = useLoading();
@@ -32,13 +26,14 @@ export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, op
     const load = async () => {
       const [d, r] = await executeWithLoading(
         `Loading details for node ${node.displayName} (${node.nodeId})`,
-        () => Promise.all([
-          fetchNodeDetails(opcUaUrl, node.nodeId),
-          fetchReferences(opcUaUrl, node.nodeId),
-        ]),
+        () =>
+          Promise.all([
+            fetchNodeDetails(opcUaUrl, node.nodeId),
+            fetchReferences(opcUaUrl, node.nodeId),
+          ]),
         {
           errorMessage: `Failed to load node details for "${node.displayName}" (${node.nodeId}) from ${opcUaUrl}`,
-        }
+        },
       );
       setDetails(d);
       setReferences(r);
@@ -47,50 +42,34 @@ export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, op
   }, [node?.nodeId, opcUaUrl, executeWithLoading]);
 
   return (
-      <Group orientation="vertical">
-        <Panel>
-          <div className="flex gap-2 h-full overflow-y-hidden">
-            <Properties details={details} />
-            <References references={references} />
-          </div>
-        </Panel>
-        <Panel>
-          <div className="flex-col h-full overflow-y-auto mt-2">
-          <VariablesPanel
-            subscriptions={variableSubscriptions}
-            onRemove={onRemoveVariableSubscription}
-          />
-          <EventsPanel
-            subscriptions={eventSubscriptions}
-            onRemove={onRemoveEventSubscription}
-          />
-          </div>
-        </Panel>
-      </Group>
+    <div className="flex gap-2 h-full overflow-y-hidden">
+      <Properties details={details} />
+      <References references={references} />
+    </div>
   );
 };
 
 const Properties: React.FC<{ details: NodeDetails }> = ({ details }) => {
   const rows: [string, any][] = [
-    ["Node ID", details?.nodeId],
-    ["Browse Name", details?.browseName],
-    ["Display Name", details?.displayName],
-    ["Node Class", `${details?.nodeClass} (${details?.nodeClassValue})`],
-    ["Description", details?.description],
+    ['Node ID', details?.nodeId],
+    ['Browse Name', details?.browseName],
+    ['Display Name', details?.displayName],
+    ['Node Class', `${details?.nodeClass} (${details?.nodeClassValue})`],
+    ['Description', details?.description],
   ];
-    rows.push(["Value", JSON.stringify(details?.value)]);
-    rows.push(["Data Type", details?.dataType]);
-    rows.push(["Event Notifier", details?.eventNotifier]);
+  rows.push(['Value', JSON.stringify(details?.value)]);
+  rows.push(['Data Type', details?.dataType]);
+  rows.push(['Event Notifier', details?.eventNotifier]);
 
   return (
     <div className="panel overflow-y-auto w-1/2">
       <table className="panel-table">
         <thead>
-        <tr>
-          <th>PropertyType</th>
-          <th>Value</th>
-        </tr>
-      </thead>
+          <tr>
+            <th>PropertyType</th>
+            <th>Value</th>
+          </tr>
+        </thead>
         <tbody>
           {rows.map(([label, value]) => (
             <tr key={label}>
@@ -118,7 +97,7 @@ const References: React.FC<{ references: NodeReference[] }> = ({ references }) =
         <tbody>
           {references.map((ref, i) => (
             <tr key={i}>
-              <td className="cell-muted">{ref.ReferenceType.split(" ")[0]}</td>
+              <td className="cell-muted">{ref.ReferenceType.split(' ')[0]}</td>
               <td className="cell-mono">{ref.NodeId}</td>
               <td className="cell-muted">{ref.BrowseName}</td>
             </tr>

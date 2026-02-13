@@ -1,10 +1,11 @@
 // LoadingContext.tsx - Global loading and error management with Ant Design
 
-import React, { createContext, useContext, useCallback, type PropsWithChildren } from "react";
-import { message, notification } from "antd";
-import { useLogContext } from "./LogContext";
+import { message, notification } from 'antd';
+import React, { createContext, type PropsWithChildren, useCallback, useContext } from 'react';
 
-type LoadingContextType = {
+import { useLogContext } from './LogContext';
+
+interface LoadingContextType {
   executeWithLoading: <T>(
     loadingMessage: string,
     operation: () => Promise<T>,
@@ -12,9 +13,9 @@ type LoadingContextType = {
       successMessage?: string;
       errorMessage?: string;
       logToMessageLog?: boolean;
-    }
+    },
   ) => Promise<T>;
-};
+}
 
 const LoadingContext = createContext<LoadingContextType | null>(null);
 
@@ -29,11 +30,11 @@ export function LoadingProvider({ children }: PropsWithChildren) {
         successMessage?: string;
         errorMessage?: string;
         logToMessageLog?: boolean;
-      }
+      },
     ): Promise<T> => {
       const {
         successMessage,
-        errorMessage = "Operation failed",
+        errorMessage = 'Operation failed',
         logToMessageLog = true,
       } = options || {};
 
@@ -62,31 +63,27 @@ export function LoadingProvider({ children }: PropsWithChildren) {
           message: errorMessage,
           description: errorMsg,
           duration: 0, // Don't auto-close
-          placement: "topRight",
+          placement: 'topRight',
         });
 
         // Log to Message Log
         if (logToMessageLog) {
-          setLogs((prev) => 
-            `${prev}[${timestamp}] ERROR: ${errorMessage}\nDetails: ${errorMsg}\n`
-          );
+          setLogs((prev) => `${prev}[${timestamp}] ERROR: ${errorMessage}\nDetails: ${errorMsg}\n`);
         }
 
         throw error; // Re-throw to allow caller to handle
       }
     },
-    [setLogs]
+    [setLogs],
   );
 
   return (
-    <LoadingContext.Provider value={{ executeWithLoading }}>
-      {children}
-    </LoadingContext.Provider>
+    <LoadingContext.Provider value={{ executeWithLoading }}>{children}</LoadingContext.Provider>
   );
 }
 
 export function useLoading() {
   const ctx = useContext(LoadingContext);
-  if (!ctx) throw new Error("useLoading must be used within LoadingProvider");
+  if (!ctx) throw new Error('useLoading must be used within LoadingProvider');
   return ctx;
 }

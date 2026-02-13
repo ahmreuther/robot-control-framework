@@ -1,11 +1,11 @@
 // provides the global state of the URL
 
-import { createContext, useContext, type PropsWithChildren } from "react";
+import { createContext, type PropsWithChildren, useContext } from 'react';
 
-type UrlContextType = {
+interface UrlContextType {
   url: string | null;
   setUrl: (url: string | null) => void;
-};
+}
 
 export const UrlContext = createContext<UrlContextType>({
   url: null,
@@ -28,8 +28,7 @@ export function UrlProvider(props: UrlProviderProps) {
 export function useUrlContext() {
   const context = useContext(UrlContext);
   if (!context) {
-    throw new Error("useUrlContext must be used within a UrlProvider");
+    throw new Error('useUrlContext must be used within a UrlProvider');
   }
   return context;
 }
-

@@ -7,7 +7,12 @@ interface Props {
   showClose?: boolean;
 }
 
-export default function MobilePanelControls({ className = '', mobilePanelState, setMobilePanelState, showClose = false }: Props) {
+export default function MobilePanelControls({
+  className = '',
+  mobilePanelState,
+  setMobilePanelState,
+  showClose = false,
+}: Props) {
   return (
     <div className={className}>
       <button
@@ -38,7 +43,13 @@ export default function MobilePanelControls({ className = '', mobilePanelState, 
       </button>
 
       {showClose && (
-        <button className="button-ghost" onClick={() => setMobilePanelState('none')} aria-label="Close overlay">✕</button>
+        <button
+          className="button-ghost"
+          onClick={() => setMobilePanelState('none')}
+          aria-label="Close overlay"
+        >
+          ✕
+        </button>
       )}
     </div>
   );

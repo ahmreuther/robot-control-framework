@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import * as THREE from "three";
+import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 
 interface DragControlsProps {
   robot: THREE.Object3D;
@@ -14,7 +14,7 @@ interface DragControlsProps {
 
 // Helper: find nearest parent joint
 function isJoint(obj: any) {
-  return obj && obj.isURDFJoint && obj.jointType !== "fixed";
+  return obj?.isURDFJoint && obj.jointType !== 'fixed';
 }
 function findNearestJoint(child: any): any {
   let curr = child;
@@ -77,7 +77,9 @@ export function DragControls({
       //   return 0;
       // }
       tempVector.crossVectors(projectedStartPoint, projectedEndPoint);
-      const direction = Math.sign(tempVector.dot(dragPlane.current ? dragPlane.current.normal : tempVector));
+      const direction = Math.sign(
+        tempVector.dot(dragPlane.current ? dragPlane.current.normal : tempVector),
+      );
       const angleDelta = direction * projectedEndPoint.angleTo(projectedStartPoint);
       // Scale delta by distance from pivot to reduce sensitivity near center
       const minDist = 0.15; // increased minimum effective distance
@@ -99,26 +101,45 @@ export function DragControls({
             // Get intersection of pointer ray and drag plane
             const ray = raycaster.current.ray;
             const endPoint = new THREE.Vector3();
-            if (dragPlane.current.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(1000))), endPoint)) {
-              if (joint.jointType === "revolute" || joint.jointType === "continuous") {
+            if (
+              dragPlane.current.intersectLine(
+                new THREE.Line3(
+                  ray.origin,
+                  ray.origin.clone().add(ray.direction.clone().multiplyScalar(1000)),
+                ),
+                endPoint,
+              )
+            ) {
+              if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
                 const delta = getRevoluteDelta(joint, dragStartPoint.current, endPoint);
                 const angle = dragStartAngle.current + delta;
                 onUpdateJoint(joint, angle);
-              } else if (joint.jointType === "prismatic") {
+              } else if (joint.jointType === 'prismatic') {
                 // Realistic prismatic drag: project movement onto axis
                 // joint.position is local, get world position
-                const jointWorldPos = new THREE.Vector3().set(0, 0, 0).applyMatrix4(joint.matrixWorld);
+                const jointWorldPos = new THREE.Vector3()
+                  .set(0, 0, 0)
+                  .applyMatrix4(joint.matrixWorld);
                 const delta = (() => {
-                  const axisWorld = new THREE.Vector3().copy(joint.axis).transformDirection(joint.matrixWorld).normalize();
-                  const startProj = new THREE.Vector3().copy(dragStartPoint.current).sub(jointWorldPos).dot(axisWorld);
-                  const endProj = new THREE.Vector3().copy(endPoint).sub(jointWorldPos).dot(axisWorld);
+                  const axisWorld = new THREE.Vector3()
+                    .copy(joint.axis)
+                    .transformDirection(joint.matrixWorld)
+                    .normalize();
+                  const startProj = new THREE.Vector3()
+                    .copy(dragStartPoint.current)
+                    .sub(jointWorldPos)
+                    .dot(axisWorld);
+                  const endProj = new THREE.Vector3()
+                    .copy(endPoint)
+                    .sub(jointWorldPos)
+                    .dot(axisWorld);
                   return endProj - startProj;
                 })();
                 const position = dragStartAngle.current + delta;
                 onUpdateJoint(joint, position);
               } else {
                 // Fallback for other joint types
-                const angle = dragStartAngle.current + (pointer.x * Math.PI);
+                const angle = dragStartAngle.current + pointer.x * Math.PI;
                 onUpdateJoint(joint, angle);
               }
             }
@@ -152,11 +173,14 @@ export function DragControls({
         dragStartAngle.current = joint.angle ?? 0;
         dragStartPoint.current = intersects[0].point.clone();
         // Define drag plane for this joint
-        const axis = new THREE.Vector3().copy(joint.axis).transformDirection(joint.matrixWorld).normalize();
+        const axis = new THREE.Vector3()
+          .copy(joint.axis)
+          .transformDirection(joint.matrixWorld)
+          .normalize();
         const pivot = new THREE.Vector3().set(0, 0, 0).applyMatrix4(joint.matrixWorld);
-        if (joint.jointType === "prismatic") {
+        if (joint.jointType === 'prismatic') {
           // For prismatic, drag plane is perpendicular to axis
-          let perp = new THREE.Vector3(1, 0, 0);
+          const perp = new THREE.Vector3(1, 0, 0);
           if (Math.abs(axis.dot(perp)) > 0.99) perp.set(0, 1, 0);
           const normal = new THREE.Vector3().crossVectors(axis, perp).normalize();
           dragPlane.current = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, pivot);
@@ -179,14 +203,14 @@ export function DragControls({
       domElement.releasePointerCapture(event.pointerId);
     }
 
-    domElement.addEventListener("pointermove", pointerMove);
-    domElement.addEventListener("pointerdown", pointerDown);
-    domElement.addEventListener("pointerup", pointerUp);
+    domElement.addEventListener('pointermove', pointerMove);
+    domElement.addEventListener('pointerdown', pointerDown);
+    domElement.addEventListener('pointerup', pointerUp);
 
     return () => {
-      domElement.removeEventListener("pointermove", pointerMove);
-      domElement.removeEventListener("pointerdown", pointerDown);
-      domElement.removeEventListener("pointerup", pointerUp);
+      domElement.removeEventListener('pointermove', pointerMove);
+      domElement.removeEventListener('pointerdown', pointerDown);
+      domElement.removeEventListener('pointerup', pointerUp);
     };
   }, [robot, camera, domElement, onDragStart, onDragEnd, onHover, onUnhover, onUpdateJoint]);
 

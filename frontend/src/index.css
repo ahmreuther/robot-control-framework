@@ -1,40 +1,45 @@
-@import "tailwindcss";
-@import "@heroui/styles"; 
+@import 'tailwindcss';
+@import '@heroui/styles';
 
 @layer base {
   :root {
-
     /* ===== Surfaces (dark, warm, industrial) ===== */
-    --bg: 14 15 16;        /* ~ #0E0F10 (near logo black) */
-    --bg-2: 18 20 23;      /* slightly lifted */
-    --bg-3: 24 27 31;      /* input / inner surfaces */
+    --bg: 14 15 16; /* ~ #0E0F10 (near logo black) */
+    --bg-2: 18 20 23; /* slightly lifted */
+    --bg-3: 24 27 31; /* input / inner surfaces */
 
     /* ===== Text ===== */
-    --fg: 235 238 242;     /* clean light text */
+    --fg: 235 238 242; /* clean light text */
     --fg-muted: 165 172 182;
 
     /* ===== Panels / borders ===== */
---panel: 28 32 38;          /* ~ #1C2026 */
---panel-border: 220 235 255;
+    --panel: 28 32 38; /* ~ #1C2026 */
+    --panel-border: 220 235 255;
 
     /* ===== Brand (from logo gradient) ===== */
-    --brand: 13 154 215;   /* #0D9AD7 (logo light blue) */
-    --brand-2: 5 90 166;   /* #055AA6 (logo deep blue) */
+    --brand: 13 154 215; /* #0D9AD7 (logo light blue) */
+    --brand-2: 5 90 166; /* #055AA6 (logo deep blue) */
 
     /* ===== Status (balanced against blue) ===== */
-    --ok: 80 200 160;      /* muted teal-green */
-    --warn: 235 190 90;    /* industrial amber */
-    --bad: 220 90 95;      /* restrained red */
+    --ok: 80 200 160; /* muted teal-green */
+    --warn: 235 190 90; /* industrial amber */
+    --bad: 220 90 95; /* restrained red */
 
     /* ===== Shape ===== */
     --r-xl: 14px;
     --r-2xl: 18px;
-
   }
 
   body {
     margin: 0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    font-family:
+      system-ui,
+      -apple-system,
+      Segoe UI,
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
     line-height: 1.5;
     font-weight: 400;
     color: rgb(var(--fg));
@@ -50,7 +55,7 @@
     -webkit-appearance: none;
     margin: 0;
   }
-  input[type="number"] {
+  input[type='number'] {
     -moz-appearance: textfield;
   }
 }
@@ -58,14 +63,14 @@
 @layer components {
   .panel {
     @apply border shadow;
-    border-color: rgb(var(--panel-border) / 0.10);
+    border-color: rgb(var(--panel-border) / 0.1);
     background: rgb(var(--panel));
     backdrop-filter: blur(14px);
   }
 
   .panel-header {
     @apply flex items-center justify-between gap-2 border-b px-4 py-2;
-    border-color: rgb(var(--panel-border) / 0.10);
+    border-color: rgb(var(--panel-border) / 0.1);
   }
 
   .panel-title {
@@ -76,19 +81,19 @@
   .panel-body {
     @apply p-4 text-sm;
   }
-  
+
   .input-ghost {
     @apply bg-transparent border px-2 py-1 text-xs outline-none transition-colors duration-150;
-    border-color: rgb(var(--panel-border) / 0.20);
+    border-color: rgb(var(--panel-border) / 0.2);
     color: rgb(var(--fg) / 0.75);
   }
 
   .input-ghost::placeholder {
-    color: rgba(255, 255, 255, 0.30);
+    color: rgba(255, 255, 255, 0.3);
   }
 
   .input-ghost:focus {
-    border-color: rgb(var(--brand) / 0.70);
+    border-color: rgb(var(--brand) / 0.7);
     background: rgb(var(--brand) / 0.08);
     box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
     color: rgb(var(--fg));
@@ -96,13 +101,13 @@
 
   .button-ghost {
     @apply border px-2 py-1 text-xs transition-colors duration-150;
-    border-color: rgb(var(--panel-border) / 0.10);
+    border-color: rgb(var(--panel-border) / 0.1);
     background: transparent;
-    color: rgb(var(--fg) / 0.80);
+    color: rgb(var(--fg) / 0.8);
   }
 
   .button-ghost:hover {
-    border-color: rgb(var(--brand) / 0.70);
+    border-color: rgb(var(--brand) / 0.7);
     background: rgb(var(--brand) / 0.08);
     box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
     color: rgb(var(--fg));
@@ -114,15 +119,15 @@
 
   .button-ghost:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px rgb(var(--brand) / 0.30);
+    box-shadow: 0 0 0 2px rgb(var(--brand) / 0.3);
   }
 
   .button-ghost:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-    border-color: rgb(var(--panel-border) / 0.10);
+    border-color: rgb(var(--panel-border) / 0.1);
     background: transparent;
-    color: rgb(var(--fg) / 0.40);
+    color: rgb(var(--fg) / 0.4);
   }
 
   .row {
@@ -131,7 +136,7 @@
   }
 
   .row-hover {
-    border-color: rgb(var(--brand) / 0.70);
+    border-color: rgb(var(--brand) / 0.7);
     background: rgb(var(--brand) / 0.08);
     box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
   }
@@ -141,7 +146,7 @@
   }
 
   .hover-surface:hover {
-    border-color: rgb(var(--brand) / 0.70);
+    border-color: rgb(var(--brand) / 0.7);
     background: rgb(var(--brand) / 0.08);
     box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
   }
@@ -170,18 +175,18 @@
            transition-colors duration-150;
     color: rgb(var(--fg) / 0.75);
     background: transparent;
-    border: 1px solid rgb(var(--panel-border) / 0.10);
+    border: 1px solid rgb(var(--panel-border) / 0.1);
   }
 
   .panel-tab:hover {
-    border-color: rgb(var(--brand) / 0.70);
+    border-color: rgb(var(--brand) / 0.7);
     background: rgb(var(--brand) / 0.08);
     box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
     color: rgb(var(--fg));
   }
 
-  .panel-tab[aria-selected="true"] {
-    border-color: rgb(var(--brand) / 0.70);
+  .panel-tab[aria-selected='true'] {
+    border-color: rgb(var(--brand) / 0.7);
     background: rgb(var(--brand) / 0.08);
     box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
     color: rgb(var(--fg));
@@ -191,7 +196,7 @@
     outline: none;
     box-shadow: 0 0 0 2px rgb(var(--brand) / 0.35);
   }
-  
+
   .panel-table {
     width: 100%;
     border-collapse: collapse;
@@ -222,12 +227,14 @@
   }
 
   .panel-table .cell-mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
     color: rgb(var(--brand) / 0.9);
   }
 
   .code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
     color: rgb(var(--fg-muted) / 0.9);
   }
 
@@ -258,7 +265,8 @@
   }
 
   .address-space-tree .ant-tree-node-content-wrapper .ant-tree-title {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace !important;
     color: rgb(var(--fg-muted) / 0.9) !important;
   }
 
@@ -293,7 +301,7 @@
   }
 
   .slider:hover {
-    background: rgb(var(--panel-border) / 0.30);
+    background: rgb(var(--panel-border) / 0.3);
   }
 
   /* WebKit track */
@@ -308,14 +316,14 @@
     appearance: none;
     width: 10px;
     height: 14px;
-    background: rgb(var(--fg-muted) / 0.9);      /* gray */
+    background: rgb(var(--fg-muted) / 0.9); /* gray */
     border: 1px solid rgb(var(--panel-border) / 0.7);
     margin-top: -4px;
   }
 
   .slider::-webkit-slider-thumb:hover,
   .slider:active::-webkit-slider-thumb {
-    background: rgb(var(--fg) / 0.95);          /* lighter gray */
+    background: rgb(var(--fg) / 0.95); /* lighter gray */
     border-color: rgb(var(--panel-border));
   }
 

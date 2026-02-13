@@ -1,13 +1,16 @@
-import { useCallback, useRef, useState, useEffect } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
-import RobotLoader from "./RobotLoader";
-import { URDFJoint, URDFLink, type URDFRobot } from "urdf-loader/src/URDFClasses";
-import { urdfRobotToIKRoot, setUrdfFromIK, setIKFromUrdf, Goal, Solver } from "closed-chain-ik";
-import GoalMarker from "./GoalMarker";
-import * as THREE from "three";
-import { DragControls } from "./DragControls";
-import type { JointProperty } from "../../hooks/useSceneState";
-import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from "../../hooks/useJointState";
+import { useFrame, useThree } from '@react-three/fiber';
+import { Goal, setIKFromUrdf, setUrdfFromIK, Solver, urdfRobotToIKRoot } from 'closed-chain-ik';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import type { URDFJoint, URDFLink } from 'urdf-loader/src/URDFClasses';
+import { type URDFRobot } from 'urdf-loader/src/URDFClasses';
+
+import type { JointStateManager } from '../../hooks/useJointState';
+import { WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
+import type { JointProperty } from '../../hooks/useSceneState';
+import { DragControls } from './DragControls';
+import GoalMarker from './GoalMarker';
+import RobotLoader from './RobotLoader';
 
 export const SOLVE_STATUS = {
   CONVERGED: 0,
@@ -16,14 +19,14 @@ export const SOLVE_STATUS = {
   TIMEOUT: 3,
 } as const;
 
-const END_EFFECTOR_NAMES = ["tool_point", "tool0", "tool", "ee_link", "tcp", "flange",];
+const END_EFFECTOR_NAMES = ['tool_point', 'tool0', 'tool', 'ee_link', 'tcp', 'flange'];
 
 interface RobotProps {
   urdfPath: string;
   drag: boolean;
   onSolveStatusesChange: (statuses: number[]) => void;
   onDrag: (dragging: boolean) => void;
-  onJointLimitsLoaded: (limits: Array<JointProperty | null>) => void;
+  onJointLimitsLoaded: (limits: (JointProperty | null)[]) => void;
   jointManager: JointStateManager;
   showCollisionMesh: boolean;
   setHoveredJointMesh?: (index: number | null) => void;
@@ -39,7 +42,7 @@ export function Robot({
   jointManager,
   showCollisionMesh,
   setHoveredJointMesh,
-  setMovedDistance
+  setMovedDistance,
 }: RobotProps) {
   const robotRef = useRef<URDFRobot>(null);
   const robotGroupRef = useRef<THREE.Group>(null);
@@ -53,7 +56,9 @@ export function Robot({
   // GoalMarker state
   const goalRef = useRef<any>(null);
   const [goalPosition, setGoalPosition] = useState<[number, number, number]>([0, 0, 0]);
-  const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([0, 0, 0, 1]);
+  const [goalQuaternion, setGoalQuaternion] = useState<[number, number, number, number]>([
+    0, 0, 0, 1,
+  ]);
   const lastValidGoalPositionRef = useRef<[number, number, number]>([0, 0, 0]);
   const lastValidGoalQuaternionRef = useRef<[number, number, number, number]>([0, 0, 0, 1]);
 
@@ -61,7 +66,7 @@ export function Robot({
   const jointAnglesRef = useRef<number[]>([]);
 
   const { camera, gl } = useThree();
-  
+
   const originalMaterialMapRef = useRef<Map<THREE.Object3D, THREE.Material>>(new Map()); // Store original materials
 
   const collisionMaterialRef = useRef(
@@ -70,8 +75,8 @@ export function Robot({
       metalness: 0.2,
       roughness: 0.7,
       transparent: true,
-      opacity: 0.7
-    })  
+      opacity: 0.7,
+    }),
   );
 
   // Animation state for gradual home pose transition
@@ -90,10 +95,10 @@ export function Robot({
       if (obj.isMesh && typeof obj.name === 'string') {
         const name = obj.name.toLowerCase();
         if (showCollisionMesh && name.startsWith('collision_')) {
-            originalMaterialMapRef.current.set(obj, obj.material);
-          obj.material =  collisionMaterialRef.current;
+          originalMaterialMapRef.current.set(obj, obj.material);
+          obj.material = collisionMaterialRef.current;
         } else if (!showCollisionMesh && name.startsWith('collision_')) {
-          obj.material  = originalMaterialMapRef.current.get(obj);
+          obj.material = originalMaterialMapRef.current.get(obj);
         }
       }
     });
@@ -129,7 +134,7 @@ export function Robot({
     const jointNames = Object.keys(robot.joints ?? {});
     if (!jointNames.length) return;
 
-    homeAnimation(jointNames)
+    homeAnimation(jointNames);
     runIK();
     applyJointAngles(robot, jointNames);
   });
@@ -147,13 +152,13 @@ export function Robot({
     const localPos = robotGroup.worldToLocal(worldPos.clone());
     const robotGroupWorldQuat = robotGroup.getWorldQuaternion(new THREE.Quaternion());
     const localQuat = worldQuat.clone().premultiply(robotGroupWorldQuat.invert());
-    if(goal) {
+    if (goal) {
       goal.setPosition(localPos.x, localPos.y, localPos.z);
       goal.setQuaternion(localQuat.x, localQuat.y, localQuat.z, localQuat.w);
       //goal.setQuaternion(...goalQuaternion); // makes ik smoother but breaks some functionality
       goal.setMatrixNeedsUpdate();
     }
-    
+
     // Always sync IK with current robot state before solving
     setIKFromUrdf(ikRoot, robot);
 
@@ -161,7 +166,9 @@ export function Robot({
 
     // set solve statuses
     const statusesArr = [...statuses];
-    const sameStatuses = lastSolveStatusesRef.current && statusesArr.length === lastSolveStatusesRef.current.length && statusesArr.every((v, i) => v === lastSolveStatusesRef.current![i]);
+    const sameStatuses =
+      statusesArr.length === lastSolveStatusesRef.current?.length &&
+      statusesArr.every((v, i) => v === lastSolveStatusesRef.current![i]);
     if (!sameStatuses) {
       lastSolveStatusesRef.current = statusesArr;
       onSolveStatusesChange?.(statusesArr);
@@ -195,7 +202,7 @@ export function Robot({
     setGoalPosition,
     setGoalQuaternion,
     onSolveStatusesChange,
-    jointManager
+    jointManager,
   ]);
 
   // Handler: robot loaded
@@ -204,19 +211,19 @@ export function Robot({
       robotRef.current = robot;
       robotGroupRef.current = robotGroup;
       robotGroup.rotation.x = -Math.PI / 2;
-      
+
       // Load home pose from configuration
       try {
         const response = await fetch('/urdf/home_poses.json');
         const homePosesConfig = await response.json();
-        
+
         const robotName = (robot.robotName || robot.name || '').toLowerCase();
         let configKey = '';
-        
+
         if (robotName.includes('eva_description')) configKey = 'eva_description';
         else if (robotName.includes('ur5')) configKey = 'ur5';
         else if (robotName.includes('fr3')) configKey = 'fr3';
-        
+
         if (configKey && homePosesConfig[configKey]) {
           const config = homePosesConfig[configKey];
           const jointNames = Object.keys(robot.joints ?? {});
@@ -239,32 +246,32 @@ export function Robot({
       }
 
       // Extract joint limits and notify parent
-        const jointLimits: Array<JointProperty | null> = [];
-        if (robot.joints) {
-          Object.values(robot.joints).forEach((joint) => {
-            const limit = joint.limit;
-            if (limit) {
-              const jointType = joint.jointType || 'revolute';
-              let min = limit.lower;
-              let max = limit.upper;
-              if (jointType === 'prismatic') {
-                min = min ?? 0;
-                max = max ?? 1;
-              } else {
-                min = min ?? -Math.PI;
-                max = max ?? Math.PI;
-              }
-              jointLimits.push({
-                min,
-                max,
-                jointType,
-              });
+      const jointLimits: (JointProperty | null)[] = [];
+      if (robot.joints) {
+        Object.values(robot.joints).forEach((joint) => {
+          const limit = joint.limit;
+          if (limit) {
+            const jointType = joint.jointType || 'revolute';
+            let min = limit.lower;
+            let max = limit.upper;
+            if (jointType === 'prismatic') {
+              min = min ?? 0;
+              max = max ?? 1;
             } else {
-              jointLimits.push(null);
+              min = min ?? -Math.PI;
+              max = max ?? Math.PI;
             }
-          });
-        }
-        onJointLimitsLoaded(jointLimits);
+            jointLimits.push({
+              min,
+              max,
+              jointType,
+            });
+          } else {
+            jointLimits.push(null);
+          }
+        });
+      }
+      onJointLimitsLoaded(jointLimits);
 
       // Process robot meshes for better appearance and hide collision meshes
       let robotMesh: THREE.Mesh | undefined;
@@ -283,7 +290,9 @@ export function Robot({
             robotMesh = mesh;
             let color = 0xffffff;
             if ((mesh.material as any).color) color = (mesh.material as any).color.getHex();
-            const origColor = (mesh.material as any).color ? (mesh.material as any).color.getHex() : 0xffffff;
+            const origColor = (mesh.material as any).color
+              ? (mesh.material as any).color.getHex()
+              : 0xffffff;
             mesh.material = new THREE.MeshPhysicalMaterial({
               color: origColor,
               metalness: 0.5,
@@ -294,7 +303,7 @@ export function Robot({
               envMapIntensity: 0,
               // emissive: 0xa67c00,
               // emissiveIntensity: 5.0,
-           });
+            });
           }
         }
       });
@@ -325,31 +334,31 @@ export function Robot({
       const solver = new Solver(ikRoot);
       solverRef.current = solver;
     },
-    [gl, camera]
-  );  
+    [gl, camera],
+  );
 
   // Animation: home position
-  const homeAnimation = (jointNames) => { 
-      if (animationStartTimeRef.current === null) return false;
-      const elapsed = (performance.now() - animationStartTimeRef.current) / 1000;
-      const t = Math.min(elapsed / animationDuration, 1.0);
-      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-      const newAngles = jointNames.map((name, index) => {
-        if (index < homePositionRef.current.length) {
-          const startAngle = 0;
-          const targetAngle = homePositionRef.current[index];
-          return startAngle + (targetAngle - startAngle) * eased;
-        }
-        return 0;
-      });
-      jointManager.setAngles(WRITER_ID.ANIMATION, newAngles);
-      updateGoalToEndEffector();
-      if (t >= 1.0) {
-        isAnimatingRef.current = false;
-        jointManager.unmountWriter(WRITER_ID.ANIMATION);
-        animationStartTimeRef.current = null;
+  const homeAnimation = (jointNames) => {
+    if (animationStartTimeRef.current === null) return false;
+    const elapsed = (performance.now() - animationStartTimeRef.current) / 1000;
+    const t = Math.min(elapsed / animationDuration, 1.0);
+    const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    const newAngles = jointNames.map((name, index) => {
+      if (index < homePositionRef.current.length) {
+        const startAngle = 0;
+        const targetAngle = homePositionRef.current[index];
+        return startAngle + (targetAngle - startAngle) * eased;
       }
+      return 0;
+    });
+    jointManager.setAngles(WRITER_ID.ANIMATION, newAngles);
+    updateGoalToEndEffector();
+    if (t >= 1.0) {
+      isAnimatingRef.current = false;
+      jointManager.unmountWriter(WRITER_ID.ANIMATION);
+      animationStartTimeRef.current = null;
     }
+  };
 
   // DragControls handlers
   const handleDragStart = () => {
@@ -380,20 +389,20 @@ export function Robot({
   };
 
   const handleUpdateJoint = (joint: URDFJoint, angle: number) => {
-      const robot = robotRef.current;
-      const jointNames = Object.keys(robot.joints ?? {});
-      const jointIndex = jointNames.indexOf(joint.name);
-      const newAngles = [...jointAnglesRef.current];
-      let min = -Infinity;
-      let max = Infinity;
-      if (joint.limit) {
-        min = joint.limit.lower ?? -Infinity;
-        max = joint.limit.upper ?? Infinity;
-      }
-      const clampedAngle = Math.max(min, Math.min(max, angle));
-      newAngles[jointIndex] = clampedAngle;
-      jointManager.setAngles(WRITER_ID.DRAG, newAngles);
-    };
+    const robot = robotRef.current;
+    const jointNames = Object.keys(robot.joints ?? {});
+    const jointIndex = jointNames.indexOf(joint.name);
+    const newAngles = [...jointAnglesRef.current];
+    let min = -Infinity;
+    let max = Infinity;
+    if (joint.limit) {
+      min = joint.limit.lower ?? -Infinity;
+      max = joint.limit.upper ?? Infinity;
+    }
+    const clampedAngle = Math.max(min, Math.min(max, angle));
+    newAngles[jointIndex] = clampedAngle;
+    jointManager.setAngles(WRITER_ID.DRAG, newAngles);
+  };
 
   // only apply Joints on robot here!!!
   const applyJointAngles = (robot: URDFRobot, jointNames: string[]) => {
@@ -422,7 +431,7 @@ export function Robot({
     });
     return fallback;
   };
-  
+
   const findEndEffectorInIK = (ikRoot: any) => {
     if (!ikRoot) return null;
     for (const name of END_EFFECTOR_NAMES) {
@@ -463,7 +472,7 @@ export function Robot({
           if (orig) obj.material = orig;
         }
       }
-      if (obj === joint || !obj.isURDFJoint ) {
+      if (obj === joint || !obj.isURDFJoint) {
         for (const child of obj.children) {
           if (!child.isURDFCollider) traverse(child);
         }
@@ -475,7 +484,7 @@ export function Robot({
   const updateGoalToEndEffector = () => {
     const robot = robotRef.current;
     if (!robot) return;
-      const endEffector = findEndEffectorInRobot(robot);
+    const endEffector = findEndEffectorInRobot(robot);
     if (endEffector) {
       endEffector.updateMatrixWorld(true);
       const pos = new THREE.Vector3();
@@ -484,22 +493,18 @@ export function Robot({
       endEffector.getWorldQuaternion(quat);
       const newPos: [number, number, number] = [pos.x, pos.y, pos.z];
       const newQuat: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
-      
+
       setGoalPosition(newPos);
       setGoalQuaternion(newQuat);
-      
+
       lastValidGoalPositionRef.current = [...newPos];
       lastValidGoalQuaternionRef.current = [...newQuat];
     }
-  }
-
+  };
 
   return (
     <>
-      <RobotLoader 
-        urdfPath={urdfPath}
-        onRobotReady={handleRobotReady}
-      />
+      <RobotLoader urdfPath={urdfPath} onRobotReady={handleRobotReady} />
       <DragControls
         robot={robotRef.current}
         camera={camera}
