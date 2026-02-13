@@ -1,7 +1,7 @@
 import { useContext, useMemo, useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 
-import { LogContext } from '../../../contexts/LogContext';
+import { LogContext } from '../contexts/LogContext';
 
 export function MessageLog() {
   const { logs, setLogs } = useContext(LogContext);

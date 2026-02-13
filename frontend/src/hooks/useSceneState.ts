@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import type { ModelConfig } from '../components/MenuComponents/ControlsComponents/URDFSelector';
+import type { ModelConfig } from '../components/AddServerAndRobots/URDFSelector';
 
 const ROBOT_MODELS: ModelConfig[] = [
   { id: 'eva', label: 'EVA Automata', url: '/urdf/eva_description/urdf/eva_description.urdf' },

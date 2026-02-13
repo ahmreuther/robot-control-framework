@@ -2,10 +2,10 @@ import { useState } from 'react';
 
 import { useSendMessage } from '../../hooks/send-message';
 import type { JointStateManager } from '../../hooks/useJointState';
-import { type ModelConfig, URDFSelector } from '../MenuComponents/ControlsComponents/URDFSelector';
-import Live_Status from '../MenuComponents/TwinDashboardComponents/Live_Status';
 import ConnectOPCUA from './ConnectOPCUA';
+import Live_Status from './Live_Status';
 import Synchronize_Button from './SynchroniseButton';
+import { type ModelConfig, URDFSelector } from './URDFSelector';
 
 interface Robot {
   id: number;

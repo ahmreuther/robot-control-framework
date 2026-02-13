@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import type { JointStateManager } from '../../../hooks/useJointState';
-import { WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
-import type { JointProperty } from '../../../hooks/useSceneState';
+import type { JointStateManager } from '../../hooks/useJointState';
+import { WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
+import type { JointProperty } from '../../hooks/useSceneState';
 
 export interface SliderProps {
   minDisp: number;

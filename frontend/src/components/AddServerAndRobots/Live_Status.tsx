@@ -1,4 +1,4 @@
-import { useRobotInfoContext } from '../../../contexts/RobotInfoContext';
+import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
 
 export default function Live_Status() {
   const { robotName, robotStatus, robotMode, axleValues, robotInfo } = useRobotInfoContext();

@@ -3,8 +3,8 @@ const degToRad = (deg: number) => (deg * Math.PI) / 180;
 
 import { useEffect, useState } from 'react';
 
-import type { JointStateManager } from '../../../hooks/useJointState';
-import type { JointProperty } from '../../../hooks/useSceneState';
+import type { JointStateManager } from '../../hooks/useJointState';
+import type { JointProperty } from '../../hooks/useSceneState';
 import { CheckBox } from '../CheckBox';
 import { SliderInput } from './SliderInput';
 

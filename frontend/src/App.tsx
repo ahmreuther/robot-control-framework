@@ -3,10 +3,10 @@ import { Group, Panel } from 'react-resizable-panels';
 
 import RobotsServersManager from './components/AddServerAndRobots/RobotsServersManager';
 import { ASpaceWindow } from './components/Adressspace/ASpaceWindow';
-import { JointAnglesPanel } from './components/MenuComponents/ControlsComponents/JointAnglesPanel';
-import MessageLog from './components/MenuComponents/Tab2Components/MessageLog';
+import MessageLog from './components/MessageLog';
 import MobilePanelControls from './components/MobilePanelControls';
 import Settings from './components/Settings';
+import { JointAnglesPanel } from './components/viewport/JointAnglesPanel';
 import { Viewport } from './components/viewport/Viewport';
 import WebSocketReciever from './components/WebsocketReciever';
 import { LoadingProvider } from './contexts/LoadingContext';

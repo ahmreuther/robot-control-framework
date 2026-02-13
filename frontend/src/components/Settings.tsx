@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import type { SettingsState } from '../App';
-import { CheckBox } from './MenuComponents/CheckBox';
+import { CheckBox } from './CheckBox';
 
 interface SettingsProps {
   settings: SettingsState;

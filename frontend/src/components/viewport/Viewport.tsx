@@ -135,7 +135,7 @@ export function Viewport(props: ViewportProps) {
         {/* Robot with IK */}
         <Suspense fallback={<RobotLoader />}>
           <Robot
-            urdfPath={props.urdfPath?}
+            urdfPath={props.urdfPath}
             drag={drag}
             onSolveStatusesChange={setSolveStatusesState}
             onDrag={setDrag}
