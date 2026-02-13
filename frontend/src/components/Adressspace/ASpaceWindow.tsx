@@ -108,7 +108,9 @@ export function ASpaceWindow() {
                 </div>
               </Panel>
               <Panel>
-                <QuickActionsPanel opcUaUrl={opcUaUrl} openMethodDialog={openMethodDialog} />
+                <div className="flex-col h-full overflow-y-auto mt-2">
+                  <QuickActionsPanel opcUaUrl={opcUaUrl} openMethodDialog={openMethodDialog} />
+                </div>
               </Panel>
             </Group>
           </Panel>

@@ -13,7 +13,7 @@ export interface Subscription {
 
 const POLL_MS = 2000;
 
-export function useSubscriptions(opcUaUrl: string, socket: WebSocket | null) {
+export function useSubscriptions(opcUaUrl: string | null, socket: WebSocket | null) {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const pollRef = useRef<number | null>(null);
 

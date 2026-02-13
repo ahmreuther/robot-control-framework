@@ -15,10 +15,10 @@ export interface MethodCallState {
   inputValues: Record<string, string>;
   result: string | null;
   isLoading: boolean;
-  _hideLoading?: () => void;
+  _hideLoading: (() => void) | null;
 }
 
-export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
+export function useMethodCall(opcUaUrl: string | null, socket: WebSocket | null) {
   const [state, setState] = useState<MethodCallState>({
     isOpen: false,
     node: null,
@@ -26,6 +26,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
     inputValues: {},
     result: null,
     isLoading: false,
+    _hideLoading: null,
   });
 
   const { executeWithLoading } = useLoading();
@@ -81,6 +82,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
         inputValues: {},
         result: null,
         isLoading: false,
+        _hideLoading: null,
       });
     },
     [opcUaUrl, executeWithLoading],
@@ -95,6 +97,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
       inputValues: {},
       result: null,
       isLoading: false,
+      _hideLoading: null,
     });
   }, []);
 
@@ -154,7 +157,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
             ...prev,
             result,
             isLoading: false,
-            _hideLoading: undefined,
+            _hideLoading: null,
           };
         });
       } else if (message.startsWith('❌') && message.toLowerCase().includes('method')) {
@@ -167,7 +170,7 @@ export function useMethodCall(opcUaUrl: string, socket: WebSocket | null) {
             ...prev,
             result: message,
             isLoading: false,
-            _hideLoading: undefined,
+            _hideLoading: null,
           };
         });
       }

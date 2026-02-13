@@ -26,10 +26,10 @@ export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<U
   // Normalize fields
   return children.map((c) => ({
     nodeId: c.nodeId,
-    displayName: c.displayName ?? c.browseName ?? c.nodeId,
+    displayName: c.displayName,
     browseName: c.browseName,
-    nodeClass: c.nodeClass ?? 'Unknown',
-    children: c.children ?? undefined,
+    nodeClass: c.nodeClass,
+    children: c.children,
     loaded: false,
     expanded: false,
     loading: false,
@@ -37,7 +37,7 @@ export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<U
 };
 
 export const fetchAllMethods = async (
-  opcUaUrl: string,
+  opcUaUrl: string | null,
   startNodeId = 'i=84',
 ): Promise<UaNode[]> => {
   const methods: UaNode[] = [];
@@ -73,8 +73,8 @@ export const fetchAllMethods = async (
   return methods.sort((a, b) => a.displayName.localeCompare(b.displayName));
 };
 
-export const fetchNodeValue = async (opcUaUrl: string, nodeId: string): Promise<any> => {
-  const encodedUrl = encodeURIComponent(opcUaUrl);
+export const fetchNodeValue = async (opcUaUrl: string | null, nodeId: string): Promise<any> => {
+  const encodedUrl = encodeURIComponent(opcUaUrl ?? '');
   const encodedNodeId = encodeURIComponent(nodeId);
 
   const res = await fetch(
@@ -99,8 +99,11 @@ export interface NodeDetails {
   eventNotifier?: number | null;
 }
 
-export const fetchNodeDetails = async (opcUaUrl: string, nodeId: string): Promise<NodeDetails> => {
-  const encodedUrl = encodeURIComponent(opcUaUrl);
+export const fetchNodeDetails = async (
+  opcUaUrl: string | null,
+  nodeId: string,
+): Promise<NodeDetails> => {
+  const encodedUrl = encodeURIComponent(opcUaUrl ?? '');
   const encodedNodeId = encodeURIComponent(nodeId);
 
   const res = await fetch(
@@ -119,10 +122,10 @@ export interface NodeReference {
 }
 
 export const fetchReferences = async (
-  opcUaUrl: string,
+  opcUaUrl: string | null,
   nodeId: string,
 ): Promise<NodeReference[]> => {
-  const encodedUrl = encodeURIComponent(opcUaUrl);
+  const encodedUrl = encodeURIComponent(opcUaUrl ?? '');
   const encodedNodeId = encodeURIComponent(nodeId);
 
   const res = await fetch(

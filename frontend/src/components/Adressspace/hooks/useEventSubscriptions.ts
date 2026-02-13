@@ -9,7 +9,7 @@ export interface EventSubscription {
   displayName: string;
 }
 
-export function useEventSubscriptions(opcUaUrl: string, socket: WebSocket | null) {
+export function useEventSubscriptions(opcUaUrl: string | null, socket: WebSocket | null) {
   const [eventSubscriptions, setEventSubscriptions] = useState<EventSubscription[]>([]);
 
   // ========== ADD EVENT SUBSCRIPTION ==========

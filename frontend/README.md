@@ -1,77 +1,53 @@
-# React + TypeScript + Vite
+# Web Skill Composition - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite with ESLint (type-aware) and Prettier for code quality.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x';
-import reactDom from 'eslint-plugin-react-dom';
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
-
+```bash
 cd frontend
-npm install //if starting first time
-npm run dev
+npm install
+```
+
+## Available Scripts
+
+- `npm run dev` - Start dev server (HMR enabled)
+- `npm run build` - TypeScript check + Vite build
+- `npm run preview` - Preview production build
+- `npm run typecheck` - Run TypeScript type checking
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Auto-fix ESLint issues
+- `npm run format` - Format code with Prettier
+- `npm run format:check` - Check if code is formatted
+
+## Development Workflow
+
+1. **Type checking**: Runs on build; check with `npm run typecheck`
+2. **Linting**: Type-aware ESLint catches async/promise bugs, unused vars, hook deps
+3. **Formatting**: Auto-formats on save (requires Prettier extension) or `npm run format`
+
+### Quick checks before commit
+
+```bash
+npm run typecheck
+npm run lint
+npm run format
+```
+
+## Configuration
+
+- **ESLint**: [eslint.config.js](eslint.config.js)
+  - Type-aware linting for `.ts/.tsx` files
+  - React Hooks validation
+  - Import auto-sorting
+  - Disables type-checking for `.js` files
+- **Prettier**: [.prettierrc](.prettierrc)
+  - Single quotes, trailing commas, 100-char width
+- **TypeScript**: [tsconfig.json](tsconfig.json)
+  - Strict mode, bundler module resolution for Vite
+
+## Notes
+
+- `.prettierrc` and `eslint.config.js` should be committed (shared across team)
+- `.tsbuildinfo` is in `.gitignore` (build artifact)
+- VS Code: Install [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension for format-on-save

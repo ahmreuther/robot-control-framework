@@ -4,7 +4,6 @@ const degToRad = (deg: number) => (deg * Math.PI) / 180;
 import { useEffect, useState } from 'react';
 
 import type { JointStateManager } from '../../../hooks/useJointState';
-import { WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
 import type { JointProperty } from '../../../hooks/useSceneState';
 import { CheckBox } from '../CheckBox';
 import { SliderInput } from './SliderInput';
@@ -13,7 +12,7 @@ export interface JointAnglesPanelProps {
   jointManager: JointStateManager;
   step?: number;
   onCollisionMeshToggle?: (visible: boolean) => void;
-  jointProperties: JointProperty[];
+  jointProperties?: (JointProperty | null)[];
   showCollisionMesh: boolean;
   setShowCollisionMesh?: (show: boolean) => void;
   reloadKey: number;
@@ -54,7 +53,7 @@ export function JointAnglesPanel({
             label="Collision Mesh"
             value={showCollisionMesh}
             onToggle={(checked) => {
-              setShowCollisionMesh(checked);
+              setShowCollisionMesh?.(checked);
               onCollisionMeshToggle?.(checked);
             }}
           />

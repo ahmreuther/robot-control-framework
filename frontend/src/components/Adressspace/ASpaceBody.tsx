@@ -86,7 +86,7 @@ export function buildTreeData(
         id
       ),
       children: children,
-      isLeaf: st.loaded && (childIds?.length ?? 0) === 0,
+      isLeaf: !!st.loaded && (childIds?.length ?? 0) === 0,
       selectable: true,
     };
   };
@@ -154,7 +154,7 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
   }, [expandedKeys]);
 
   const onSelect: TreeProps['onSelect'] = useCallback(
-    (keys, info) => {
+    (keys: Key[]) => {
       setSelectedKeys(keys);
 
       const id = (keys[0] as string) ?? null;
@@ -166,14 +166,14 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
     [store.nodes, onNodeSelect],
   );
 
-  const onExpand: TreeProps['onExpand'] = useCallback((keys) => {
+  const onExpand: TreeProps['onExpand'] = useCallback((keys: Key[]) => {
     setExpandedKeys(keys);
   }, []);
 
   const loadChildren = useCallback((nodeId: string) => fetchChildren(opcUaUrl, nodeId), [opcUaUrl]);
 
   const loadData: TreeProps['loadData'] = useCallback(
-    async (treeNode) => {
+    async (treeNode: any) => {
       const id = treeNode.key as string;
       const st = store.stateById.get(id);
       if (st?.loaded) return;

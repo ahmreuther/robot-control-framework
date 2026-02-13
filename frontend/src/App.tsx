@@ -133,7 +133,7 @@ function App() {
                               <Panel defaultSize="85%">
                                 <Viewport
                                   key={reloadKey}
-                                  urdfPath={selectedRobot.url}
+                                  urdfPath={selectedRobot?.url}
                                   jointManager={jointManager}
                                   onJointLimitsLoaded={setJointLimits}
                                   showCollisionMesh={showCollisionMesh}
@@ -218,7 +218,7 @@ function App() {
                           <div className="w-full h-[60vh]">
                             <Viewport
                               key={reloadKey}
-                              urdfPath={selectedRobot.url}
+                              urdfPath={selectedRobot?.url}
                               jointManager={jointManager}
                               onJointLimitsLoaded={setJointLimits}
                               showCollisionMesh={showCollisionMesh}

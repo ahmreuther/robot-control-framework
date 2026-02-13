@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Group, Panel } from 'react-resizable-panels';
-
 import { useLoading } from '../../../contexts/LoadingContext';
 import type { NodeDetails, NodeReference } from '../api';
 import { fetchNodeDetails, fetchReferences } from '../api';
@@ -8,7 +6,7 @@ import type { UaNode } from '../types';
 
 interface ASpaceDetailsPanelProps {
   node: UaNode | null;
-  opcUaUrl: string;
+  opcUaUrl: string | null;
 }
 
 export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, opcUaUrl }) => {
@@ -49,7 +47,7 @@ export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, op
   );
 };
 
-const Properties: React.FC<{ details: NodeDetails }> = ({ details }) => {
+const Properties: React.FC<{ details: NodeDetails | null }> = ({ details }) => {
   const rows: [string, any][] = [
     ['Node ID', details?.nodeId],
     ['Browse Name', details?.browseName],

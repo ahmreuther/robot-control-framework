@@ -2,7 +2,7 @@ import { Environment, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import { message, notification } from 'antd';
-import { Component, type ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
+import { Component, type ReactNode, Suspense, useEffect, useState } from 'react';
 
 import type { JointStateManager } from '../../hooks/useJointState';
 import type { JointProperty } from '../../hooks/useSceneState';
@@ -63,7 +63,7 @@ class EnvironmentErrorBoundary extends Component<
 }
 
 export interface ViewportProps {
-  urdfPath: string;
+  urdfPath?: string | null;
   jointManager: JointStateManager;
   onJointLimitsLoaded: (limits: (JointProperty | null)[]) => void;
   showCollisionMesh: boolean;
@@ -135,7 +135,7 @@ export function Viewport(props: ViewportProps) {
         {/* Robot with IK */}
         <Suspense fallback={<RobotLoader />}>
           <Robot
-            urdfPath={props.urdfPath}
+            urdfPath={props.urdfPath?}
             drag={drag}
             onSolveStatusesChange={setSolveStatusesState}
             onDrag={setDrag}

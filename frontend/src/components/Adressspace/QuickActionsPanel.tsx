@@ -5,7 +5,7 @@ import { fetchAllMethods } from './api';
 import type { UaNode } from './types';
 
 interface QuickActionsPanelProps {
-  opcUaUrl: string;
+  opcUaUrl: string | null;
   openMethodDialog: (node: UaNode) => void;
 }
 
@@ -71,7 +71,7 @@ export const QuickActionsPanel = ({ opcUaUrl, openMethodDialog }: QuickActionsPa
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter methods by name or NodeId"
-          className="input-ghost w-full text-left mb-2"
+          className="input-ghost w-full text-left"
         />
         {error && <div className="cell-muted mb-2">{error}</div>}
       </div>
