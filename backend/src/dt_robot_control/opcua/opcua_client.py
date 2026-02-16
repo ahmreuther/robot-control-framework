@@ -235,7 +235,7 @@ class OPCUAClient:
             })
 
             if self.websocket and self.websocket.client_state == WebSocketState.CONNECTED:
-                await self.websocket.send_text(f"x|robotinfo:{msg}")
+                await self.websocket.send_text(f"{self.url}|x|robotinfo:{msg}")
             print(f"[{self.name}] ✅ Robot info sent: {msg}")
 
         except Exception as e:

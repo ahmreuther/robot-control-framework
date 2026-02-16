@@ -54,7 +54,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if data == "status":
                     await handlers.handle_status(websocket)
                 else:
-                    await websocket.send_text(f"❓ Unknown command: {data}")
+                    await websocket.send_text(f"Global|❓ Unknown command: {data}")
     
     except Exception as e:
         print(f"WebSocket error: {e}")
