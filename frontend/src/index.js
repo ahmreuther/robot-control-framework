@@ -8,22 +8,70 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
-import URDFLoader from 'urdf-loader/src/URDFLoader.js';
-import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory } from './robotManager.js';
+import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory, getActiveRobot, setActiveRobot} from './robotManager.js';
 import { spawnRobot, disposeRobotNode, renderForAFewFrames } from './sceneManager.js';
-import { applyDefaultPose } from './URDFIKManipulator.js';
+import {
+    toggleMcpIntegration,
+    sendMcpRobotStateUpdate
+} from './functionalities.js';
+
+import {
+    toggleOpcUaSection,
+    toggleRobotDashboardSection,
+    switchTab,
+    handleNodeClick,
+    refreshSelectedNode,
+    handleContextMenu,
+    handleGlobalMouseDown,
+    handleContextCallMethod,
+    handleContextSubscribe,
+    handleContextUnsubscribe,
+    handleContextSubscribeEvent,
+    handleContextUnsubscribeEvent,
+    logMessageToBox,
+    clearLog,
+    syncWidth,
+    initWidthObserver,
+    getToggleDimensions
+} from './functionalities.js';
+
+import {
+    handleSocketMessage,
+    connectOpcUa,
+    disconnectOpcUa,
+    handleOpcUaSyncToggle,
+    handleOpcUaNodeSelection,
+    handleSubtreeClick,
+    updateRevoluteJointStatus,
+    handleManipulateEnd,
+    handleHomeClick,
+    updateRobotSpecificUI
+} from './functionalities.js';
+
+
 customElements.define('urdf-viewer', URDFIKManipulator);
+
+// Global keyboard handler for the active robot
+window.addEventListener('keydown', (e) => {
+    // Dispatch key events only to the currently active robot's manipulator
+    const activeRecord = getActiveRobot();
+    if (activeRecord && activeRecord.manipulator && typeof activeRecord.manipulator.handleKey === 'function') {
+        activeRecord.manipulator.handleKey(e.key);
+    }
+});
 
 // declare these globally for the sake of the example.
 // Hack to make the build work with webpack for now.
 // TODO: Remove this once modules or parcel is being used
 const viewer = document.querySelector('urdf-viewer');
+viewer.ignoreKeys = true;
+
 setupMiniStats(viewer);
 
 // Provide a global manipulator factory once so addRobot can reuse it.
 setManipulatorFactory(() => {
     if (!viewer) return null;
-    return new URDFIKManipulator({
+    const manipulator = new URDFIKManipulator({
         scene: viewer.scene,
         world: viewer.world,
         camera: viewer.camera,
@@ -37,6 +85,8 @@ setManipulatorFactory(() => {
             }
         }
     });
+    
+    return manipulator;
 });
 
 const limitsToggle = document.getElementById('ignore-joint-limits');
@@ -47,7 +97,6 @@ const upSelect = document.getElementById('up-select');
 const sliderList = document.querySelector('#controls ul');
 const controlsel = document.getElementById('controls');
 const controlsToggle = document.getElementById('toggle-controls');
-const animToggle = document.getElementById('do-animate');
 const hideFixedToggle = document.getElementById('hide-fixed');
 const ikMove = document.getElementById('ik-move');
 const DEG2RAD = Math.PI / 180;
@@ -61,18 +110,37 @@ const activeRobotSelect = document.getElementById('active-robot-select');
 const deleteRobotBtn = document.getElementById('delete-robot-btn');
 const robotCountValue = document.getElementById('robot-count-value');
 
+let originalNoAutoRecenter = null;
 
-let activeRobotId = null;
-let initialRobotRegistered = false;
+let globalSocket = null;
 
-const logMessage = msg => {
-    const logContainer = document.getElementById('message-log');
-    if (!logContainer) return;
-    const line = document.createElement('div');
-    line.classList.add('log-entry');
-    line.textContent = msg;
-    logContainer.prepend(line);
-};
+function initGlobalSocket() {
+    globalSocket = new WebSocket("ws://127.0.0.1:8000/ws");
+
+    globalSocket.onopen = () => {
+        console.log("WebSocket connection established.");
+        globalSocket.send("status");
+    };
+    globalSocket.onmessage = (event) => {
+        const activeRobot = getActiveRobot();
+        
+        // Safety Check: Only process if a robot actually exists
+        if (activeRobot) {
+            handleSocketMessage(activeRobot, event);
+        } else {
+            console.warn("Socket message received, but no active robot found to process it.");
+        }
+    }
+
+    globalSocket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+    };
+
+    globalSocket.onclose = () => {
+        console.log("WebSocket connection closed.");
+    };
+}
+initGlobalSocket();
 
 // renderForAFewFrames is provided by `services/sceneManager.js`
 
@@ -131,12 +199,99 @@ function addRobotOption(id, name) {
     opt.textContent = `${name} (${id})`;
     activeRobotSelect.appendChild(opt);
 }
-
-function setActiveRobot(id) {
-    activeRobotSelect.value = id;
-    activeRobotId = id;
+//TODO
+function switchRobot(robotId){
+    setActiveRobot(robotId);
+    const record = getActiveRobot();
+    activeRobotSelect.value = robotId; 
+    ControlCenterSliders(); 
+    updateRobotSpecificUI(record);
 }
 
+async function addRobotByModel(model) {
+    const slotIndex = getNextSlotIndex();
+    const record = await addRobot({
+        model: model.name,
+        urdfPath: model.urdf,
+        sceneNode: null,
+        slotIndex
+    });
+    // fixed v1.1
+    const spawned = await spawnRobot(viewer, {urdfPath: model.urdf, slotIndex, getNextSlotIndex});
+    if (!spawned) return;
+
+    const {rig, robot} = spawned;
+
+    // store rig (so delete removes the whole robot space)
+    record.sceneNode = rig;
+    rig.updateMatrixWorld(true);
+
+    if (globalSocket) {
+        record.state.connectivity.socket = globalSocket;
+    }
+    const manipulator = record.manipulator;
+
+    // pass robot for IK and rig so gizmo is parented correctly
+    manipulator.setRobot(robot, record.id, rig);
+
+    // create the sliders for the currently active robot
+    manipulator.addEventListener('urdf-processed', () => {
+        viewer.camera.position.set(-0.5, 1.1, 0.8);
+        ControlCenterSliders();
+        updateRevoluteJointStatus(record);
+
+    });
+
+    manipulator.addEventListener('angle-change', (e) => {
+        if (e && e.detail && controlSliders[e.detail]) {
+            controlSliders[e.detail].update();
+        } else {
+            Object.values(controlSliders).forEach(sl => sl.update());
+        }
+        updateRevoluteJointStatus(record);
+
+        sendMcpRobotStateUpdate(record);
+    });
+
+    manipulator.addEventListener('manipulate-start', (e) => {
+        switchRobot(record.id);
+        
+        const j = document.querySelector(`li[joint-name="${e.detail}"]`);
+        if (j) {
+            j.scrollIntoView({ block: 'nearest' });
+            window.scrollTo(0, 0);
+        }
+
+        originalNoAutoRecenter = viewer.noAutoRecenter;
+        viewer.noAutoRecenter = true;
+
+        record.state.interaction.isManipulating = true;
+    });
+
+    manipulator.addEventListener('manipulate-end', e => {
+        viewer.noAutoRecenter = originalNoAutoRecenter;
+        record.state.interaction.isManipulating = false;
+        handleManipulateEnd(record)
+    });
+    //hover effect i think
+    manipulator.addEventListener('joint-mouseover', e => {
+
+        const j = document.querySelector(`li[joint-name="${e.detail}"]`);
+        if (j) j.setAttribute('robot-hovered', true);
+
+    });
+
+    manipulator.addEventListener('joint-mouseout', e => {
+
+        const j = document.querySelector(`li[joint-name="${e.detail}"]`);
+        if (j) j.removeAttribute('robot-hovered');
+
+    });
+    addRobotOption(record.id, model.name);
+    switchRobot(record.id);
+
+    robotCountValue.textContent = listRobots().length;
+}
 // spawnRobot handled by `services/sceneManager.js`
 
 // disposeRobotNode handled by `services/sceneManager.js`
@@ -149,116 +304,46 @@ addRobotBtn.addEventListener('click', async () => {
         
         const model = robotModels.find(m => m.name === selectedName);
         if (!model) return;
-
-        const slotIndex = getNextSlotIndex();
-        const record = await addRobot({
-            model: model.name,
-            urdfPath: model.urdf,
-            sceneNode: null,
-            slotIndex
-        });
-        // fixed v1.1
-        const spawned = await spawnRobot(viewer, {urdfPath: model.urdf, slotIndex, getNextSlotIndex});
-        if (spawned) {
-            const {rig, robot} = spawned;
-
-            // store rig (so delete removes the whole robot space)
-            record.sceneNode = rig;
-            rig.updateMatrixWorld(true);
-
-            // pass robot for IK and rig so gizmo is parented correctly
-            record.manipulator.setRobot(robot, record.id, rig);
-        }
+        addRobotByModel(model);
         
-        addRobotOption(record.id, model.name);
-        setActiveRobot(record.id);
-        ControlCenterSliders();
-
-        robotCountValue.textContent = listRobots().length; // update count
     } catch (err) {
         console.error('Failed to add robot', err);
-        logMessage('Failed to add robot: ' + (err?.message || err));
+        logMessageToBox('Failed to add robot: ' + (err?.message || err));
     }
 });
 
 deleteRobotBtn.addEventListener('click', async () => {
-    if (!activeRobotId) return;
+    const record = getActiveRobot();
+
+    if (!record) return;
     
-    const record = getRobot(activeRobotId);
     if (record && record.sceneNode) {
         if (record.sceneNode.parent) record.sceneNode.parent.remove(record.sceneNode);
         disposeRobotNode(record.sceneNode);
     }
     renderForAFewFrames(viewer);
 
-    await removeRobot(activeRobotId);
+    await removeRobot(record.id);
     ControlCenterSliders();
 
     // remove from dropdown
-    const option = activeRobotSelect.querySelector(`option[value="${activeRobotId}"]`);
+    const option = activeRobotSelect.querySelector(`option[value="${record.id}"]`);
     if (option) option.remove();
 
     // select new robot if available
     if (activeRobotSelect.options.length > 0) {
-        activeRobotId = activeRobotSelect.options[0].value;
-        activeRobotSelect.value = activeRobotId;
+        setActiveRobot(activeRobotSelect.options[0].value);
+        activeRobotSelect.value = activeRobotSelect.options[0].value;
     } else {
-        activeRobotId = null;
+        setActiveRobot(null);
+        activeRobotSelect.value = getActiveRobot();
     }
+
     robotCountValue.textContent = listRobots().length;
 });
 
 activeRobotSelect.addEventListener('change', () => {
-    activeRobotId = activeRobotSelect.value;
-    ControlCenterSliders();
-});
-
-// Register the initially loaded robot (first URDF) so it counts and appears in the dropdown
-viewer.addEventListener('urdf-processed', async () => {
-    if (initialRobotRegistered || !viewer.robot) return;
-    try {
-        const slotIndex = getNextSlotIndex();
-
-        // Create rig for the initial robot
-        const rig = new THREE.Group();
-        rig.name = `rig_initial_${slotIndex}`;
-        rig.position.x = 1.5 * slotIndex;
-
-        // Add rig to scene and reparent the already-loaded robot into it
-        viewer.world.add(rig);
-        rig.add(viewer.robot);
-
-        // Robot base stays local identity inside rig
-        viewer.robot.position.set(0, 0, 0);
-        viewer.robot.quaternion.identity();
-
-        viewer.robot.updateMatrixWorld(true);
-        rig.updateMatrixWorld(true);
-
-        // Make the viewers own gizmo target follow the rig
-        if (typeof viewer.setBaseGroup === 'function'){
-            viewer.setBaseGroup(rig);
-        }
-
-        const record = await addRobot({
-            model: viewer.urdf || 'inital',
-            urdfPath: viewer.urdf,
-            sceneNode: rig,         // store rig, not robot
-            slotIndex,
-            createManipulator: false,
-        });
-
-        // This to register initial robot to make it deletable -> 
-        addRobotOption(record.id, record.model || record.id);
-        setActiveRobot(record.id);
-        ControlCenterSliders();
-
-        robotCountValue.textContent = listRobots().length;
-        initialRobotRegistered = true;
-
-    } catch (err) {
-        console.warn('Failed to register initial robot', err);
-    }
+    switchRobot(activeRobotSelect.value);
 });
 
 // Global Functions
@@ -307,78 +392,15 @@ upSelect.addEventListener('change', () => viewer.up = upSelect.value);
 
 controlsToggle.addEventListener('click', () => controlsel.classList.toggle('hidden'));
 
-
-viewer.addEventListener('urdf-change', () => {
-
-    Object
-        .values(controlSliders)
-        .forEach(sl => sl.remove());
-    controlSliders = {};
-
-});
-
+// not in addRobotByModel because it is global and for all UI (i think)
 viewer.addEventListener('ignore-limits-change', () => {
-
-    Object
-        .values(controlSliders)
-        .forEach(sl => sl.update());
-
+    Object.values(controlSliders).forEach(sl => sl.update());
 });
 
-
-viewer.addEventListener('angle-change', e => {
-    if (e && e.detail && controlSliders[e.detail]) {
-        controlSliders[e.detail].update();
-    } else {
-        Object.values(controlSliders).forEach(sl => sl.update());
-    }
-});
-
-
-viewer.addEventListener('joint-mouseover', e => {
-
-    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
-    if (j) j.setAttribute('robot-hovered', true);
-
-});
-
-viewer.addEventListener('joint-mouseout', e => {
-
-    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
-    if (j) j.removeAttribute('robot-hovered');
-
-});
-
-let originalNoAutoRecenter;
-viewer.addEventListener('manipulate-start', e => {
-
-    const j = document.querySelector(`li[joint-name="${e.detail}"]`);
-    if (j) {
-        j.scrollIntoView({ block: 'nearest' });
-        window.scrollTo(0, 0);
-    }
-
-    originalNoAutoRecenter = viewer.noAutoRecenter;
-    viewer.noAutoRecenter = true;
-
-});
-
-viewer.addEventListener('manipulate-end', e => {
-
-    viewer.noAutoRecenter = originalNoAutoRecenter;
-
-});
-
-// create the sliders for the currently active robot
-viewer.addEventListener('urdf-processed', () => {
-    ControlCenterSliders();
-});
 
 document.addEventListener('WebComponentsReady', () => {
 
     viewer.loadMeshFunc = (path, manager, done) => {
-
-
         const ext = path.split(/\./g).pop().toLowerCase();
         switch (ext) {
 
@@ -423,108 +445,49 @@ document.addEventListener('WebComponentsReady', () => {
         }
 
     };
+    //uses the eva model for color etc.
+    //maybe change it for more robust color
 
-    document.querySelector('li[urdf]').dispatchEvent(new Event('click'));
+    const color = "#546575";
+    viewer.up = '+Z';
+    document.getElementById('up-select').value = viewer.up;//what does this do?
 
+    setColor(color);
+    //adding initial robot
+    const model = robotModels[0]; //eva robot
+    addRobotByModel(model);
+    
     if (/javascript\/example\/bundle/i.test(window.location)) {
         viewer.package = '../../../urdf';
     }
-
+    /* // currently not working because it would need to be per robot and use the robotmanager. TODO
     registerDragEvents(viewer, () => {
         setColor('#263238');
         animToggle.classList.remove('checked');
         updateList();
     });
-
+    */
 });
 
-// init 2D UI and animation
-const updateAngles = () => {
-    if (!viewer.setJointValue || !viewer.robot || !viewer.robot.joints) return;
-
-    // reset everything to 0 first
-    // const resetJointValues = viewer.angles;
-    // for (const name in resetJointValues) resetJointValues[name] = 0;
-    // viewer.setJointValues(resetJointValues);
-
-
-
-    // animate the legs
-    const time = Date.now() / 3e2;
-    for (let i = 1; i <= 6; i++) {
-        const offset = i * Math.PI / 3;
-        const ratio = Math.max(0, Math.sin(time + offset));
-        viewer.setJointValue(`HP${i}`, THREE.MathUtils.lerp(30, 0, ratio) * DEG2RAD);
-        viewer.setJointValue(`KP${i}`, THREE.MathUtils.lerp(90, 150, ratio) * DEG2RAD);
-        viewer.setJointValue(`AP${i}`, THREE.MathUtils.lerp(-30, -60, ratio) * DEG2RAD);
-        viewer.setJointValue(`TC${i}A`, THREE.MathUtils.lerp(0, 0.065, ratio));
-        viewer.setJointValue(`TC${i}B`, THREE.MathUtils.lerp(0, 0.065, ratio));
-        viewer.setJointValue(`W${i}`, window.performance.now() * 0.001);
-    }
-};
-
-const updateLoop = () => {
-
-    if (animToggle.classList.contains('checked')) {
-        updateAngles();
-    }
-
-    requestAnimationFrame(updateLoop);
-
-};
-
-const updateList = () => {
-
-    document.querySelectorAll('#urdf-options li[urdf]').forEach(el => {
-
-        el.addEventListener('click', e => {
-
-            const urdf = e.target.getAttribute('urdf');
-            const color = e.target.getAttribute('color');
-
-            viewer.up = '+Z';
-            document.getElementById('up-select').value = viewer.up;
-
-            viewer.urdf = urdf;
-            animToggle.classList.add('checked');
-            setColor(color);
-
-        });
-
-    });
-
-};
-
-updateList();
 
 document.addEventListener('WebComponentsReady', () => {
 
-    animToggle.addEventListener('click', () => animToggle.classList.toggle('checked'));
-
-    // stop the animation if user tried to manipulate the model
-    viewer.addEventListener('manipulate-start', e => animToggle.classList.remove('checked'));
-    viewer.addEventListener('urdf-processed', e => updateAngles());
-    updateLoop();
-    viewer.camera.position.set(-5.5, 3.5, 5.5);
+    //viewer.camera.position.set(-1.5, 3.5, 5.5);
+    viewer.camera.position.set(-1.5, 1.5, 1.5);
     autocenterToggle.classList.remove('checked');
     viewer.noAutoRecenter = true;
-
 });
 
-// ===== Robot Control Center Functions =====
-function getActiveRecord() {
-    if (!activeRobotId) return null;
-    return getRobot(activeRobotId);
-}
 
+// ===== Robot Control Center Functions =====
 function ControlCenterSliders() {
     // Clear existing sliders
     Object.values(controlSliders).forEach(li => li.remove());
     controlSliders = {};
 
-    const record = getActiveRecord();
+    const record = getActiveRobot();
     const manipulator = record?.manipulator;
-    const robot = manipulator?.robot || viewer?.robot;
+    const robot = manipulator?.robot;
     if (!robot || !robot.joints) return;
 
     Object.keys(robot.joints)
@@ -542,8 +505,11 @@ function ControlCenterSliders() {
         .forEach(jointName => {
             const joint = robot.joints[jointName];
 
-            if (joint.jointType === 'fixed') return;
-            if (joint.jointType === 'prismatic' && Array.isArray(joint.mimicJoints) && joint.mimicJoints.length === 0) return;
+            // if (joint.jointType === 'fixed') return;
+            if (joint.jointType === 'prismatic' && 
+                Array.isArray(joint.mimicJoints) && 
+                joint.mimicJoints.length === 0
+            ) return;
 
             const li = document.createElement('li');
             li.innerHTML = `
@@ -560,7 +526,7 @@ function ControlCenterSliders() {
             const input = li.querySelector('input[type="number"]');
 
             li.update = () => {
-                const current = (manipulator?.robot || viewer?.robot)?.joints?.[jointName];
+                const current = (manipulator?.robot)?.joints?.[jointName];
                 if (!current) return;
 
                 const degMultiplier = radiansToggle.classList.contains('checked') ? 1.0 : RAD2DEG;
@@ -602,26 +568,42 @@ function ControlCenterSliders() {
                     input.remove();
                     slider.remove();
             }
+            // Helpers
+            const startManipulating = () => {
+                record.state.interaction.isManipulating = true;
+            };
 
-            slider.addEventListener('input', () => {
-                const value = parseFloat(slider.value);
+            const stopManipulating = () => {
+                record.state.interaction.isManipulating = false;
+                handleManipulateEnd(record);
+                li.update();
+            };
+
+            const applyJointValue = (value) => {
                 if (manipulator?.setJointValue) {
                     manipulator.setJointValue(jointName, value);
-                } else if (viewer?.setJointValue) {
-                    viewer.setJointValue(jointName, value);
                 }
                 li.update();
+            };
+
+            
+            slider.addEventListener('input', () => {
+                startManipulating();
+                applyJointValue(parseFloat(slider.value));
             });
+
+            // End manipulation reliably
+            slider.addEventListener('pointerup', stopManipulating);
+            slider.addEventListener('touchend', stopManipulating);
+            slider.addEventListener('change', stopManipulating); // fallback
 
             input.addEventListener('change', () => {
                 const degMultiplier = radiansToggle.classList.contains('checked') ? 1.0 : DEG2RAD;
                 const value = parseFloat(input.value) * degMultiplier;
-                if (manipulator?.setJointValue) {
-                    manipulator.setJointValue(jointName, value);
-                } else if (viewer?.setJointValue) {
-                    viewer.setJointValue(jointName, value);
-                }
-                li.update();
+
+                startManipulating();
+                applyJointValue(value);
+                stopManipulating();
             });
 
             li.update();
@@ -641,3 +623,136 @@ function ControlCenterSliders() {
         if (record) record._controlCenterListenerAttached = true;
     }
 }
+
+    
+toggleRobotDashboardSection();
+toggleOpcUaSection();
+document.getElementById('connect-opc-ua').addEventListener('click', () => {
+    connectOpcUa(getActiveRobot());
+});
+
+document.getElementById('disconnect-opc-ua').addEventListener('click', () => {
+    disconnectOpcUa(getActiveRobot());
+});
+const opcUaSyncToggle = document.getElementById('opc-ua-sync-toggle');
+opcUaSyncToggle.addEventListener('change', (e) => {
+    handleOpcUaSyncToggle(getActiveRobot(), e);
+});
+
+const opcUaSyncToggleContainer = document.getElementById('opc-ua-sync-toggle-container');
+opcUaSyncToggleContainer.addEventListener('click', (e) => {
+    e.stopPropagation();
+}, true);
+
+document.addEventListener("click", (e) => {
+    handleOpcUaNodeSelection(getActiveRobot(), e);
+});
+
+document.addEventListener("click", async (e) => {
+        handleSubtreeClick(getActiveRobot(), e);
+});
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        const tabName = btn.getAttribute("data-tab");
+        switchTab(tabName);
+    });
+});
+
+document.getElementById('clear-log-btn').addEventListener('click', () => {
+    clearLog();
+});
+
+document.addEventListener("contextmenu", (e) => {
+    handleContextMenu(getActiveRobot(), e);
+});
+
+document.addEventListener("click", (e) => {
+    handleNodeClick(getActiveRobot(), e);
+});
+
+document.getElementById('context-call-method').addEventListener('click', () => {
+    handleContextCallMethod(getActiveRobot());
+});
+
+document.getElementById('context-subscribe').addEventListener('click', () => {
+    handleContextSubscribe(getActiveRobot());
+});
+
+document.getElementById('context-unsubscribe').addEventListener('click', () => {
+    handleContextUnsubscribe(getActiveRobot());
+});
+
+document.getElementById('context-subscribe_event').addEventListener('click', () => {
+    handleContextSubscribeEvent(getActiveRobot());
+});
+document.getElementById('context-unsubscribe_event').addEventListener('click', () => {
+    handleContextUnsubscribeEvent(getActiveRobot());
+});
+
+window.addEventListener('mousedown', (e) => {
+    handleGlobalMouseDown(e);
+});
+
+// DOM Elements
+const infoBox = document.getElementById("info-box");
+const propertiesBox = document.getElementById("properties-box");
+const toggleBtn = document.getElementById("info-toggle-btn");
+//already defined
+
+// Internal State
+
+// 1. Initial Setup
+syncWidth(infoBox, propertiesBox);
+initWidthObserver(infoBox, propertiesBox);
+
+let infoBoxExpanded = true;
+
+toggleBtn?.addEventListener("click", () => {
+    const { width, label } = getToggleDimensions(infoBoxExpanded);
+    
+    // Apply changes
+    infoBox.style.width = width;
+    propertiesBox.style.width = width;
+    toggleBtn.textContent = label;
+    
+    // Update state
+    infoBoxExpanded = !infoBoxExpanded;
+});
+
+// have last connect url in opcua url box
+/* // this is not really needed/good if we want multiple robots. is currently overridde by updateRobotSpecificUI
+window.addEventListener('DOMContentLoaded', () => {
+    const urlInput = document.getElementById('opc-ua-url');
+    const lastUrl = localStorage.getItem('lastOpcUaUrl');
+    if (lastUrl && urlInput) {
+        urlInput.value = lastUrl;
+    }
+});
+*/
+
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('radians-toggle')?.addEventListener('click', () => {
+        setTimeout(() => { updateRevoluteJointStatus(robot); }, 0);
+    });
+});
+document.getElementById('refresh-info-box').addEventListener('click', () =>{
+    refreshSelectedNode();
+});
+
+document.getElementById('home-icon').addEventListener('click', () => {
+    handleHomeClick(getActiveRobot());
+});
+
+document.getElementById('mcp-integration-toggle').addEventListener('click', (e) => {
+    toggleMcpIntegration(getActiveRobot(), e);
+});
+
+
+window.addEventListener('load', () => {
+    // Enable Hide Fixed Joints when loading
+    const hideFixedToggle = document.getElementById('hide-fixed');
+    hideFixedToggle.dispatchEvent(new Event('click'));
+});
+
+

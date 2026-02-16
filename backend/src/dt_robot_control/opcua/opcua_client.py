@@ -30,25 +30,6 @@ class OPCUAClient:
       ~gpt
     """
 
-    
-    name: str
-    url: str
-    client: Client      # asyncua.Client
-    websocket: WebSocket
-    is_robotics_server:bool
-    namespaces: list[str]
-
-    goto_method_nodeid: str | None           
-    toggle_endeff_method_nodeid: str | None   
-
-    # managers
-    subscription_manager: SubscriptionManager
-    node_manager: NodeManager
-
-    running: bool
-
-    
-
     def __init__(
             self, url: str, 
             name: str = "Client", 

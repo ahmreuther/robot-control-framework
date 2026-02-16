@@ -21,6 +21,7 @@ import {
     Vector3,
     Quaternion
 } from 'three';
+import { PointerURDFDragControls } from 'urdf-loader/src/URDFDragControls.js';
 
 // Shared helper to set a sensible starting pose per robot name
 export const applyDefaultPose = (robot) => {
@@ -72,66 +73,59 @@ export default class URDFIKManipulator extends URDFManipulator {
     constructor(context = {}) {
         // context is optional; when provided, it lets us share an existing scene/camera/renderer
         super();
+
+        // Save the joint highlighting logic from the parent class
+        this._parentHighlightingLogic = null;
+        if (this.dragControls) {
+            this._parentHighlightingLogic = {
+                onHover: this.dragControls.onHover,
+                onUnhover: this.dragControls.onUnhover,
+            };
+        }
+
+        // Dispose of the parent class controls for dragging because they attach to the global scene vs a specific robot
+        // This also fixed the controls being attached to the viewer in index.js
+        if (this.dragControls) {
+            this.dragControls.dispose();
+            this.dragControls = null;
+        }
+
         this.robotId = null; // set by robotManager
         this.requestRender = context.requestRender || null;
 
-        // Prefer injected context from caller (e.g., viewer) so TransformControls bind to the right DOM element
         this.scene = context.scene || this.scene;
         this.world = context.world || this.world;
         this.camera = context.camera || this.camera;
         this.renderer = context.renderer || this.renderer;
         this.controls = context.controls || this.controls;
 
-        const controls = this.controls;
 
         // Transform controls
-        const transformControls = new TransformControls(this.camera, this.renderer?.domElement);
-        transformControls.setSpace('world');
-        transformControls.addEventListener('change', () => this.redraw());
-        transformControls.setSpace('local');
-        this.scene.add(transformControls.getHelper());
+        this.transformControls = new TransformControls(this.camera, this.renderer?.domElement);
+        this.transformControls.setSpace('local');
+        this.transformControls.addEventListener('change', () => this.redraw());
 
-        // Target marker object
-        const targetObject = new Group();
         const geometry = new SphereGeometry(0.005, 32, 16);
         const material = new MeshBasicMaterial({ color: 0xffff00 });
         const sphere = new Mesh(geometry, material);
-        targetObject.add(sphere);
 
-        // change v1.1
-        this.baseGroup = this.world;        // default until a righ is provided
-        this.baseGroup.add(targetObject)    // target lives under baseGroup (rig later)
-        //this.world.add(targetObject);
-        transformControls.attach(targetObject);
+        this.targetObject = new Group();
+        this.targetObject.add(sphere);
 
-        // Members
-        this.transformControls = transformControls;
-        this.targetObject = targetObject;
         this.ikRoot = null;
         this.goal = null;
         this.solver = null;
 
-        //this.solveAvgMs = 0;
-        //this.solveCount = 0;
-
-
-
         // TransformControls events
-
-        transformControls.addEventListener('dragging-changed', e => controls.enabled = !e.value);
-        transformControls.addEventListener('mouseDown', () => this.onDragStart());
-        transformControls.addEventListener('change', () => {
+        this.transformControls.addEventListener('dragging-changed', e => this.controls.enabled = !e.value);
+        this.transformControls.addEventListener('mouseDown', () => this.onDragStart());
+        this.transformControls.addEventListener('change', () => {
             this.onDragChange();
             if (this.requestRender) this.requestRender();
         });
-        transformControls.addEventListener('mouseUp', () => this.onDragEnd());
-
-        // keyboard shortcuts
-        window.addEventListener('keydown', e => this.onKeyDown(e));
-
+        this.transformControls.addEventListener('mouseUp', () => this.onDragEnd());
 
         this.addEventListener('urdf-processed', () => this.init());
-
         this.addEventListener('reset-angles', () => {
             const robot = this.robot;
             if (!robot) return;
@@ -142,30 +136,28 @@ export default class URDFIKManipulator extends URDFManipulator {
             robot.updateMatrixWorld(true);
             this.dispatchEvent(new Event('angle-change')); // triggers setIKFromUrdf + resetGoal()
         });
-
         this.addEventListener('angle-change', () => {
             setIKFromUrdf(this.ikRoot, this.robot);
             this.resetGoal();
         });
 
+        // sprite label
         const canvas = document.createElement('canvas');
         canvas.width = 356;
         canvas.height = 94;
-        const ctx = canvas.getContext('2d');
-
-        const texture = new CanvasTexture(canvas);
-        const spriteMaterial = new SpriteMaterial({ map: texture, depthTest: false });
-        const sprite = new Sprite(spriteMaterial);
-        sprite.scale.set(0.12, 0.035, 1.0);
-        sprite.position.set(0.1, -0.15, 0);
-        sprite.visible = false;
-        sprite.raycast = () => { };
-        this.targetObject.add(sprite);
-
-        this.labelSprite = sprite;
         this.labelCanvas = canvas;
-        this.labelCtx = ctx;
-        this.labelTexture = texture;
+
+        this.labelCtx = canvas.getContext('2d');
+        this.labelTexture = new CanvasTexture(canvas);
+
+        const spriteMaterial = new SpriteMaterial({ map: this.labelTexture, depthTest: false });
+        this.labelSprite = new Sprite(spriteMaterial);
+        this.labelSprite.scale.set(0.12, 0.035, 1.0);
+        this.labelSprite.position.set(0.1, -0.15, 0);
+        this.labelSprite.visible = false;
+        this.labelSprite.raycast = () => { };
+
+        this.targetObject.add(this.labelSprite);
         this.startPos = new Vector3();
     }
 
@@ -175,12 +167,21 @@ export default class URDFIKManipulator extends URDFManipulator {
     setRobot(robot, robotId = null, baseGroup = null){
         if (!robot) return;
 
-        // IMPORTANT NOTE: rig becomes the manipulators base group (so gizmo inherits the offset correctly)
+        // IMPORTANT: rig becomes the manipulators base group (so gizmo inherits the offset correctly)
         this.setBaseGroup(baseGroup);
 
         this.robot = robot;
-        this.robotId = robotId == this.robotId;
+        this.robotId = robotId || this.robotId;
 
+        // DEFAULT STATE: Drag controls DISABLED. Gizmo ENABLED.
+        // User must use 't' to toggle between Gizmo (IK) and Joint Drags (FK) to avoid conflicts.
+        this._disableDragControls();
+
+        if (this.targetObject && this.transformControls) {
+            this.baseGroup.add(this.targetObject);
+            this.transformControls.attach(this.targetObject);
+            this.scene.add(this.transformControls.getHelper());
+        }
         // Re-init IK/gizmo state (in robot-local space)
         this.dispatchEvent(new Event('urdf-processed'));
         this.resetGoal();
@@ -196,6 +197,56 @@ export default class URDFIKManipulator extends URDFManipulator {
         }
 
         this.baseGroup = next;
+    }
+    // new drag controls which uses the same joint highlighting logic as the parent class
+    _enableDragControls() {
+        // Safe to call even if already enabled, will reset
+        if (this.dragControls) this.dragControls.dispose();
+
+        if (!this.renderer || !this.renderer.domElement) return;
+
+        // Pass this.robot to restrict raycasting to this robot only
+        this.dragControls = new PointerURDFDragControls(this.robot, this.camera, this.renderer.domElement);
+         
+        this.dragControls.onDragStart = j => {
+            this.controls.enabled = false;
+            this.dispatchEvent(new CustomEvent('manipulate-start', { detail: j.name, bubbles: true, cancelable: true }));
+            this.redraw();
+            this.requestRender?.();
+        };
+
+        this.dragControls.onDragEnd = j => {
+            this.controls.enabled = true;
+            this.dispatchEvent(new CustomEvent('manipulate-end', { detail: j.name, bubbles: true, cancelable: true }));
+            this.redraw();
+            this.requestRender?.();
+        };
+
+        this.dragControls.updateJoint = (j, angle) => this.setJointValue(j.name, angle);
+        
+        // 3. Reuse Captured Logic:
+        // Wire the saved highlighting logic into the new controls so visual feedback works.
+        if (this._parentHighlightingLogic) {
+            this.dragControls.onHover = j => {
+                this._parentHighlightingLogic.onHover(j);
+                this.requestRender?.(); 
+            };
+            this.dragControls.onUnhover = j => {
+                this._parentHighlightingLogic.onUnhover(j);
+                this.requestRender?.();
+            };
+        }
+    }
+
+    _disableDragControls() {
+        if (this.dragControls) {
+            // If something is currently highlighted, un-highlight it before destroying controls
+            if (this.dragControls.hovered) {
+                this.dragControls.onUnhover(this.dragControls.hovered);
+            }
+            this.dragControls.dispose();
+            this.dragControls = null;
+        }
     }
 
     init() {
@@ -246,7 +297,7 @@ export default class URDFIKManipulator extends URDFManipulator {
      */
     setJointValue(jointName, value) {
         if (!this.robot || !this.robot.joints || !this.robot.joints[jointName]) {
-            console.warn(`Joint ${jointName} not found on robot`);
+            console.error(`Joint ${jointName} not found on robot: ${this.robot} id: ${this.robotId}`);
             return;
         }
         
@@ -382,9 +433,11 @@ export default class URDFIKManipulator extends URDFManipulator {
         ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
     }
 
-    onKeyDown(e) {
+    handleKey(key) {
+        if (this.ignoreKeys) return;
+        
         if (!this.transformControls) return;
-        switch (e.key) {
+        switch (key) {
             case 'w':
                 this.transformControls.setMode('translate');
                 break;
@@ -395,18 +448,29 @@ export default class URDFIKManipulator extends URDFManipulator {
                 this.transformControls.setSpace(this.transformControls.space === 'local' ? 'world' : 'local');
                 break;
             case 't':
-                if (this.transformControls.object) { //is null if not attached
+                if (this.transformControls.object) { 
+                    // Case 1: Gizmo is active. Switch to Joint Drag Mode (FK).
                     this.transformControls.detach();
                     this.scene.remove(this.transformControls.getHelper());
+
+                    // Enable FK dragging
+                    this._enableDragControls();
                 } else {
+                    // Case 2: FK is active. Switch to Gizmo Mode (IK).
                     this.transformControls.attach(this.targetObject);
                     this.scene.add(this.transformControls.getHelper());
+                    
+                    // Disable FK dragging
+                    this._disableDragControls();
                 }
                 break;
         }
 
     }
     remove() {
+        // Dispose drag controls
+        this._disableDragControls();
+
         // Detach transform controls
         if (this.transformControls) {
             this.transformControls.detach();
