@@ -380,23 +380,22 @@ export function handleSocketMessage(event) {
     }
 
     const allRobots = listRobots();
-    // Find all robots connected to this URL
-    const targetRobots = allRobots.filter(r => r.state.connectivity.connectedUrl === robotIdOrUrl);
-
-    if (targetRobots.length === 0) {
-        // It might be that we just connected but haven't updated state yet? 
-        // But connectOpcUa updates state immediately.
-        console.warn(`[handleSocketMessage] No robot found for URL identifier: ${robotIdOrUrl}`);
-        return;
+    let targetRobot = allRobots.find(r => r.state.connectivity.connectedUrl === robotIdOrUrl);
+    
+    // Fallback to the active robot for initial handshakes
+    // (where the URL isn't saved in the state yet)
+    if (!targetRobot) {
+        targetRobot = getActiveRobot();
     }
 
-    targetRobots.forEach(robotRecord => {
-        if (message.startsWith("x|")) {
-            handleProtocolMessage(robotRecord, message);
-        } else {
-            handleStatusMessage(robotRecord, message);
-        }
-    });
+    // If no robot is active and no URL matches, we can't route the message
+    if (!targetRobot) return;
+    
+    if (message.startsWith("x|")) {
+        handleProtocolMessage(targetRobot, message);
+    } else {
+        handleStatusMessage(targetRobot, message, robotIdOrUrl);
+    }
 }
 
 function handleProtocolMessage(robotRecord, data) {
@@ -578,7 +577,7 @@ function handleProtocolMessage(robotRecord, data) {
     }
 }
 
-function handleStatusMessage(robotRecord, data) {
+function handleStatusMessage(robotRecord, data, originUrl) {
     logMessageToBox(`🔔 ${data}`);
     const { opcua, ui, connectivity } = robotRecord.state;
     // Handle method call result
@@ -610,9 +609,10 @@ function handleStatusMessage(robotRecord, data) {
 
 
     if (data.startsWith("✅ Connected to ")) {
-        const url = data.replace("✅ Connected to ", "").trim();
-        connectivity.connectedUrl = url;
-        loadDeviceSet(robotRecord, connectivity.connectedUrl);
+        if (!connectivity.connectedUrl) {
+            connectivity.connectedUrl = originUrl;
+            loadDeviceSet(robotRecord, connectivity.connectedUrl);
+        }
 
         if (robotRecord === getActiveRobot()) {
             setInfoBoxState(true);
@@ -634,8 +634,7 @@ function handleStatusMessage(robotRecord, data) {
         }
 
     } else if (data.startsWith("\ud83d\udd0c Disconnected from ")) {
-        const url = data.replace("\ud83d\udd0c Disconnected from ", "").trim();
-        if (connectivity.connectedUrl === url) {
+        if (connectivity.connectedUrl === originUrl) {
             connectivity.connectedUrl = null;
         }
 
@@ -747,13 +746,12 @@ export function connectOpcUa(robotRecord) {
     const { connectivity } = robotRecord.state;
     if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
         connectivity.socket.send(message);
-        connectivity.connectedUrl = url;
+        //connectivity.connectedUrl = url;
         console.log(`[${robotRecord.id}] Connecting to OPC UA at ${url}`);
 
     } else {
         alert("WebSocket is not connected.");
     }
-    robotRecord.state.connectivity.connectedUrl = url;
 }
 
 export function disconnectOpcUa(robotRecord) {
@@ -766,7 +764,6 @@ export function disconnectOpcUa(robotRecord) {
             return alert("No URL specified for this robot.");
         }
         connectivity.socket.send(`disconnect|${url}`);
-        // connectivity.connectedUrl = null; // Do not clear yet, wait for server confirmation
         document.getElementById('info-content').style.width = "400px";
 
         console.log(`[${robotRecord.id}] Requesting disconnect from OPC UA at ${url}`);
@@ -914,14 +911,16 @@ function updateReferencesTable(refs, robotRecord) {
 }
 //done
 export function handleOpcUaNodeSelection(robotRecord, event) {
-    if (!robotRecord) {
-        logMessageToBox('❌ No active robot.');
-        return false;
-    }
+    
 
     if (event.target.closest('#custom-context-menu')) return;
 
     if (!((event.target.tagName === "SUMMARY" || event.target.tagName === "SPAN") && event.target.dataset?.nodeId)) return;
+    
+    if (!robotRecord) {
+        logMessageToBox('❌ No active robot.');
+        return false;
+    }
 
     const { connectivity, ui } = robotRecord.state;
 
