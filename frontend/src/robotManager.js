@@ -5,6 +5,17 @@ class RobotManager {
         this.statusListener = null;
         this.manipulatorFactory = null; // set once from UI layer
         this.activeRobotId = null;
+        this.globalSocket = null;
+    }
+
+    setGlobalSocket(socket) {
+        this.globalSocket = socket;
+        // Update existing robots with the new socket reference
+        this.robots.forEach(robot => {
+            if (robot.state && robot.state.connectivity) {
+                robot.state.connectivity.socket = socket;
+            }
+        });
     }
 
     setActiveRobot(robotId) {
@@ -82,7 +93,7 @@ class RobotManager {
             //global attributes from funcitionalities.js now per robot
             state: {
                 connectivity: {
-                    socket: null, //backend opcua socket
+                    socket: this.globalSocket, //backend opcua socket
                     socketMcp: null,
                     connectedUrl: null,
                     status: 'disconnected',
@@ -108,7 +119,11 @@ class RobotManager {
                     selectedNodeId: null,
                     selectedNodeElement: null,
                     showSubscriptionsTabOnNextCustom: false,
-                    subscriptions: new Map()
+                    // Persistent UI state per robot
+                    subscriptions: new Map(), // nodeId -> value
+                    events: [],               // strings (HTML/Text)
+                    references: [],           // array of objects
+                    properties: {}            // key-value object
                 },
                 robotInfo: {
                     manufacturer: null,
@@ -144,9 +159,10 @@ class RobotManager {
         if (!record) return false;
 
         try {
-            if (record.state.connectivity.socket) {
-                record.state.connectivity.socket.close();
-            }
+            // Shared global socket must NOT be closed when removing a single robot
+            // if (record.state.connectivity.socket) {
+            //     record.state.connectivity.socket.close();
+            // }
             this.detachManipulator(record);
 
         } finally {
@@ -180,6 +196,7 @@ export const clearAll = robotManager.clearAll.bind(robotManager);
 export const getNextSlotIndex = robotManager.getNextSlotIndex.bind(robotManager);
 export const setActiveRobot = robotManager.setActiveRobot.bind(robotManager);
 export const getActiveRobot = robotManager.getActiveRobot.bind(robotManager);
+export const setGlobalSocket = robotManager.setGlobalSocket.bind(robotManager);
 // Small built-in catalog of known robot models used by the UI.
 // Kept here to avoid an extra config file while still centralizing model metadata.
 export const robotModels = [

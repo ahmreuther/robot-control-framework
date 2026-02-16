@@ -8,8 +8,8 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
-import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory, getActiveRobot, setActiveRobot} from './robotManager.js';
-import { spawnRobot, disposeRobotNode, renderForAFewFrames } from './sceneManager.js';
+import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory, getActiveRobot, setActiveRobot, setGlobalSocket} from './robotManager.js';
+import { spawnRobot, disposeRobotNode } from './sceneManager.js';
 import {
     toggleMcpIntegration,
     sendMcpRobotStateUpdate
@@ -116,20 +116,14 @@ let globalSocket = null;
 
 function initGlobalSocket() {
     globalSocket = new WebSocket("ws://127.0.0.1:8000/ws");
+    setGlobalSocket(globalSocket);
 
     globalSocket.onopen = () => {
         console.log("WebSocket connection established.");
         globalSocket.send("status");
     };
     globalSocket.onmessage = (event) => {
-        const activeRobot = getActiveRobot();
-        
-        // Safety Check: Only process if a robot actually exists
-        if (activeRobot) {
-            handleSocketMessage(activeRobot, event);
-        } else {
-            console.warn("Socket message received, but no active robot found to process it.");
-        }
+        handleSocketMessage(event);
     }
 
     globalSocket.onerror = (error) => {
@@ -141,8 +135,6 @@ function initGlobalSocket() {
     };
 }
 initGlobalSocket();
-
-// renderForAFewFrames is provided by `services/sceneManager.js`
 
 function setupMiniStats(viewerEl) {
   const container = document.getElementById('stats-output');
@@ -316,12 +308,17 @@ deleteRobotBtn.addEventListener('click', async () => {
     const record = getActiveRobot();
 
     if (!record) return;
+
+    // Prevent deletion if connected
+    if (record.state.connectivity.connectedUrl) {
+        alert("Cannot delete robot while connected to OPC UA server. Please disconnect first.");
+        return;
+    }
     
     if (record && record.sceneNode) {
         if (record.sceneNode.parent) record.sceneNode.parent.remove(record.sceneNode);
         disposeRobotNode(record.sceneNode);
     }
-    renderForAFewFrames(viewer);
 
     await removeRobot(record.id);
     ControlCenterSliders();
@@ -332,11 +329,9 @@ deleteRobotBtn.addEventListener('click', async () => {
 
     // select new robot if available
     if (activeRobotSelect.options.length > 0) {
-        setActiveRobot(activeRobotSelect.options[0].value);
-        activeRobotSelect.value = activeRobotSelect.options[0].value;
+        switchRobot(activeRobotSelect.options[0].value);
     } else {
-        setActiveRobot(null);
-        activeRobotSelect.value = getActiveRobot();
+        switchRobot(null);
     }
 
     robotCountValue.textContent = listRobots().length;

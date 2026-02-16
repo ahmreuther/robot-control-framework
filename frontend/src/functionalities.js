@@ -1,5 +1,5 @@
 import { Vector3 } from "three";
-import { getActiveRobot } from './robotManager.js';
+import { getActiveRobot, listRobots } from './robotManager.js';
 
 
 // Utils: Extract URDF joints from viewer
@@ -304,7 +304,15 @@ function loadDeviceSet(robotRecord, opcUaUrl) {
         });
 }
 
-function updateSubscriptionTable(nodeId, value) {
+function updateSubscriptionTable(nodeId, value, robotRecord) {
+    // Update State
+    if (robotRecord) {
+        robotRecord.state.ui.subscriptions.set(nodeId, value);
+    }
+
+    // Only update DOM if this is the active robot
+    if (robotRecord !== getActiveRobot()) return;
+
     const table = document.getElementById("subscriptions-table");
     if (!table) return;
     let row = table.querySelector(`tr[data-node-id="${nodeId}"]`);
@@ -323,7 +331,8 @@ function updateSubscriptionTable(nodeId, value) {
         cellValue.textContent = value;
         row.appendChild(cellValue);
 
-        table.querySelector("tbody").appendChild(row);
+        const tbody = table.querySelector("tbody");
+        if(tbody) tbody.appendChild(row);
     } else {
         // Value update
         const cellValue = row.querySelector(".subscription-value");
@@ -332,22 +341,62 @@ function updateSubscriptionTable(nodeId, value) {
 }
 
 
-function removeSubscriptionRow(nodeId) {
+function removeSubscriptionRow(nodeId, robotRecord) {
+    // Update State
+    if (robotRecord) {
+        robotRecord.state.ui.subscriptions.delete(nodeId);
+    }
+
+    // Only update DOM if this is the active robot
+    if (robotRecord !== getActiveRobot()) return;
+
     const table = document.getElementById("subscriptions-table");
     if (!table) return;
     const row = table.querySelector(`tr[data-node-id="${nodeId}"]`);
     if (row) row.remove();
 }
 
-export function handleSocketMessage(robotRecord, event) {
-    console.log("Message from server:", event.data);
-    const data = event.data;
-    if (data.startsWith("x|")) {
-        handleProtocolMessage(robotRecord, data);
-    } 
-    else {
-        handleStatusMessage(robotRecord, data);
+export function handleSocketMessage(event) {
+    // console.log("Message from server:", event.data);
+    const rawData = event.data;
+    
+    // Check for delimiter
+    const sepIndex = rawData.indexOf("|");
+    if (sepIndex === -1) {
+        // System wide messages without target prefix (e.g. initial connection status before prefixing?)
+        // Or if backend sends unprefixed messages
+        if (rawData.includes("Disconnected") || rawData === "Global|🔌 Disconnected") {
+             console.log("System Status:", rawData);
+        }
+        return;
     }
+
+    const robotIdOrUrl = rawData.substring(0, sepIndex);
+    const message = rawData.substring(sepIndex + 1);
+
+    if (robotIdOrUrl === "Global") {
+        logMessageToBox(`Global System Message: ${message}`);
+        return;
+    }
+
+    const allRobots = listRobots();
+    // Find all robots connected to this URL
+    const targetRobots = allRobots.filter(r => r.state.connectivity.connectedUrl === robotIdOrUrl);
+
+    if (targetRobots.length === 0) {
+        // It might be that we just connected but haven't updated state yet? 
+        // But connectOpcUa updates state immediately.
+        console.warn(`[handleSocketMessage] No robot found for URL identifier: ${robotIdOrUrl}`);
+        return;
+    }
+
+    targetRobots.forEach(robotRecord => {
+        if (message.startsWith("x|")) {
+            handleProtocolMessage(robotRecord, message);
+        } else {
+            handleStatusMessage(robotRecord, message);
+        }
+    });
 }
 
 function handleProtocolMessage(robotRecord, data) {
@@ -357,8 +406,8 @@ function handleProtocolMessage(robotRecord, data) {
         try {
             const payload = JSON.parse(data.slice("x|custom:".length));
             if (payload.nodeId && typeof payload.value !== "undefined") {
-                updateSubscriptionTable(payload.nodeId, payload.value);
-                if (ui.showSubscriptionsTabOnNextCustom) {
+                updateSubscriptionTable(payload.nodeId, payload.value, robotRecord);
+                if (ui.showSubscriptionsTabOnNextCustom && robotRecord === getActiveRobot()) {
                     const tabBtn = document.querySelector('.tab-btn[data-tab="subscriptions"]');
                     if (tabBtn) tabBtn.click();
                     ui.showSubscriptionsTabOnNextCustom = false;
@@ -386,28 +435,35 @@ function handleProtocolMessage(robotRecord, data) {
             nodeId = unsubArg;
         }
         if (nodeId) {
-            removeSubscriptionRow(nodeId);
+            removeSubscriptionRow(nodeId, robotRecord);
         }
     }
     if (data.startsWith("x|event:")) {
         try {
             const payload = JSON.parse(data.slice("x|event:".length));
-            const eventsContainer = document.getElementById("tab-events");
-
-            const p = document.createElement("p");
+            
+            // Store event
             const timestamp = new Date().toLocaleTimeString();
+            const eventString = `[${timestamp}] ${JSON.stringify(payload, null, 2)}`;
+            robotRecord.state.ui.events.unshift(eventString); // newest first
 
-            p.textContent = `[${timestamp}] ${JSON.stringify(payload, null, 2)}`;
-            p.style.fontFamily = "monospace";
-            p.style.whiteSpace = "pre-wrap";
-            p.style.borderBottom = "1px solid #ccc";
-            p.style.marginBottom = "5px";
+            // Update DOM if active
+            if (robotRecord === getActiveRobot()) {
+                const eventsContainer = document.getElementById("tab-events");
+                const p = document.createElement("p");
+                
+                p.textContent = eventString;
+                p.style.fontFamily = "monospace";
+                p.style.whiteSpace = "pre-wrap";
+                p.style.borderBottom = "1px solid #ccc";
+                p.style.marginBottom = "5px";
 
-            if (eventsContainer) {
-                // Remove “No events captured” if present
-                const noEvents = eventsContainer.querySelector('.no-events-captured');
-                if (noEvents) noEvents.remove();
-                eventsContainer.prepend(p);
+                if (eventsContainer) {
+                    // Remove “No events captured” if present
+                    const noEvents = eventsContainer.querySelector('.no-events-captured');
+                    if (noEvents) noEvents.remove();
+                    eventsContainer.prepend(p);
+                }
             }
         } catch (e) {
             console.warn("Event parse error", e);
@@ -423,15 +479,19 @@ function handleProtocolMessage(robotRecord, data) {
                 //robot state logic
                 robotRecord.state.robotInfo.manufacturer = payload.manufacturer
                 //ui
-                const manuField = document.getElementById('robot-manufacturer');
-                if (manuField) manuField.textContent = payload.manufacturer;
+                if (robotRecord === getActiveRobot()) {
+                    const manuField = document.getElementById('robot-manufacturer');
+                    if (manuField) manuField.textContent = payload.manufacturer;
+                }
             }
             if (payload.model) {
                 //robot state logic
                 robotRecord.state.robotInfo.model = payload.model;
                 //ui
-                const modelField = document.getElementById('robot-model');
-                if (modelField) modelField.textContent = ' ' + payload.model;
+                if (robotRecord === getActiveRobot()) {
+                    const modelField = document.getElementById('robot-model');
+                    if (modelField) modelField.textContent = ' ' + payload.model;
+                }
             }
 
             if (payload.gotoMethodNodeId) {
@@ -450,9 +510,11 @@ function handleProtocolMessage(robotRecord, data) {
     if (typeof data === "string" && data.startsWith("x|Mode:")) {
         const modeValue = data.replace("x|Mode:", "").trim();
 
-        const modeField = document.getElementById('robot-mode-value');
-        if (modeField) {
-            modeField.textContent = modeValue;
+        if (robotRecord === getActiveRobot()) {
+            const modeField = document.getElementById('robot-mode-value');
+            if (modeField) {
+                modeField.textContent = modeValue;
+            }
         }
     }
 
@@ -521,18 +583,19 @@ function handleStatusMessage(robotRecord, data) {
     const { opcua, ui, connectivity } = robotRecord.state;
     // Handle method call result
     if (data.startsWith("Method call result:")) {
-        const methodStatus = document.getElementById('method-call-status');
-        const spinner = document.getElementById('method-spinner');
-        const statusText = document.getElementById('method-status-text');
-        spinner.style.display = 'none';
+        if (robotRecord === getActiveRobot()) {
+            const methodStatus = document.getElementById('method-call-status');
+            const spinner = document.getElementById('method-spinner');
+            const statusText = document.getElementById('method-status-text');
+            spinner.style.display = 'none';
 
+            statusText.textContent = data.replace("Method call result:", "").trim();
 
-        statusText.textContent = data.replace("Method call result:", "").trim();
-
-        methodStatus.style.display = 'block';
-        setTimeout(() => {
-            methodStatus.style.display = 'none';
-        }, 6000);
+            methodStatus.style.display = 'block';
+            setTimeout(() => {
+                methodStatus.style.display = 'none';
+            }, 6000);
+        }
     }
 
     if (data.startsWith("✅ OPC UA server supports 'Robotics Namespace'")) {
@@ -547,16 +610,15 @@ function handleStatusMessage(robotRecord, data) {
 
 
     if (data.startsWith("✅ Connected to ")) {
-        connectivity.connectedUrl = data.replace("✅ Connected to ", "").trim();
+        const url = data.replace("✅ Connected to ", "").trim();
+        connectivity.connectedUrl = url;
         loadDeviceSet(robotRecord, connectivity.connectedUrl);
-        setInfoBoxState(true); //this is duplicate logic right?
-        /*
-        document.getElementById('info-box').style.width = "750px";
-        document.getElementById('properties-box').style.width = "750px";
-        document.getElementById('info-toggle-btn').textContent = "collapse »";
-        */
-        document.getElementById('info-content').style.width = "700px";
-        document.getElementById('properties-box').style.display = 'none';
+
+        if (robotRecord === getActiveRobot()) {
+            setInfoBoxState(true);
+            document.getElementById('info-content').style.width = "700px";
+            document.getElementById('properties-box').style.display = 'none';
+        }
     } else if (data.startsWith("Model:")) {
         const lines = data.split(/\r?\n/);
         const modelLine = lines.find(line => line.startsWith("Model:"));
@@ -565,9 +627,11 @@ function handleStatusMessage(robotRecord, data) {
         const model = modelLine ? modelLine.replace("Model:", "").trim() : "unknown model";
         const serial = serialLine ? serialLine.replace("Serial Number:", "").trim() : "unknown serial";
 
-        // Update robot stats box instead of opc-ua-status
-        document.getElementById('robot-name-value').textContent = model + " (" + serial + ")";
-        document.getElementById('robot-status-value').textContent = 'Connected';
+        // Update robot stats box only if active
+        if (robotRecord === getActiveRobot()) {
+            document.getElementById('robot-name-value').textContent = model + " (" + serial + ")";
+            document.getElementById('robot-status-value').textContent = 'Connected';
+        }
 
     } else if (data.startsWith("\ud83d\udd0c Disconnected from ")) {
         const url = data.replace("\ud83d\udd0c Disconnected from ", "").trim();
@@ -575,41 +639,55 @@ function handleStatusMessage(robotRecord, data) {
             connectivity.connectedUrl = null;
         }
 
-        setInfoBoxState(false);
-        document.getElementById('info-content').innerHTML = `
-            <h2>OPC UA Address Space</h2>
-            <p>Disconnected from Client</p>`;
-        document.getElementById('properties-box').style.display = 'none';
-        
-        const subsTable = document.getElementById('subscriptions-table');
-        if (subsTable) {
-            const tbody = subsTable.querySelector('tbody');
-            if (tbody) tbody.innerHTML = '';
-        }
-        // Update robot stats box
-        document.getElementById('robot-name-value').textContent = '-';
-        document.getElementById('robot-status-value').textContent = 'Not Connected';
-        document.getElementById('robot-mode-value').textContent = '-';
-        const opcUaSyncToggle = document.getElementById('opc-ua-sync-toggle');
-        if (opcUaSyncToggle) opcUaSyncToggle.checked = false;
+        // Cleanup internal state
         opcua.syncEnabled = false;
         opcua.streamActive = false;
-        // Collapse-Button 
-        document.getElementById('info-toggle-btn').style.display = "none";
-        // Lock-Toggle 
+        opcua.lastAngles = null;
+        opcua.lastEEFPositions = null;
+        opcua.axisToJointMap = null;
+        opcua.endEffectorMap = null;
+        opcua.gotoMethodNodeId = null;
+        opcua.toggleEndEffMethodNodeId = null;
         opcua.hasRoboticsNamespace = null;
-        updateRobotLockToggleVisibility(robotRecord);
+
+
+        if (robotRecord === getActiveRobot()) {
+            setInfoBoxState(false);
+            document.getElementById('info-content').innerHTML = `
+                <h2>OPC UA Address Space</h2>
+                <p>Disconnected from Client</p>`;
+            document.getElementById('properties-box').style.display = 'none';
+
+            const subsTable = document.getElementById('subscriptions-table');
+            if (subsTable) {
+                const tbody = subsTable.querySelector('tbody');
+                if (tbody) tbody.innerHTML = '';
+            }
+            // Update robot stats box
+            document.getElementById('robot-name-value').textContent = '-';
+            document.getElementById('robot-status-value').textContent = 'Not Connected';
+            document.getElementById('robot-mode-value').textContent = '-';
+            const opcUaSyncToggle = document.getElementById('opc-ua-sync-toggle');
+            if (opcUaSyncToggle) opcUaSyncToggle.checked = false;
+
+            // Collapse-Button 
+            document.getElementById('info-toggle-btn').style.display = "none";
+            updateRobotLockToggleVisibility(robotRecord);
+        }
+
     } else if (data.startsWith("❌ No client found")) {
-        document.getElementById('info-content').innerHTML = `
-        <h2>OPC UA Address Space</h2>
-        <p style=\"color:rgb(255, 0, 0); font-weight: bold;\">No client found to disconnect from.</p>`;
-        // Removed opc-ua-status update
-        document.getElementById('properties-box').style.display = 'none';
-        document.getElementById('info-box').style.width = "450px";
-        // Update robot stats box
-        document.getElementById('robot-name-value').textContent = '-';
-        document.getElementById('robot-status-value').textContent = 'Not Connected';
-        document.getElementById('robot-mode-value').textContent = '-';
+        if (robotRecord === getActiveRobot()) {
+            document.getElementById('info-content').innerHTML = `
+            <h2>OPC UA Address Space</h2>
+            <p style=\"color:rgb(255, 0, 0); font-weight: bold;\">No client found to disconnect from.</p>`;
+            // Removed opc-ua-status update
+            document.getElementById('properties-box').style.display = 'none';
+            document.getElementById('info-box').style.width = "450px";
+            // Update robot stats box
+            document.getElementById('robot-name-value').textContent = '-';
+            document.getElementById('robot-status-value').textContent = 'Not Connected';
+            document.getElementById('robot-mode-value').textContent = '-';
+        }
     }
 }
 
@@ -688,20 +766,31 @@ export function disconnectOpcUa(robotRecord) {
             return alert("No URL specified for this robot.");
         }
         connectivity.socket.send(`disconnect|${url}`);
-        connectivity.connectedUrl = null;
+        // connectivity.connectedUrl = null; // Do not clear yet, wait for server confirmation
         document.getElementById('info-content').style.width = "400px";
 
-        console.log(`[${robotRecord.id}] Disconnected from OPC UA at ${url}`);
+        console.log(`[${robotRecord.id}] Requesting disconnect from OPC UA at ${url}`);
     } else {
         alert("WebSocket is not connected.");
     }
 }
 
-function showNodeProperties(element) {
+function showNodeProperties(element, robotRecord) {
+    // If no robotRecord provided, try to find active (backwards compat)
+    if (!robotRecord) robotRecord = getActiveRobot();
+    
+    // Save state
+    const dataset = element.dataset;
+    if (robotRecord) {
+        robotRecord.state.ui.properties = { ...dataset };
+    }
+
+    // Only update DOM if active
+    if (robotRecord !== getActiveRobot()) return;
+
     const propertiesBox = document.getElementById("properties-box");
     const table = document.getElementById("properties-table");
 
-    const dataset = element.dataset;
     table.innerHTML = "";
 
     for (const key in dataset) {
@@ -782,23 +871,24 @@ export function handleOpcUaSyncToggle(robotRecord, event) {
             }
             manipulator.setJointValues(jointValuesRad);
         }
-    } else {
-        if (opcua.streamActive && connectivity.socket?.readyState === WebSocket.OPEN) {
-            connectivity.socket.send(`cancel stream joint position|${url}`);
-            connectivity.socket.send(`cancel stream mode|${url}`);
-            opcua.streamActive = false;
-        }
-        const modeField = document.getElementById('robot-mode-value');
-        if (modeField) modeField.textContent = '-';
     }
 }
+function updateReferencesTable(refs, robotRecord) {
+    // Update State
+    if (robotRecord) {
+        robotRecord.state.ui.references = refs;
+    }
 
-function updateReferencesTable(refs, clearFirst = false) {
+    // Only update DOM if active
+    if (robotRecord !== getActiveRobot()) return;
+
     const referencesTable = document.getElementById("references-table");
     if (!referencesTable) return;
     const oldTbody = referencesTable.querySelector("tbody");
     const newTbody = document.createElement("tbody");
 
+    // Use the refs passed in (which are fresh) or fallback to stored refs if needed,
+    // though 'refs' here is the source of truth for this update.
     refs.forEach(refObj => {
         const row = document.createElement("tr");
 
@@ -839,7 +929,7 @@ export function handleOpcUaNodeSelection(robotRecord, event) {
     ui.selectedNodeElement = event.target;
 
     console.log("Selected Node ID:", ui.selectedNodeId);
-    showNodeProperties(event.target);
+    showNodeProperties(event.target, robotRecord);
 
     if (!connectivity.connectedUrl) return;
 
@@ -850,12 +940,14 @@ export function handleOpcUaNodeSelection(robotRecord, event) {
         .then(res => res.json())
         .then(refs => {
             if (!Array.isArray(refs)) return;
-            updateReferencesTable(refs);
+            updateReferencesTable(refs, robotRecord);
         })
         .catch(err => {
             console.warn(`[${robotRecord.id}] Error loading references:`, err);
         });
-}//done
+}
+//done
+
 export async function handleSubtreeClick(robotRecord, e) {
     if (!(e.target.tagName === "SUMMARY" || e.target.tagName === "SPAN") || !e.target.dataset.nodeId) {
         return;
@@ -886,13 +978,13 @@ export async function handleSubtreeClick(robotRecord, e) {
         // update robot's selected node
         ui.selectedNodeId = summary.dataset.nodeId;
         ui.selectedNodeElement = summary;
-        showNodeProperties(summary);
+        showNodeProperties(summary, robotRecord);
 
         return;
     }
     ui.selectedNodeId = summary.dataset.nodeId;
     ui.selectedNodeElement = summary;
-    showNodeProperties(summary);
+    showNodeProperties(summary, robotRecord);
 }
 export function switchTab(tabName) { //Done i think maybe TODO because different
     const buttons = document.querySelectorAll(".tab-btn");
@@ -961,7 +1053,7 @@ export function handleNodeClick(robotRecord, e) {
             }
         }
 
-        showNodeProperties(e.target);
+        showNodeProperties(e.target, robotRecord);
     }
 }
 //done
@@ -1038,7 +1130,7 @@ export function handleContextSubscribe(robotRecord) {
     if (ui.selectedNodeId && connectivity.connectedUrl) {
         const payload = {
             url: connectivity.connectedUrl,
-            nodeId: ui.electedNodeId
+            nodeId: ui.selectedNodeId
         };
         connectivity.socket.send("subscribe|" + JSON.stringify(payload));
         ui.showSubscriptionsTabOnNextCustom = true;
@@ -1295,6 +1387,9 @@ function getFormattedJointString(robotRecord) {
 
 export function updateRevoluteJointStatus(robotRecord) {
     
+    // Only update UI if active
+    if (robotRecord !== getActiveRobot()) return;
+
     const jointValues = getFormattedJointString(robotRecord);
     const statusField = document.getElementById('robot-position-value');
     const manipulator = robotRecord?.manipulator || null;
@@ -1456,17 +1551,22 @@ export function refreshSelectedNode(robotRecord) {
         return;
     }
 
-    showNodeProperties(el);
+    showNodeProperties(el, robotRecord);
 }
 
 function updateRobotLockToggleVisibility(robotRecord) {
     const container = document.getElementById('robot-lock-toggle-container');
     if (!container) return;
-
+    
+    // Always hide if no robot is active or provided
     if (!robotRecord) {
         container.style.display = 'none';
         return;
     }
+
+    // Only update UI if this robot is actually the active one
+    if (robotRecord !== getActiveRobot()) return;
+
     const hasRoboticsNamespace = robotRecord.state.opcua.hasRoboticsNamespace === true;
     container.style.display = hasRoboticsNamespace ? '' : 'none';
 }
@@ -1592,32 +1692,146 @@ export function sendMcpRobotStateUpdate(robotRecord) {
 }
 
 export function updateRobotSpecificUI(robotRecord) {
+    // 0. Always Clear Tables First
+    const subsTable = document.getElementById('subscriptions-table');
+    if (subsTable) {
+        const tbody = subsTable.querySelector('tbody');
+        if (tbody) tbody.innerHTML = '';
+    }
+
+    const eventsContainer = document.getElementById('tab-events');
+    if (eventsContainer) {
+        eventsContainer.innerHTML = '<p class="no-events-captured" style="color:#888; font-style:italic;">No events captured.</p>';
+    }
+
+    const referencesTable = document.getElementById("references-table");
+    if (referencesTable) {
+        const tbody = referencesTable.querySelector("tbody");
+        if (tbody) tbody.innerHTML = '';
+    }
+
+    const propertiesBox = document.getElementById("properties-box");
+    const propertiesTable = document.getElementById("properties-table");
+    if (propertiesTable) propertiesTable.innerHTML = "";
+    if (propertiesBox) propertiesBox.style.display = "none";
+
+    const infoContent = document.getElementById('info-content');
+    if (infoContent) {
+        infoContent.innerHTML = `<h2>OPC UA Address Space</h2><p>Select a robot to view details.</p>`;
+    }
+    setInfoBoxState(false);
+
+    document.getElementById('robot-name-value').textContent = '-';
+    document.getElementById('robot-status-value').textContent = 'No Robot Selected';
+    const urlInput = document.getElementById('opc-ua-url');
+    if (urlInput) urlInput.value = "";
+    
+    const syncToggle = document.getElementById('opc-ua-sync-toggle');
+    if (syncToggle) syncToggle.checked = false;
+
+
     if (!robotRecord) return;
+
     const { ui, connectivity, opcua, robotInfo } = robotRecord.state;
     
-    // 1. Restore Address Space Tree
-    const infoContent = document.getElementById('info-content');
+    // 1. Restore Subscriptions
+    if (subsTable && ui.subscriptions) {
+        const tbody = subsTable.querySelector('tbody');
+        ui.subscriptions.forEach((val, nodeId) => {
+            const row = document.createElement("tr");
+            row.setAttribute("data-node-id", nodeId);
+            const cellNodeId = document.createElement("td");
+            cellNodeId.textContent = nodeId;
+            const cellValue = document.createElement("td");
+            cellValue.className = "subscription-value";
+            cellValue.textContent = val;
+            row.appendChild(cellNodeId);
+            row.appendChild(cellValue);
+            tbody.appendChild(row);
+        });
+    }
+
+    // 2. Restore Events
+    if (eventsContainer && ui.events && ui.events.length > 0) {
+        eventsContainer.innerHTML = '';
+        ui.events.forEach(eventString => {
+            const p = document.createElement("p");
+            p.textContent = eventString;
+            p.style.fontFamily = "monospace";
+            p.style.whiteSpace = "pre-wrap";
+            p.style.borderBottom = "1px solid #ccc";
+            p.style.marginBottom = "5px";
+            eventsContainer.appendChild(p);
+        });
+    }
+
+    // 3. Restore References
+    if (referencesTable && ui.references && ui.references.length > 0) {
+        // We can reuse updateReferencesTable logic here manually or call it if we make it support non-standard invocation
+        // But simply rebuilding is fine.
+        const tbody = referencesTable.querySelector("tbody");
+        ui.references.forEach(refObj => {
+            const row = document.createElement("tr");
+            const makeCell = (value) => {
+                const td = document.createElement("td");
+                td.textContent = value || "";
+                return td;
+            };
+            row.appendChild(makeCell(refObj.ReferenceType));
+            row.appendChild(makeCell(refObj.NodeId));
+            row.appendChild(makeCell(refObj.BrowseName));
+            row.appendChild(makeCell(refObj.TypeDefinition));
+            tbody.appendChild(row);
+        });
+    }
+
+    // 4. Restore Properties
+    if (ui.properties && Object.keys(ui.properties).length > 0) {
+        for (const key in ui.properties) {
+            const row = document.createElement("tr");
+            const keyCell = document.createElement("td");
+            const valueCell = document.createElement("td");
+            keyCell.textContent = key.replace(/([A-Z])/g, ' $1').toUpperCase();
+            const val = ui.properties[key];
+            if (key.toLowerCase() === "value") valueCell.innerHTML = val;
+            else valueCell.textContent = val;
+            row.appendChild(keyCell);
+            row.appendChild(valueCell);
+            propertiesTable.appendChild(row);
+        }
+        if (propertiesBox) propertiesBox.style.display = "block";
+    }
+
+    // 5. Restore Address Space Tree
     if (ui.addressSpaceHTML) {
         infoContent.innerHTML = ui.addressSpaceHTML;
         setInfoBoxState(!!connectivity.connectedUrl);
+    } else if (connectivity.connectedUrl) {
+         // It says connected but no HTML? Maybe only just connected.
+         infoContent.innerHTML = `<h2>OPC UA Address Space</h2><p>Connected to ${connectivity.connectedUrl}</p>`;
+         setInfoBoxState(true);
     } else {
-        infoContent.innerHTML = `<h2>OPC UA Address Space</h2><p>Not connected.</p>`;
-        setInfoBoxState(false);
+         infoContent.innerHTML = `<h2>OPC UA Address Space</h2><p>Not connected.</p>`;
+         setInfoBoxState(false);
     }
 
-    // 2. Restore Dashboard Stats
+    // 6. Restore Dashboard Stats
     document.getElementById('robot-name-value').textContent = 
-        robotInfo.model ? `${robotInfo.model} (${robotInfo.serialNumber})` : '-';
+        robotInfo.model ? `${robotInfo.model} (${robotInfo.serialNumber || ''})` : 'Unknown Model';
     document.getElementById('robot-status-value').textContent = 
         connectivity.connectedUrl ? 'Connected' : 'Not Connected';
 
-    // 3. Sync the URL input field
-    const urlInput = document.getElementById('opc-ua-url');
+    // 7. Sync the URL input field
     if (urlInput) urlInput.value = connectivity.connectedUrl || "";
     
-    // 4. Restore Sync Toggle state
-    const syncToggle = document.getElementById('opc-ua-sync-toggle');
+    // 8. Restore Sync Toggle state
     if (syncToggle) {
         syncToggle.checked = !!opcua.syncEnabled;
     }
+
+    // 9. Update Joint/TCP Values immediately
+    updateRevoluteJointStatus(robotRecord);
+
+    // 10. Show/Hide Lock Toggle based on cached flag
+    updateRobotLockToggleVisibility(robotRecord);
 }

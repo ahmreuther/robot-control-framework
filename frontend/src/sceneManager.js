@@ -1,7 +1,8 @@
 import URDFLoader from 'urdf-loader/src/URDFLoader.js';
 import {Group} from 'three';
 
-export const renderForAFewFrames = (viewer, frames = 6) => new Promise(resolve => {
+//needed to render the robot correctly when adding it
+const renderForAFewFrames = (viewer, frames = 6) => new Promise(resolve => {
   let count = 0;
   const tick = () => {
     if (viewer.controls && typeof viewer.controls.update === 'function') viewer.controls.update();

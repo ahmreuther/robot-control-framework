@@ -57,13 +57,13 @@ class SubHandler:
 
             if self.mode == "custom":
                 nodeid_str = node.nodeid.to_string() if hasattr(node, "nodeid") else str(node)
-                await self.websocket.send_text(f"x|custom:{json.dumps({'nodeId': nodeid_str, 'value': val})}")
+                await self.websocket.send_text(f"{self.name}|x|custom:{json.dumps({'nodeId': nodeid_str, 'value': val})}")
                 return
 
             if self.mode == "mode":
                 dn = await node.read_display_name()
                 print(f"[Mode-Sub] DataChange: {getattr(dn, 'Text', str(dn))} = {val}")
-                await self.websocket.send_text(f"x|Mode:{val}")
+                await self.websocket.send_text(f"{self.name}|x|Mode:{val}")
                 return
 
             paramset = await node.get_parent()
@@ -90,7 +90,7 @@ class SubHandler:
                 unit_json = SubHandler.encode_eu_to_jsonable(self.unit_type)
                 msg = {"angles": self.latest_values, "unit": unit_json}
                 print(f"[{self.name}] Axle values collected: {self.latest_values}")
-                await self.websocket.send_text(f"x|angles:{json.dumps(msg)}")
+                await self.websocket.send_text(f"{self.name}|x|angles:{json.dumps(msg)}")
 
         except Exception as e:
             print(f"[{self.name}] ⚠️ Processing error: {e}")
@@ -114,7 +114,7 @@ class SubHandler:
 
             if self.websocket and self.websocket.client_state == WebSocketState.CONNECTED:
                 msg = json.dumps(event_dict, default=str)
-                asyncio.create_task(self.websocket.send_text(f"x|event:{msg}"))
+                asyncio.create_task(self.websocket.send_text(f"{self.name}|x|event:{msg}"))
         except Exception as e:
             print(f"[{self.name}] ❌ Error in event handling: {e}")
 

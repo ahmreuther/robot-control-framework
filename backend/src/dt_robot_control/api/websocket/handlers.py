@@ -56,11 +56,16 @@ async def handle_call(websocket: WebSocket, data: str) -> None:
         client = get_client(url)
         if client:
             result = await client.call_method(node_id, inputs)
-            await websocket.send_text(f"Method call result: {result}")
+            await websocket.send_text(f"{url}|Method call result: {result}")
         else:
-            await websocket.send_text("❌ No OPC UA client found for method call.")
+            await websocket.send_text(f"{url}|❌ No OPC UA client found for method call.")
     except Exception as e:
-        await websocket.send_text(f"❌ Error parsing call payload: {e}")
+        # If we can't parse the payload, we might not have the URL. 
+        # But usually the client sends valid JSON with URL.
+        # Fallback to broad error broadcasting if URL is unknown is risky but acceptable for debug.
+        # Or try to extract URL directly from string if JSON fails?
+        # For now, just send error. If we don't know URL, frontend global handler might catch it or it will be ignored.
+        await websocket.send_text(f"Global|❌ Error parsing call payload: {e}")
 
 async def handle_subscribe(websocket: WebSocket, data: str) -> None:
     """Subscribe to variable changes on a specific node.
@@ -76,23 +81,25 @@ async def handle_subscribe(websocket: WebSocket, data: str) -> None:
         payload = json.loads(data.split("|", 1)[1].strip())
         url, node_id = payload.get("url"), payload.get("nodeId")
         client = get_client(url)
-        manager = client.subscription_manager
+        
         if not url or not node_id:
-            await websocket.send_text("❌ subscribe: url and nodeId must be provided.")
-            return
-        if not client:
-            await websocket.send_text(f"❌ No OPC UA client connected for URL: {url}")
+            await websocket.send_text("Global|❌ subscribe: url and nodeId must be provided.")
             return
 
+        if not client:
+            await websocket.send_text(f"{url}|❌ No OPC UA client connected for URL: {url}")
+            return
+
+        manager = client.subscription_manager
         # --- Prevent duplicate subscriptions ---
         if hasattr(client, "custom_subscriptions") and node_id in manager.custom_subscriptions:
-            await websocket.send_text(f"⚠️ Already subscribed to variable at {node_id} on {url}")
+            await websocket.send_text(f"{url}|⚠️ Already subscribed to variable at {node_id} on {url}")
             return
 
         await manager.subscribe_custom(node_id, websocket)
-        await websocket.send_text(f"✅ Subscribed to variable at {node_id} on {url}")
+        await websocket.send_text(f"{url}|✅ Subscribed to variable at {node_id} on {url}")
     except Exception as e:
-        await websocket.send_text(f"❌ subscribe error: {e}")
+        await websocket.send_text(f"Global|❌ subscribe error: {e}")
 
 async def handle_subscribe_event(websocket: WebSocket, data: str) -> None:
     """Subscribe to events on a specific node.
@@ -110,19 +117,19 @@ async def handle_subscribe_event(websocket: WebSocket, data: str) -> None:
         node_id = payload.get("nodeId")
 
         client = get_client(url)
-        manager = client.subscription_manager
-
+        
         if not client:
-            await websocket.send_text(f"❌ No OPC UA client found for {url}")
+            await websocket.send_text(f"{url}|❌ No OPC UA client found for {url}")
             return
-
+        
+        manager = client.subscription_manager
         success = await manager.subscribe_events_on_node(node_id)
         if success:
-            await websocket.send_text(f"✅ Subscribed to events on node {node_id}")  # sends results back to frontend through websocket
+            await websocket.send_text(f"{url}|✅ Subscribed to events on node {node_id}")  # sends results back to frontend through websocket
         else:
-            await websocket.send_text(f"❌ Failed to subscribe to events on node {node_id}")
+            await websocket.send_text(f"{url}|❌ Failed to subscribe to events on node {node_id}")
     except Exception as e:
-        await websocket.send_text(f"❌ Event subscription error: {e}")
+        await websocket.send_text(f"Global|❌ Event subscription error: {e}")
 
 async def handle_unsubscribe_event(websocket: WebSocket, data: str) -> None:
     """Unsubscribes from event notifications on a node."""
@@ -131,19 +138,19 @@ async def handle_unsubscribe_event(websocket: WebSocket, data: str) -> None:
         url = payload.get("url")
 
         client = get_client(url)
-        manager = client.subscription_manager
-
+        
         if not client:
-            await websocket.send_text(f"❌ No OPC UA client found for {url}")
+            await websocket.send_text(f"{url}|❌ No OPC UA client found for {url}")
             return
 
+        manager = client.subscription_manager
         success = await manager.unsubscribe_events()
         if success:
-            await websocket.send_text(f"✅ Event subscription removed for {url}")
+            await websocket.send_text(f"{url}|✅ Event subscription removed for {url}")
         else:
-            await websocket.send_text(f"⚠️ No active event subscription to remove for {url}")
+            await websocket.send_text(f"{url}|⚠️ No active event subscription to remove for {url}")
     except Exception as e:
-        await websocket.send_text(f"❌ Unsubscribe event error: {e}")
+        await websocket.send_text(f"Global|❌ Unsubscribe event error: {e}")
 
 async def handle_unsubscribe(websocket: WebSocket, data: str) -> None:
     """Ends a custom subscription."""
@@ -151,26 +158,27 @@ async def handle_unsubscribe(websocket: WebSocket, data: str) -> None:
         payload = json.loads(data.split("|", 1)[1].strip())
         url, node_id = payload.get("url"), payload.get("nodeId")
         client = get_client(url)
-        manager = client.subscription_manager
-
+        
         if not client:
-            await websocket.send_text(f"❌ No subscription found for {node_id} on {url}")
+            await websocket.send_text(f"{url}|❌ No subscription found for {node_id} on {url}")
             return
+        
+        manager = client.subscription_manager
         success = await manager.unsubscribe_custom(node_id)
         if success:
             msg = json.dumps({"nodeId": node_id, "url": url})
-            await websocket.send_text(f"x|unsubscribe:{msg}")
-            await websocket.send_text(f"✅ Unsubscribed from variable at {node_id} on {url}")
+            await websocket.send_text(f"{url}|x|unsubscribe:{msg}")
+            await websocket.send_text(f"{url}|✅ Unsubscribed from variable at {node_id} on {url}")
         else:
-            await websocket.send_text(f"❌ No subscription found for {node_id} on {url}")
+            await websocket.send_text(f"{url}|❌ No subscription found for {node_id} on {url}")
     except Exception as e:
-        await websocket.send_text(f"❌ unsubscribe error: {e}")
+        await websocket.send_text(f"Global|❌ unsubscribe error: {e}")
 
 async def handle_connect(websocket: WebSocket, data: str) -> None:
     """Connects to an OPC UA server."""
     url = data.split("|", 1)[1].strip()
     if client_registry.has(url):
-        await websocket.send_text(f"⚠️ Already connected to {url}")
+        await websocket.send_text(f"{url}|⚠️ Already connected to {url}")
         return
     try:
         client = OPCUAClient(url, name=url, websocket=websocket)
@@ -178,16 +186,16 @@ async def handle_connect(websocket: WebSocket, data: str) -> None:
         await client.has_robotics_namespace()
         client_registry.add(url, client)
         if client.is_robotics_server:
-            await websocket.send_text("✅ OPC UA server supports 'Robotics Namespace'.")
+            await websocket.send_text(f"{url}|✅ OPC UA server supports 'Robotics Namespace'.")
             model_text = await try_read_model(client)
             sn_text = await try_read_serialnumber(client)
-            await websocket.send_text(f"Model: {model_text}\nSerial Number: {sn_text}")
+            await websocket.send_text(f"{url}|Model: {model_text}\nSerial Number: {sn_text}")
         else:
-            await websocket.send_text("❌ 'Robotics Namespace' not listed in NamespaceArray.")
+            await websocket.send_text(f"{url}|❌ 'Robotics Namespace' not listed in NamespaceArray.")
 
-        await websocket.send_text(f"✅ Connected to {url}")
+        await websocket.send_text(f"{url}|✅ Connected to {url}")
     except Exception as e:
-        await websocket.send_text(f"❌ Connection failed to {url}: {str(e)}")
+        await websocket.send_text(f"{url}|❌ Connection failed to {url}: {str(e)}")
 
 async def handle_stream_joint_position(websocket: WebSocket, data: str) -> None:
     """Start streaming joint angle positions continuously.
@@ -201,13 +209,13 @@ async def handle_stream_joint_position(websocket: WebSocket, data: str) -> None:
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
-    manager = client.subscription_manager
-
+    
     if client:
+        manager = client.subscription_manager
         await manager.subscribe_axes_actual_positions()
-        await websocket.send_text(f"Streaming joint positions for {url}")
+        await websocket.send_text(f"{url}|Streaming joint positions for {url}")
     else:
-        await websocket.send_text(f"❌ No OPC UA client found for {url}")
+        await websocket.send_text(f"{url}|❌ No OPC UA client found for {url}")
 
 async def handle_cancel_stream_joint_position(websocket: WebSocket, data: str) -> None:
     """Stop streaming joint angle positions.
@@ -221,13 +229,13 @@ async def handle_cancel_stream_joint_position(websocket: WebSocket, data: str) -
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
-    manager = client.subscription_manager
-
+    
     if client:
+        manager = client.subscription_manager
         await manager.stop_axes_subscription()
-        await websocket.send_text(f"Streaming 'Joint position' cancelled for {url}")
+        await websocket.send_text(f"{url}|Streaming 'Joint position' cancelled for {url}")
     else:
-        await websocket.send_text(f"❌ No OPC UA client found for {url}")
+        await websocket.send_text(f"{url}|❌ No OPC UA client found for {url}")
 
 async def handle_stream_mode(websocket: WebSocket, data: str) -> None:
     """Start streaming robot operation mode continuously.
@@ -241,55 +249,60 @@ async def handle_stream_mode(websocket: WebSocket, data: str) -> None:
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
-    manager = client.subscription_manager
-
+    
     if client:
+        manager = client.subscription_manager
         await manager.subscribe_mode()
-        await websocket.send_text(f"Streaming Mode for {url}")
+        await websocket.send_text(f"{url}|Streaming Mode for {url}")
     else:
-        await websocket.send_text(f"❌ No OPC UA client found for {url}")
+        await websocket.send_text(f"{url}|❌ No OPC UA client found for {url}")
 
 async def handle_cancel_stream_mode(websocket: WebSocket, data: str) -> None:
     """Stops streaming the operation mode."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
-    manager = client.subscription_manager
 
     if client:
+        manager = client.subscription_manager
         await manager.stop_mode_subscription()
-        await websocket.send_text(f"Streaming 'Mode' cancelled for {url}")
+        await websocket.send_text(f"{url}|Streaming 'Mode' cancelled for {url}")
     else:
-        await websocket.send_text(f"❌ No OPC UA client found for {url}")
+        await websocket.send_text(f"{url}|❌ No OPC UA client found for {url}")
 
 async def handle_status(websocket: WebSocket) -> None:
     """Returns connection status and device information."""
     all_clients = client_registry.all()
     if not all_clients:
-        await websocket.send_text("🔌 Disconnected")
+        await websocket.send_text("Global|System Ready")
         return
     for url, client in all_clients.items():
         try:
             model_text = await try_read_model(client)
             sn_text = await try_read_serialnumber(client)
-            await websocket.send_text(f"✅ Connected to {url}")
-            await websocket.send_text(f"Model: {model_text}\nSerial Number: {sn_text}")
-            break
+            await websocket.send_text(f"{url}|✅ Connected to {url}")
+            await websocket.send_text(f"{url}|Model: {model_text}\nSerial Number: {sn_text}")
+            # break # FIXME: Should we iterate all or break? Original code broke after first.
+            # If we support multi, we should probably send statuses for all.
+            # But "status" command implies "Are you alive?". 
+            # If frontend handles multiple messages, better to remove break? 
+            # I'll stick to prefixing for now.
+             
         except Exception as e:
-            await websocket.send_text(f"❌ Status check failed: {str(e)}")
+            await websocket.send_text(f"{url}|❌ Status check failed: {str(e)}")
 
 async def handle_disconnect(websocket: WebSocket, data: str) -> None:
     """Disconnect from the OPC UA server and clean up subscriptions."""
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
-    manager = client.subscription_manager
 
     if client:
+        manager = client.subscription_manager
         await manager.stop_axes_subscription()
         await manager.stop_mode_subscription()
         for nodeid in list(manager.custom_subscriptions.keys()):
             await manager.unsubscribe_custom(nodeid)
         await client.disconnect()
         client_registry.remove(url)
-        await websocket.send_text(f"🔌 Disconnected from {url}")
+        await websocket.send_text(f"{url}|🔌 Disconnected from {url}")
     else:
-        await websocket.send_text(f"❌ No client found for {url}")
+        await websocket.send_text(f"{url}|❌ No client found for {url}")
