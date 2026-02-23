@@ -26,6 +26,9 @@ interface RobotInfoContextType {
   orderedJointNames: string[];
   setOrderedJointNames: (orderedJointNames: string[]) => void;
 
+  gotoMethodNodeId: string | null;
+  setGotoMethodNodeId: (gotoMethodNodeId: string | null) => void;
+
   robotInfo: RobotInfo | null;
   setRobotInfo: (robotInfo: RobotInfo | null) => void;
 }
@@ -45,6 +48,9 @@ export const RobotInfoContext = createContext<RobotInfoContextType>({
 
   orderedJointNames: [],
   setOrderedJointNames: () => {},
+
+  gotoMethodNodeId: null,
+  setGotoMethodNodeId: () => {},
 
   robotInfo: {},
   setRobotInfo: () => {},
@@ -66,6 +72,9 @@ export type RobotInfoProviderProps = PropsWithChildren<{
   readonly orderedJointNames: string[];
   readonly setOrderedJointNames: (orderedJointNames: string[]) => void;
 
+  readonly gotoMethodNodeId: string | null;
+  readonly setGotoMethodNodeId: (gotoMethodNodeId: string | null) => void;
+
   readonly robotInfo: RobotInfo | null;
   readonly setRobotInfo: (robotInfo: RobotInfo | null) => void;
 }>;
@@ -84,6 +93,8 @@ export function RobotInfoProvider(props: RobotInfoProviderProps) {
         setAxleValues: props.setAxleValues,
         orderedJointNames: props.orderedJointNames,
         setOrderedJointNames: props.setOrderedJointNames,
+        gotoMethodNodeId: props.gotoMethodNodeId,
+        setGotoMethodNodeId: props.setGotoMethodNodeId,
         robotInfo: props.robotInfo,
         setRobotInfo: props.setRobotInfo,
       }}

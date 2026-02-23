@@ -43,7 +43,6 @@ function App() {
     handleRobotSelect,
     setJointLimits,
     jointProperties,
-    options,
     showCollisionMesh,
     setShowCollisionMesh,
     hoveredJointMesh,
@@ -53,12 +52,13 @@ function App() {
   const [logs, setLogs] = useState<string>('');
   const [opcuaUrl, setOpcuaUrl] = useState<string | null>(null);
 
-  const [robotName, setRobotName] = useState('-');
-  const [robotStatus, setRobotStatus] = useState('Not Connected');
-  const [robotMode, setRobotMode] = useState('-');
-  const [axleValues, setAxleValues] = useState<AxleValues>({});
-  const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
+  const [robotName, setRobotName] = useState<string | null>('-');
+  const [robotStatus, setRobotStatus] = useState<string | null>('Not Connected');
+  const [robotMode, setRobotMode] = useState<string | null>('-');
+  const [axleValues, setAxleValues] = useState<AxleValues | null>({});
+  const [robotInfo, setRobotInfo] = useState<RobotInfo | null>({});
   const [orderedJointNames, setOrderedJointNames] = useState<string[]>([]);
+  const [gotoMethodNodeId, setGotoMethodNodeId] = useState<string | null>(null);
 
   const websocketUrl = 'ws://127.0.0.1:8001/ws';
 
@@ -95,6 +95,8 @@ function App() {
       setAxleValues={setAxleValues}
       orderedJointNames={orderedJointNames}
       setOrderedJointNames={setOrderedJointNames}
+      gotoMethodNodeId={gotoMethodNodeId}
+      setGotoMethodNodeId={setGotoMethodNodeId}
       setRobotInfo={setRobotInfo}
       setRobotMode={setRobotMode}
       setRobotName={setRobotName}
@@ -136,7 +138,7 @@ function App() {
                               <Panel defaultSize="85%">
                                 <Viewport
                                   key={reloadKey}
-                                  urdfPath={selectedRobot?.url}
+                                  urdfPath={selectedRobot?.url ?? null}
                                   jointManager={jointManager}
                                   onJointLimitsLoaded={setJointLimits}
                                   showCollisionMesh={showCollisionMesh}
@@ -221,7 +223,7 @@ function App() {
                           <div className="w-full h-[60vh]">
                             <Viewport
                               key={reloadKey}
-                              urdfPath={selectedRobot?.url}
+                              urdfPath={selectedRobot?.url ?? null}
                               jointManager={jointManager}
                               onJointLimitsLoaded={setJointLimits}
                               showCollisionMesh={showCollisionMesh}

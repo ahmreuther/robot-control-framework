@@ -39,6 +39,7 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
     setAxleValues,
     setRobotInfo,
     orderedJointNames,
+    setGotoMethodNodeId,
   } = useRobotInfoContext();
 
   const { setLogs } = useLogContext();
@@ -124,6 +125,9 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
                 payload = parseJson(payload);
                 console.log('Robot Info:', payload);
                 setRobotInfo(payload);
+                if (payload?.gotoMethodNodeId) {
+                  setGotoMethodNodeId(payload.gotoMethodNodeId);
+                }
                 if (payload.model) setRobotName(payload.model);
                 setLogs((prev: string) => prev + `✅ Robot info received\n`);
               } catch (e) {
@@ -224,11 +228,13 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
             setRobotMode('-');
             setAxleValues({});
             setRobotInfo({});
+            setGotoMethodNodeId(null);
           }
           if (msg.startsWith('❌ No client found')) {
             setRobotStatus('Not Connected');
             setRobotName('-');
             setRobotMode('-');
+            setGotoMethodNodeId(null);
           }
           if (msg.startsWith('❌ Connection failed to')) {
             setUrl('');
@@ -237,6 +243,7 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
             setRobotMode('-');
             setAxleValues({});
             setRobotInfo({});
+            setGotoMethodNodeId(null);
           }
         }
       } catch (e) {
