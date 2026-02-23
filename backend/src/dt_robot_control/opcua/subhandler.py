@@ -11,8 +11,9 @@ class SubHandler:
     """
        Handler for OPC UA DataChange events, supports various modes (“axes,” “mode,” “custom”).
     """
-    def __init__(self, name="Client", websocket: WebSocket = None, get_expected_count=None, mode="custom", node_manager=None):
+    def __init__(self, name="Client", url=None, websocket: WebSocket = None, get_expected_count=None, mode="custom", node_manager=None):
         self.name = name
+        self.url = url
         self.websocket = websocket
         self.latest_values = {}
         self.last_sent_values = None
@@ -57,13 +58,13 @@ class SubHandler:
 
             if self.mode == "custom":
                 nodeid_str = node.nodeid.to_string() if hasattr(node, "nodeid") else str(node)
-                await self.websocket.send_text(f"{self.name}|x|custom:{json.dumps({'nodeId': nodeid_str, 'value': val})}")
+                await self.websocket.send_text(f"{self.url}|x|custom:{json.dumps({'nodeId': nodeid_str, 'value': val})}")
                 return
 
             if self.mode == "mode":
                 dn = await node.read_display_name()
                 print(f"[Mode-Sub] DataChange: {getattr(dn, 'Text', str(dn))} = {val}")
-                await self.websocket.send_text(f"{self.name}|x|Mode:{val}")
+                await self.websocket.send_text(f"{self.url}|x|Mode:{val}")
                 return
 
             paramset = await node.get_parent()
@@ -77,27 +78,27 @@ class SubHandler:
                     if eu_node:
                         self.unit_type = await eu_node.read_value()
                 except Exception as e:
-                    print(f"[{self.name}] ⚠️ Could not read UnitType: {e}")
+                    print(f"[{self.url}] ⚠️ Could not read UnitType: {e}")
                     self.unit_type = None
 
             try:
                 self.latest_values[axis_name] = float(val)
             except ValueError:
-                print(f"[{self.name}] ⚠️ Value for {axis_name} cannot be converted to float: {val}")
+                print(f"[{self.url}] ⚠️ Value for {axis_name} cannot be converted to float: {val}")
                 return
 
             if len(self.latest_values) >= self.get_expected_count():
                 unit_json = SubHandler.encode_eu_to_jsonable(self.unit_type)
                 msg = {"angles": self.latest_values, "unit": unit_json}
-                print(f"[{self.name}] Axle values collected: {self.latest_values}")
-                await self.websocket.send_text(f"{self.name}|x|angles:{json.dumps(msg)}")
+                print(f"[{self.url}] Axle values collected: {self.latest_values}")
+                await self.websocket.send_text(f"{self.url}|x|angles:{json.dumps(msg)}")
 
         except Exception as e:
-            print(f"[{self.name}] ⚠️ Processing error: {e}")
+            print(f"[{self.url}] ⚠️ Processing error: {e}")
 
 
     def status_change_notification(self, status):
-        print(f"[{self.name}] Status changed: {status}")
+        print(f"[{self.url}] Status changed: {status}")
 
     def event_notification(self, event):
         try:
@@ -110,11 +111,11 @@ class SubHandler:
                     except Exception:
                         pass
 
-            print(f"[{self.name}] 📣 New Event Received: {event_dict}")
+            print(f"[{self.url}] 📣 New Event Received: {event_dict}")
 
             if self.websocket and self.websocket.client_state == WebSocketState.CONNECTED:
                 msg = json.dumps(event_dict, default=str)
-                asyncio.create_task(self.websocket.send_text(f"{self.name}|x|event:{msg}"))
+                asyncio.create_task(self.websocket.send_text(f"{self.url}|x|event:{msg}"))
         except Exception as e:
-            print(f"[{self.name}] ❌ Error in event handling: {e}")
+            print(f"[{self.url}] ❌ Error in event handling: {e}")
 

@@ -50,7 +50,7 @@ class OPCUAClient:
         
 
         # Initialize managers
-        self.subscription_manager = SubscriptionManager(self, name, websocket)
+        self.subscription_manager = SubscriptionManager(self, self.name, self.websocket)
         self.node_manager = NodeManager(self)
         self.running = False
 

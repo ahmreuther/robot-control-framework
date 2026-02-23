@@ -74,8 +74,19 @@ class RobotManager {
         return Array.from(this.robots.values());
     }
 
-    getRobot(robotId) {
-        return this.robots.get(robotId) || null;
+    getRobot(robotIdOrUrl) {
+        // check for id first
+        if (this.robots.has(robotIdOrUrl)) {
+            return this.robots.get(robotIdOrUrl);
+        }
+    
+        // check for url
+        for (let robot of this.robots.values()) {
+            if (robot.state?.connectivity?.connectedUrl === robotIdOrUrl) {
+                return robot;
+            }
+        }
+    return null;
     }
 
     async addRobot({ model, urdfPath, sceneNode, slotIndex, createManipulator = true, }) {
@@ -129,7 +140,8 @@ class RobotManager {
                     manufacturer: null,
                     model: null,
                     serialNumber: null,
-                    mode: null
+                    mode: null,
+                    lastMode: null
                 }
             }
         };

@@ -10,12 +10,13 @@ class SubscriptionManager:
         self.opcua_client = opcua_client
         self.client = opcua_client.client   # asyncua.Client
         self.name = name
+        self.url = opcua_client.url
         self.websocket = websocket
 
         self.node_manager = NodeManager(opcua_client)
         self.expected_axes_count = 0
 
-        self.sub_handler = SubHandler(name, websocket, lambda: self.expected_axes_count, mode="axes", node_manager = self.node_manager)
+        self.sub_handler = SubHandler(name, self.url, self.websocket, lambda: self.expected_axes_count, mode="axes", node_manager = self.node_manager)
 
         self.subscription = None
 
@@ -103,7 +104,7 @@ class SubscriptionManager:
 
             self.mode_node = controller
             if not self.mode_sub_handler:
-                self.mode_sub_handler = SubHandler(self.name, self.websocket, mode="mode", node_manager = self.node_manager)
+                self.mode_sub_handler = SubHandler(self.name, self.url, self.websocket, mode="mode", node_manager = self.node_manager)
             if not self.mode_subscription:
                 self.mode_subscription = await self.client.create_subscription(50, self.mode_sub_handler)
 
@@ -132,7 +133,7 @@ class SubscriptionManager:
         Creates a subscription to any NodeId.
         """
         node = self.client.get_node(node_id)
-        handler = SubHandler(self.name, websocket, mode="custom", node_manager = self.node_manager)
+        handler = SubHandler(self.name, self.url, websocket, mode="custom", node_manager = self.node_manager)
         subscription = await self.client.create_subscription(50, handler)
         await subscription.subscribe_data_change(node)
         self.custom_subscriptions[node_id] = subscription
@@ -163,7 +164,7 @@ class SubscriptionManager:
         """
         try:
             node = self.client.get_node(node_id)
-            handler = SubHandler(self.name, self.websocket, mode="event", node_manager = self.node_manager)
+            handler = SubHandler(self.name, self.url, self.websocket, mode="event", node_manager = self.node_manager)
             subscription = await self.client.create_subscription(100, handler)
             handle = await subscription.subscribe_events(node)
 
