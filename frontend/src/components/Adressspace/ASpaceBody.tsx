@@ -4,7 +4,7 @@ import { Tree } from 'antd';
 import type { Key } from 'react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { fetchChildren } from './api';
+import { fetchChildren, fetchRootNode } from './api';
 import {
   getNodeClassEmoji,
   loadExpandedIds,
@@ -101,23 +101,22 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
   openMethodDialog,
   onNodeSelect,
 }) => {
-  const initialRoot: UaNode = {
-    nodeId: 'i=84',
-    displayName: 'Root',
-    browseName: '0:RootFolder',
-    nodeClass: 'Object',
-    children: [],
-    loaded: true,
-    expanded: true,
-    loading: false,
-  };
+  const makeStore = (root: UaNode | null): UaStore =>
+    root
+      ? {
+          rootId: root.nodeId,
+          nodes: new Map([[root.nodeId, root]]),
+          childrenById: new Map(),
+          stateById: new Map([[root.nodeId, { loaded: false, loading: false }]]),
+        }
+      : {
+          rootId: null,
+          nodes: new Map(),
+          childrenById: new Map(),
+          stateById: new Map(),
+        };
 
-  const [store, setStore] = useState<UaStore>(() => ({
-    rootId: initialRoot.nodeId,
-    nodes: new Map([[initialRoot.nodeId, initialRoot]]),
-    childrenById: new Map(),
-    stateById: new Map([[initialRoot.nodeId, { loaded: false, loading: false }]]),
-  }));
+  const [store, setStore] = useState<UaStore>(() => makeStore(null));
 
   const [expandedKeys, setExpandedKeys] = useState<Key[]>(() => {
     const saved = loadExpandedIds(STORAGE_KEY_EXPANDED);
@@ -143,8 +142,27 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
 
   useEffect(() => {
     if (!opcUaUrl) return;
+    let cancelled = false;
+
     const saved = Array.from(loadExpandedIds(STORAGE_KEY_EXPANDED));
     setExpandedKeys(saved);
+
+    (async () => {
+      try {
+        const root = await fetchRootNode(opcUaUrl);
+        if (cancelled) return;
+        setStore(makeStore(root));
+        setSelectedKeys([]);
+      } catch (e) {
+        if (cancelled) return;
+        setStore(makeStore(null));
+        setSelectedKeys([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [opcUaUrl]);
 
   useEffect(() => {

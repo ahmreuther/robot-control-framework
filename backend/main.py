@@ -194,6 +194,42 @@ async def browse(url: str, node_id: str = "i=84"):
         raise HTTPException(status_code=500, detail=f"Server error: {e}")
 
 
+@app.get("/opcua/root")
+async def get_root_node(url: str):
+    """Returns the OPC UA RootFolder node for a server."""
+    wrapper = None
+    try:
+        wrapper = opcua.get_client(url)
+    except Exception:
+        wrapper = None
+
+    async def _read_root(client: Client):
+        root = client.get_root_node()
+        browse_name = await root.read_browse_name()
+        display_name = await root.read_display_name()
+        node_class = await root.read_node_class()
+        payload = {
+            "nodeId": root.nodeid.to_string(),
+            "browseName": f"{browse_name.NamespaceIndex}:{browse_name.Name}",
+            "displayName": display_name.Text,
+            "nodeClass": node_class.name,
+        }
+        print(f"[opcua/root] Root node resolved: {payload}")
+        return payload
+
+    try:
+        if wrapper is not None and hasattr(wrapper, "client") and wrapper.client is not None:
+            return await _read_root(wrapper.client)
+
+        async with Client(url=url) as client:
+            return await _read_root(client)
+
+    except UaError as e:
+        raise HTTPException(status_code=400, detail=f"OPC UA error: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Server error: {e}")
+
+
 # ================================================================================
 
 

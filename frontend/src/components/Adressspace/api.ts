@@ -36,12 +36,41 @@ export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<U
   }));
 };
 
+export const fetchRootNode = async (opcUaUrl: string): Promise<UaNode> => {
+  const encodedUrl = encodeURIComponent(opcUaUrl);
+  const res = await fetch(`${REST_BACKEND_BASE}/opcua/root?url=${encodedUrl}`);
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '<no-body>');
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
+
+  const data = (await res.json()) as UaNode;
+  return {
+    nodeId: data.nodeId,
+    displayName: data.displayName,
+    browseName: data.browseName,
+    nodeClass: data.nodeClass,
+    children: [],
+    loaded: true,
+    expanded: true,
+    loading: false,
+  };
+};
+
 export const fetchAllMethods = async (
   opcUaUrl: string | null,
-  startNodeId = 'i=84',
+  startNodeId?: string,
 ): Promise<UaNode[]> => {
+  if (!opcUaUrl) return [];
   const methods: UaNode[] = [];
   const visited = new Set<string>();
+
+  let rootId = startNodeId;
+  if (!rootId) {
+    const root = await fetchRootNode(opcUaUrl);
+    rootId = root.nodeId;
+  }
 
   const explore = async (nodeId: string): Promise<void> => {
     if (visited.has(nodeId)) return;
@@ -67,7 +96,7 @@ export const fetchAllMethods = async (
     }
   };
 
-  await explore(startNodeId);
+  await explore(rootId);
 
   // Sort lexicographically by displayName
   return methods.sort((a, b) => a.displayName.localeCompare(b.displayName));
