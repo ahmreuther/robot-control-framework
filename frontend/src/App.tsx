@@ -58,6 +58,7 @@ function App() {
   const [robotMode, setRobotMode] = useState('-');
   const [axleValues, setAxleValues] = useState<AxleValues>({});
   const [robotInfo, setRobotInfo] = useState<RobotInfo>({});
+  const [orderedJointNames, setOrderedJointNames] = useState<string[]>([]);
 
   const websocketUrl = 'ws://127.0.0.1:8001/ws';
 
@@ -92,6 +93,8 @@ function App() {
       robotStatus={robotStatus}
       axleValues={axleValues}
       setAxleValues={setAxleValues}
+      orderedJointNames={orderedJointNames}
+      setOrderedJointNames={setOrderedJointNames}
       setRobotInfo={setRobotInfo}
       setRobotMode={setRobotMode}
       setRobotName={setRobotName}

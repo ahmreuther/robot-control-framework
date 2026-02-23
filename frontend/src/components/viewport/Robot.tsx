@@ -11,6 +11,7 @@ import type { JointProperty } from '../../hooks/useSceneState';
 import { DragControls } from './DragControls';
 import GoalMarker from './GoalMarker';
 import RobotLoader from './RobotLoader';
+import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
 
 export const SOLVE_STATUS = {
   CONVERGED: 0,
@@ -44,7 +45,39 @@ export function Robot({
   setHoveredJointMesh,
   setMovedDistance,
 }: RobotProps) {
+  const { setOrderedJointNames } = useRobotInfoContext();
   const robotRef = useRef<URDFRobot>(null);
+  const getOrderedRevoluteJointNames = (robot: URDFRobot): string[] => {
+    if (!robot?.joints) return [];
+
+    let currentJoint: URDFJoint | null = null;
+    for (const child of robot.children) {
+      if (child.type === 'URDFJoint') {
+        currentJoint = child as URDFJoint;
+        break;
+      }
+    }
+
+    const ordered: string[] = [];
+    while (currentJoint) {
+      const jointName = currentJoint.name;
+      const jointObj = robot.joints[jointName];
+      if (jointObj && (jointObj.jointType === 'revolute' || jointObj.jointType === 'continuous')) {
+        ordered.push(jointName);
+      }
+
+      let nextJoint: URDFJoint | null = null;
+      if (currentJoint.children?.length) {
+        const urdfLink = currentJoint.children.find((c) => c.type === 'URDFLink') as URDFLink;
+        if (urdfLink?.children) {
+          nextJoint = (urdfLink.children.find((c) => c.type === 'URDFJoint') as URDFJoint) || null;
+        }
+      }
+      currentJoint = nextJoint;
+    }
+
+    return ordered;
+  };
   const robotGroupRef = useRef<THREE.Group>(null);
 
   // IK state
@@ -145,6 +178,7 @@ export function Robot({
     const goal = goalRef.current;
     const solver = solverRef.current;
     const ikRoot = ikRootRef.current;
+    if (!robot || !robotGroup || !goal || !solver || !ikRoot) return;
 
     // Transform goal from world space to robot local space
     const worldPos = new THREE.Vector3(...goalPosition);
@@ -212,6 +246,10 @@ export function Robot({
       robotGroupRef.current = robotGroup;
       robotGroup.rotation.x = -Math.PI / 2;
 
+      const ordered = getOrderedRevoluteJointNames(robot);
+      setOrderedJointNames(ordered);
+      console.log('[Robot] Ordered joint names:', ordered);
+
       // Load home pose from configuration
       try {
         const response = await fetch('/urdf/home_poses.json');
@@ -235,7 +273,6 @@ export function Robot({
               homeAngles.push(angle);
             }
           });
-
           homePositionRef.current = homeAngles;
           animationStartTimeRef.current = performance.now();
           isAnimatingRef.current = true;
@@ -274,22 +311,16 @@ export function Robot({
       onJointLimitsLoaded(jointLimits);
 
       // Process robot meshes for better appearance and hide collision meshes
-      let robotMesh: THREE.Mesh | undefined;
-      let collisionMesh: THREE.Mesh | undefined;
       robot.traverse((obj: THREE.Object3D) => {
         if (obj.type === 'Mesh' && (obj as THREE.Mesh).material && typeof obj.name === 'string') {
           const mesh = obj as THREE.Mesh;
           const name = mesh.name.toLowerCase();
           if (name.startsWith('collision_')) {
-            collisionMesh = mesh;
             mesh.material = new THREE.MeshPhysicalMaterial({
               transparent: true,
               opacity: 0,
             });
           } else {
-            robotMesh = mesh;
-            let color = 0xffffff;
-            if ((mesh.material as any).color) color = (mesh.material as any).color.getHex();
             const origColor = (mesh.material as any).color
               ? (mesh.material as any).color.getHex()
               : 0xffffff;
@@ -334,19 +365,19 @@ export function Robot({
       const solver = new Solver(ikRoot);
       solverRef.current = solver;
     },
-    [gl, camera],
+    [jointManager, onJointLimitsLoaded, setOrderedJointNames],
   );
 
   // Animation: home position
-  const homeAnimation = (jointNames) => {
+  const homeAnimation = (jointNames: string[]) => {
     if (animationStartTimeRef.current === null) return false;
     const elapsed = (performance.now() - animationStartTimeRef.current) / 1000;
     const t = Math.min(elapsed / animationDuration, 1.0);
     const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    const newAngles = jointNames.map((name, index) => {
+    const newAngles = jointNames.map((_, index) => {
       if (index < homePositionRef.current.length) {
         const startAngle = 0;
-        const targetAngle = homePositionRef.current[index];
+        const targetAngle = homePositionRef.current[index] ?? 0;
         return startAngle + (targetAngle - startAngle) * eased;
       }
       return 0;
@@ -375,14 +406,14 @@ export function Robot({
       const robot = robotRef.current;
       const jointNames = robot ? Object.keys(robot.joints ?? {}) : [];
       const jointIndex = jointNames.indexOf(joint.name);
-      setHoveredJointMesh(jointIndex !== -1 ? jointIndex : null);
+      setHoveredJointMesh?.(jointIndex !== -1 ? jointIndex : null);
       if (gl && gl.domElement) gl.domElement.style.cursor = 'pointer';
     }
   };
-  const handleUnhover = (joint: URDFJoint) => {
-    if (joint) {
+  const handleUnhover = (joint: URDFJoint | null) => {
+    if (joint && !drag) {
       highlightJointGeometry(joint, false);
-      setHoveredJointMesh(null);
+      setHoveredJointMesh?.(null);
     }
     hoveredJointRef.current = null;
     if (gl && gl.domElement) gl.domElement.style.cursor = 'default';
@@ -390,6 +421,7 @@ export function Robot({
 
   const handleUpdateJoint = (joint: URDFJoint, angle: number) => {
     const robot = robotRef.current;
+    if (!robot) return;
     const jointNames = Object.keys(robot.joints ?? {});
     const jointIndex = jointNames.indexOf(joint.name);
     const newAngles = [...jointAnglesRef.current];
@@ -410,7 +442,8 @@ export function Robot({
 
     jointNames.forEach((name, index) => {
       if (index < localJointAngles.length) {
-        robot.setJointValue(name, localJointAngles[index]);
+        const angle = localJointAngles[index] ?? 0;
+        robot.setJointValue(name, angle);
       }
     });
     robot.updateMatrixWorld(true);
@@ -426,7 +459,7 @@ export function Robot({
       if (candidate) return candidate;
     }
     let fallback: any = null;
-    robot.traverse((obj: URDFLink) => {
+    robot.traverse((obj) => {
       fallback = obj;
     });
     return fallback;
@@ -505,16 +538,18 @@ export function Robot({
   return (
     <>
       <RobotLoader urdfPath={urdfPath} onRobotReady={handleRobotReady} />
-      <DragControls
-        robot={robotRef.current}
-        camera={camera}
-        domElement={gl.domElement}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onHover={handleHover}
-        onUnhover={handleUnhover}
-        onUpdateJoint={handleUpdateJoint}
-      />
+      {robotRef.current && (
+        <DragControls
+          robot={robotRef.current}
+          camera={camera}
+          domElement={gl.domElement}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onHover={handleHover}
+          onUnhover={handleUnhover}
+          onUpdateJoint={handleUpdateJoint}
+        />
+      )}
       {!isAnimatingRef.current && showGoalMarker && (
         <GoalMarker
           onPositionChange={setGoalPosition}
@@ -522,11 +557,11 @@ export function Robot({
           goalQuaternion={goalQuaternion}
           onDrag={onDrag}
           handleUnhover={handleUnhover}
-          robot={robotRef.current}
           goalPosition={goalPosition}
           converged={convergedRef.current}
           jointManager={jointManager}
-          setMovedDistance={setMovedDistance}
+          {...(robotRef.current ? { robot: robotRef.current } : {})}
+          {...(setMovedDistance ? { setMovedDistance } : {})}
         />
       )}
     </>

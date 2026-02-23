@@ -23,6 +23,9 @@ interface RobotInfoContextType {
   axleValues: AxleValues | null;
   setAxleValues: (axleValues: AxleValues | null) => void;
 
+  orderedJointNames: string[];
+  setOrderedJointNames: (orderedJointNames: string[]) => void;
+
   robotInfo: RobotInfo | null;
   setRobotInfo: (robotInfo: RobotInfo | null) => void;
 }
@@ -39,6 +42,9 @@ export const RobotInfoContext = createContext<RobotInfoContextType>({
 
   axleValues: {},
   setAxleValues: () => {},
+
+  orderedJointNames: [],
+  setOrderedJointNames: () => {},
 
   robotInfo: {},
   setRobotInfo: () => {},
@@ -57,6 +63,9 @@ export type RobotInfoProviderProps = PropsWithChildren<{
   readonly axleValues: AxleValues | null;
   readonly setAxleValues: (axleValues: AxleValues | null) => void;
 
+  readonly orderedJointNames: string[];
+  readonly setOrderedJointNames: (orderedJointNames: string[]) => void;
+
   readonly robotInfo: RobotInfo | null;
   readonly setRobotInfo: (robotInfo: RobotInfo | null) => void;
 }>;
@@ -73,6 +82,8 @@ export function RobotInfoProvider(props: RobotInfoProviderProps) {
         setRobotMode: props.setRobotMode,
         axleValues: props.axleValues,
         setAxleValues: props.setAxleValues,
+        orderedJointNames: props.orderedJointNames,
+        setOrderedJointNames: props.setOrderedJointNames,
         robotInfo: props.robotInfo,
         setRobotInfo: props.setRobotInfo,
       }}

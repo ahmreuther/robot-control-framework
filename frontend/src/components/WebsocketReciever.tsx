@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect } from 'react';
 
 import { useLogContext } from '../contexts/LogContext';
 import { useRobotInfoContext } from '../contexts/RobotInfoContext';
@@ -7,13 +7,22 @@ import { SocketContext } from '../hooks/use-socket';
 import type { JointStateManager } from '../hooks/useJointState';
 import { WRITER_ID } from '../hooks/useJointState';
 
-// Helper: Convert Record<string, number> to number[]
-const recordToArray = (record: Record<string, number>): number[] => {
-  return Object.values(record).sort((a, b) => {
-    const aKey = Object.keys(record).find((k) => record[k] === a) || '';
-    const bKey = Object.keys(record).find((k) => record[k] === b) || '';
-    return aKey.localeCompare(bKey);
+const buildAxisToJointMap = (axisNames: string[], urdfJointNames: string[]) => {
+  const sortedAxis = [...axisNames].sort((a, b) => {
+    const ai = parseInt(a.match(/(\d+)$/)?.[1] || '0', 10);
+    const bi = parseInt(b.match(/(\d+)$/)?.[1] || '0', 10);
+    return ai - bi;
   });
+
+  const n = Math.min(sortedAxis.length, urdfJointNames.length);
+  const map: Record<string, string> = {};
+  for (let i = 0; i < n; i += 1) {
+    const axisName = sortedAxis[i];
+    const jointName = urdfJointNames[i];
+    if (!axisName || !jointName) continue;
+    map[axisName] = jointName;
+  }
+  return map;
 };
 
 export interface WebSocketRecieverProps {
@@ -23,14 +32,18 @@ export interface WebSocketRecieverProps {
 export default function WebSocketReciever({ jointManager }: WebSocketRecieverProps) {
   const socket = useContext(SocketContext);
 
-  const { axleValues, setRobotName, setRobotStatus, setRobotMode, setAxleValues, setRobotInfo } =
-    useRobotInfoContext();
+  const {
+    setRobotName,
+    setRobotStatus,
+    setRobotMode,
+    setAxleValues,
+    setRobotInfo,
+    orderedJointNames,
+  } = useRobotInfoContext();
 
   const { setLogs } = useLogContext();
 
   const { url, setUrl } = useContext(UrlContext);
-
-  //const [payloadJSON, setPayloadJSON] = useState<any>();
 
   function parseJson(input: string) {
     try {
@@ -40,11 +53,6 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
     }
   }
 
-  let opcUaSyncEnabled;
-  let opcUaStreamActive;
-  let hasRoboticsNamespace;
-
-  // Handle every incoming WebSocket message
   const handleMessage = useCallback(
     (msg: string) => {
       if (!msg) return;
@@ -52,34 +60,26 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
       try {
         if (msg.startsWith('x|')) {
           const match = /^x\|([^:]+):(.+)$/.exec(msg);
-
-          //const match = msg.match(/^x\|([^:]+):/);
-          const prefix = match?.[1];
+          if (!match) return;
+          const prefix = match[1];
           let payload: any = match[2];
+
           switch (prefix) {
             case 'custom':
               try {
                 payload = parseJson(payload);
                 if (payload.nodeId && typeof payload.value !== 'undefined') {
-                  //updateSubscriptionTable(payloadJSON.nodeId, payloadJSON.value);
+                  //updateSubscriptionTable(payload.nodeId, payload.value);
                 }
-                /*if (showSubscriptionsTabOnNextCustom) {
-                            const tabBtn = document.querySelector('.tab-btn[data-tab="subscriptions"]');
-                            if (tabBtn) tabBtn.click();
-                            showSubscriptionsTabOnNextCustom = false;
-                            }*/
               } catch (e) {
                 console.warn('Custom subscription parse error', e);
               }
               break;
 
-            case 'unsubscribe':
+            case 'unsubscribe': {
               let nodeId = null;
-
               payload = payload.trim();
               if (payload.startsWith('{')) {
-                // Check whether JSON or plain nodeId:
-                // JSON
                 try {
                   payload = parseJson(payload);
                   nodeId = payload.nodeId;
@@ -87,13 +87,13 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
                   console.warn('Unsubscribe parse error', e);
                 }
               } else {
-                // Only nodeId as a string
                 nodeId = payload;
               }
               if (nodeId) {
                 //removeSubscriptionRow(nodeId);
               }
               break;
+            }
 
             case 'event':
               try {
@@ -110,7 +110,6 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
                 p.style.marginBottom = '5px';
 
                 if (eventsContainer) {
-                  // Remove “No events captured” if present
                   const noEvents = eventsContainer.querySelector('.no-events-captured');
                   if (noEvents) noEvents.remove();
                   eventsContainer.prepend(p);
@@ -126,7 +125,7 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
                 console.log('Robot Info:', payload);
                 setRobotInfo(payload);
                 if (payload.model) setRobotName(payload.model);
-                setLogs((prev) => prev + `✅ Robot info received\n`);
+                setLogs((prev: string) => prev + `✅ Robot info received\n`);
               } catch (e) {
                 console.warn('RobotInfo parse error', e);
               }
@@ -136,7 +135,7 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
               if (typeof msg === 'string') {
                 payload = payload.trim();
                 setRobotMode(payload);
-                setLogs((prev) => prev + `✅ Mode: ${payload}\n`);
+                setLogs((prev: string) => prev + `✅ Mode: ${payload}\n`);
               } else {
                 console.warn('x|Mode: command is not a string');
               }
@@ -150,60 +149,30 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
                 if (payload?.angles) setAxleValues(payload.angles);
                 console.log('✅ Axle values updated');
 
-                /*
-                            try {
-                                payload = parseJson(payload);
-                                if (!payloadJSON || typeof payloadJSON !== "object" || !payloadJSON.angles) {
-                                    console.warn("❌ Parsed value is not a valid angles message:", payloadJSON);
-                                    return;
-                                }
-                            } catch (e) {
-                                console.warn("❌ Error parsing axis data:", payload, e);
-                                return;
-                            }
-                            //lastOpcUaAngles = anglesMsg.angles;
-                        
-                            if (isManipulating) {
-                            
-                                //lastOpcUaAngles = anglesMsg.angles;
-                                return;
-                            }
-                        
-                            if (!viewer) viewer = document.querySelector('urdf-viewer');
-                            if (!viewer || !viewer.robot || !viewer.robot.joints) {
-                                console.warn("⚠️ URDF Viewer or Robot Joints not available.");
-                                return;
-                            }
-                        
-                        
-                            try {
-                                //buildAxisToJointMap(anglesMsg);
-                                //console.log(buildAxisToJointMap(anglesMsg));
-                            } catch (e) {
-                                console.warn("❌ Could not create axis→joint mapping:", e);
-                                return;
-                            }
-                        
-                            const unit = payloadJSON.unit;
-                            const jointValuesRad = {};
-                            for (const axisName in payloadJSON.angles) {
-                                const jointName = axisToJointMap[axisName];
-                                if (!jointName) continue;
-                            
-                                let value = Number(payloadJSON.angles[axisName]) || 0;
-                                if (unit && unit !== "C81") {
-                                    // OPC delivers degree → convert to radiant
-                                    value = value * Math.PI / 180;
-                                }
-                                // Radiant (C81 or null) → use directly
-                                jointValuesRad[jointName] = value;
-                            }
-                            const success = viewer.setJointValues(jointValuesRad);
-                            if (!success) {
-                                console.warn("⚠️ viewer.setJointValues() did not cause any change.");
-                            } else {
-                                console.log("✅ Angle of joints updated:", jointValuesRad);
-                            }*/
+                if (payload?.angles && orderedJointNames.length) {
+                  const axisNames = Object.keys(payload.angles as Record<string, number>);
+                  const map = buildAxisToJointMap(axisNames, orderedJointNames);
+
+                  const unit = payload.unit;
+                  const nextAngles = orderedJointNames.map(() => 0);
+
+                  Object.entries(payload.angles as Record<string, number>).forEach(
+                    ([axisName, axisValue]) => {
+                      const jointName = map[axisName];
+                      if (!jointName) return;
+                      const jointIndex = orderedJointNames.indexOf(jointName);
+                      if (jointIndex < 0) return;
+
+                      let value = Number(axisValue) || 0;
+                      if (unit && unit !== 'C81') {
+                        value = (value * Math.PI) / 180;
+                      }
+                      nextAngles[jointIndex] = value;
+                    },
+                  );
+
+                  jointManager.setAngles(WRITER_ID.SYN, nextAngles);
+                }
               }
               break;
 
@@ -211,33 +180,19 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
               console.warn('Command not supported', prefix);
           }
         } else {
-          setLogs((prev) => prev + `🔔Received: ${msg}\n`);
+          setLogs((prev: string) => prev + `🔔Received: ${msg}\n`);
 
           if (msg.startsWith('Method call result:')) {
             //bis jetzt muss hier nichts gemacht werden, da die Nachricht bereits geloggt wird
-            //const methodStatus = document.getElementById('method-call-status');
-            //const spinner = document.getElementById('method-spinner');
-            //const statusText = document.getElementById('method-status-text');
-            //spinner.style.display = 'none';
-            //statusText.textContent = event.data.replace("Method call result:", "").trim();
-            //methodStatus.style.display = 'block';
-            //setTimeout(() => {
-            //    methodStatus.style.display = 'none';
-            //}, 6000);
           }
           if (msg.startsWith("✅ OPC UA server supports 'Robotics Namespace'")) {
-            //hier muss bis jetzt noch nichts passieren wenn eine flag benötigt wird können wir diese hinzufügen
-            hasRoboticsNamespace = true;
             //updateRobotLockToggleVisibility();
           }
           if (msg.startsWith("❌ 'Robotics Namespace' not listed")) {
-            //hier muss bis jetzt noch nichts passieren wenn eine flag benötigt wird können wir diese hinzufügen
-            hasRoboticsNamespace = false;
             //updateRobotLockToggleVisibility();
           }
           if (msg.startsWith('✅ Connected to ')) {
             setUrl(msg.replace('✅ Connected to ', '').trim());
-            //loadDeviceSet(connectedUrl); //hier sollte das laden des namespaces geschehen
             setRobotStatus('Connected');
           }
           if (msg.startsWith('Model:')) {
@@ -250,12 +205,10 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
               ? serialLine.replace('Serial Number:', '').trim()
               : 'unknown serial';
 
-            //TODO: Update robot stats box instead of opc-ua-status
             setRobotName(`${model}(${serial})`);
             setRobotStatus('Connected');
           }
           if (msg.startsWith('🔌 Disconnected from ')) {
-            // hier sollte der adressspace wieder geschlossen werden
             const rec_url = msg.replace('🔌 Disconnected from ', '').trim();
             if (url === rec_url) {
               setUrl(null);
@@ -265,12 +218,6 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
               const tbody = subsTable.querySelector('tbody');
               if (tbody) tbody.innerHTML = '';
             }
-            // SyncToggle auf false setzen
-            opcUaSyncEnabled = false;
-            opcUaStreamActive = false;
-            // Lock-Toggle
-            hasRoboticsNamespace = null;
-            //updateRobotLockToggleVisibility();
 
             setRobotStatus('Not Connected');
             setRobotName('-');
@@ -296,22 +243,25 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
         console.warn('❌ Failed to handle message: ' + String(e));
       }
     },
-    [setLogs, setRobotName, setRobotInfo, setRobotStatus, setRobotMode, setAxleValues],
+    [
+      setLogs,
+      setRobotName,
+      setRobotInfo,
+      setRobotStatus,
+      setRobotMode,
+      setAxleValues,
+      orderedJointNames,
+      jointManager,
+      url,
+      setUrl,
+    ],
   );
 
-  // Effect 1: Process WebSocket messages
   useEffect(() => {
     if (!socket?.lastMessage) return;
     const { data } = socket.lastMessage;
-    console.log('Websocket data:', data);
     if (typeof data === 'string') handleMessage(data);
   }, [socket?.lastMessage, handleMessage]);
-
-  // Effect 2: Update jointManager when axleValues change
-  useEffect(() => {
-    console.log('Axle Values in WebSocketReciever:', axleValues);
-    jointManager.setAngles(WRITER_ID.SYN, recordToArray(axleValues));
-  }, [axleValues, jointManager]);
 
   return null;
 }
