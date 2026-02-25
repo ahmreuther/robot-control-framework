@@ -78,75 +78,77 @@ export function Viewport(props: ViewportProps) {
   const [movedDistance, setMovedDistance] = useState<number>(0);
 
   return (
-    <div className="relative h-full w-full z-0">
-      {/* Viewport Stats (overlay) */}
-      <div className="absolute top-0 left-0 z-50 flex gap-20">
-        <Stats />
-        <SolverStatus solveStatuses={solveStatuses} movedDistance={movedDistance} />
+    <div className="p-2 h-full">
+      <div className="relative h-full w-full z-0 ">
+        {/* Viewport Stats (overlay) */}
+        <div className="absolute top-0 left-0 z-50 flex gap-20">
+          <Stats />
+          <SolverStatus solveStatuses={solveStatuses} movedDistance={movedDistance} />
+        </div>
+
+        <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>
+          {/* Environment */}
+          {props.environment ? (
+            <EnvironmentErrorBoundary
+              fallback={
+                <>
+                  <ambientLight intensity={2} />
+                  <directionalLight position={[5, 10, 7.5]} intensity={1} />
+                </>
+              }
+            >
+              <Suspense fallback={<EnvironmentLoader />}>
+                <Environment
+                  files={
+                    'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr'
+                  }
+                  environmentIntensity={0.6}
+                  backgroundIntensity={0.5}
+                  //ground={{ height: 5, radius: 40, scale: 20 }}
+                  background={true}
+                />
+              </Suspense>
+            </EnvironmentErrorBoundary>
+          ) : (
+            <>
+              <ambientLight intensity={2} />
+              <directionalLight position={[5, 10, 7.5]} intensity={1} />
+            </>
+          )}
+
+          {/* Postprocessing Effects */}
+          {props.effectComposer && (
+            <EffectComposer>
+              <Bloom />
+              <Vignette eskil={false} offset={0.1} darkness={0.3} />
+            </EffectComposer>
+          )}
+
+          {/* Grid Helper */}
+          <gridHelper args={[10, 10]} rotation={[0, Math.PI / 2, 0]} />
+
+          {/* Background color */}
+          <color attach="background" args={['#202025']} />
+
+          {/* Mouse controls */}
+          <OrbitControls enabled={!drag} />
+
+          {/* Robot with IK */}
+          <Suspense fallback={<RobotLoader />}>
+            <Robot
+              urdfPath={props.urdfPath}
+              drag={drag}
+              onSolveStatusesChange={setSolveStatusesState}
+              onDrag={setDrag}
+              jointManager={props.jointManager}
+              onJointLimitsLoaded={props.onJointLimitsLoaded}
+              showCollisionMesh={props.showCollisionMesh}
+              setHoveredJointMesh={props.setHoveredJointMesh}
+              setMovedDistance={setMovedDistance}
+            />
+          </Suspense>
+        </Canvas>
       </div>
-
-      <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>
-        {/* Environment */}
-        {props.environment ? (
-          <EnvironmentErrorBoundary
-            fallback={
-              <>
-                <ambientLight intensity={2} />
-                <directionalLight position={[5, 10, 7.5]} intensity={1} />
-              </>
-            }
-          >
-            <Suspense fallback={<EnvironmentLoader />}>
-              <Environment
-                files={
-                  'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/quarry_04_puresky_2k.hdr'
-                }
-                environmentIntensity={0.6}
-                backgroundIntensity={0.5}
-                //ground={{ height: 5, radius: 40, scale: 20 }}
-                background={true}
-              />
-            </Suspense>
-          </EnvironmentErrorBoundary>
-        ) : (
-          <>
-            <ambientLight intensity={2} />
-            <directionalLight position={[5, 10, 7.5]} intensity={1} />
-          </>
-        )}
-
-        {/* Postprocessing Effects */}
-        {props.effectComposer && (
-          <EffectComposer>
-            <Bloom />
-            <Vignette eskil={false} offset={0.1} darkness={0.3} />
-          </EffectComposer>
-        )}
-
-        {/* Grid Helper */}
-        <gridHelper args={[10, 10]} rotation={[0, Math.PI / 2, 0]} />
-
-        {/* Background color */}
-        <color attach="background" args={['#202025']} />
-
-        {/* Mouse controls */}
-        <OrbitControls enabled={!drag} />
-
-        {/* Robot with IK */}
-        <Suspense fallback={<RobotLoader />}>
-          <Robot
-            urdfPath={props.urdfPath}
-            drag={drag}
-            onSolveStatusesChange={setSolveStatusesState}
-            onDrag={setDrag}
-            jointManager={props.jointManager}
-            onJointLimitsLoaded={props.onJointLimitsLoaded}
-            showCollisionMesh={props.showCollisionMesh}
-            setHoveredJointMesh={props.setHoveredJointMesh}
-            setMovedDistance={setMovedDistance}
-          />
-        </Suspense>
-      </Canvas>
     </div>
   );
 }

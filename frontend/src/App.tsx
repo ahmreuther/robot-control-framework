@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Group, Panel } from 'react-resizable-panels';
 
+import logoPlcm from './assets/Logo_PLCM_RGB_mit Text.svg';
 import RobotsServersManager from './components/AddServerAndRobots/RobotsServersManager';
 import { ASpaceWindow } from './components/Adressspace/ASpaceWindow';
 import MessageLog from './components/MessageLog';
@@ -116,8 +117,14 @@ function App() {
                 <WebSocketReciever jointManager={jointManager} />
                 {!(isMobile && mobilePanelState !== 'none') ? (
                   <Group orientation="vertical">
-                    <header className="panel-header">
-                      <div className="panel-title text-sm">Digital Twin Robots</div>
+                    <header className="panel-header flex">
+                      <img
+                        src={logoPlcm}
+                        alt="PLCM logo"
+                        className="h-10 w-auto bg-gray-200 rounded-sm p-1"
+                      />
+                      <div className="panel-  title text-sm">Digital Twin Robots</div>
+
                       <Settings settings={settings} toggleSettings={toggleSettings} />
                     </header>
                     <Group>
@@ -209,6 +216,11 @@ function App() {
                 ) : (
                   <div className="px-2 py-2">
                     <div className="flex items-center justify-between mb-2 z-50">
+                      <img
+                        src={logoPlcm}
+                        alt="PLCM logo"
+                        className="h-10 w-auto bg-gray-200 rounded-sm p-1"
+                      />
                       <Settings settings={settings} toggleSettings={toggleSettings} />
                       <MobilePanelControls
                         className="flex items-center gap-2"
@@ -286,8 +298,14 @@ function App() {
                               </nav>
                             </div>
                           </header>
-                          <ASpaceWindow />
-                          <MessageLog />
+                          <div className="flex flex-col gap-2 h-[80vh]">
+                            <div className="flex-1 min-h-0 ml-2">
+                              <ASpaceWindow />
+                            </div>
+                            <div className="flex-1 min-h-0">
+                              <MessageLog />
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
