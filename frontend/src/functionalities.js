@@ -359,7 +359,6 @@ function removeSubscriptionRow(nodeId, robotRecord) {
 export function handleSocketMessage(event) {
     // console.log("Message from server:", event.data);
     const rawData = event.data;
-    console.log("[WS raw]", rawData);
     
     const sepIndex = rawData.indexOf("|");
     if (sepIndex === -1) {
@@ -567,7 +566,6 @@ function handleProtocolMessage(robotRecord, data) {
 }
 
 function handleStatusMessage(robotRecord, data, originUrl) {
-    console.log("[STATUS]", { originUrl, data, robotId: robotRecord.id, connectedUrl: robotRecord.state.connectivity.connectedUrl });
     logMessageToBox(`🔔 ${data}`);
     const { opcua, ui, connectivity } = robotRecord.state;
     // Handle method call result
@@ -806,7 +804,6 @@ function showNodeProperties(element, robotRecord) {
 //done
 export function handleOpcUaSyncToggle(robotRecord, event) {
     const checkbox = event.target;
-    console.log("[SYNC TOGGLE]", { robotId: robotRecord?.id, url: robotRecord?.state?.connectivity?.connectedUrl, checked: checkbox.checked });
     if (!robotRecord) {
         logMessageToBox('❌ No active robot.');
         return false;
