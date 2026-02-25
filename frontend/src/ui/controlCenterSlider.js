@@ -1,0 +1,1 @@
+//todo move sliders out of index

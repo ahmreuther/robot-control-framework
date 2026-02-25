@@ -8,8 +8,11 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import URDFIKManipulator from './URDFIKManipulator.js'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
-import { addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, setManipulatorFactory, getActiveRobot, setActiveRobot, setGlobalSocket} from './robotManager.js';
-import { spawnRobot, disposeRobotNode } from './sceneManager.js';
+import { robotModels, addRobot, removeRobot, getRobot, listRobots, setStatusListener, getNextSlotIndex, 
+    setManipulatorFactory, getActiveRobot, setActiveRobot, setGlobalSocket} from './robot/robotManager.js';
+
+import { spawnRobot, disposeRobotNode } from './scene/sceneManager.js';
+/*
 import {
     toggleMcpIntegration,
     sendMcpRobotStateUpdate
@@ -47,7 +50,16 @@ import {
     handleHomeClick,
     updateRobotSpecificUI
 } from './functionalities.js';
-
+*/
+import { handleOpcUaNodeSelection, handleSubtreeClick, refreshSelectedNode } from './opcua/addressSpace';
+import { connectOpcUa, disconnectOpcUa, handleSocketMessage, handleOpcUaSyncToggle } from './opcua/connection.js';
+import { handleContextMenu, handleNodeClick, handleContextCallMethod, handleContextSubscribe,
+    handleContextUnsubscribe, handleContextSubscribeEvent, handleContextUnsubscribeEvent, handleGlobalMouseDown } from './opcua/contextMenu.js';
+import { toggleMcpIntegration, sendMcpRobotStateUpdate } from './robot/mcp.js';
+import { toggleOpcUaSection,toggleRobotDashboardSection, switchTab, syncWidth, initWidthObserver, 
+    initAnimationBlocker, getToggleDimensions } from './ui/layout.js';
+import { logMessageToBox, clearLog } from './ui/logging.js';
+import { updateRevoluteJointStatus, handleManipulateEnd, handleHomeClick, updateRobotSpecificUI } from './ui/robotUiState.js';
 
 customElements.define('urdf-viewer', URDFIKManipulator);
 
@@ -174,7 +186,6 @@ const solverOptions = {
     rotationConvergeThreshold: 1e-5,
     restPoseFactor: 0.025,
 };
-import { robotModels } from './robotManager.js';
 
 // Multi- Robot
 const addRobotSelect = document.getElementById('multi-robot-model');

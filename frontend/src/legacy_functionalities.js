@@ -3,6 +3,7 @@ import { getActiveRobot, listRobots } from './robotManager.js';
 
 
 // Utils: Extract URDF joints from viewer
+//robot/joints.js
 function normalizeMapLike(mapLike) {
     const out = {};
     if (!mapLike) return out;
@@ -13,7 +14,7 @@ function normalizeMapLike(mapLike) {
     }
     return out;
 }
-
+//robot/joints.js
 function urdfJointsArray(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
@@ -34,18 +35,17 @@ function urdfJointsArray(robotRecord) {
     return arr;
 }
 
-
-
+//robot/joints.js
 function isRevoluteType(t) {
     t = String(t || '').toLowerCase();
     return t === 'revolute' || t === 'continuous';
 }
-
+//robot/joints.js
 function isPrismaticType(t) {
     t = String(t || '').toLowerCase();
     return t === 'prismatic';
 }
-
+//robot/joints.js
 function getJointLimits(j) {
     // robustes Auslesen, je nach Parser
     const lim = j?.limit || j?._limit || j?._raw?.limit || {};
@@ -58,8 +58,8 @@ function getJointLimits(j) {
     };
 }
 
-
 // Adjacency: parentLink -> [JointObjects]
+//robot/joints.js
 function buildAdjacency(jointsArr) {
     const adj = new Map();
     for (const j of jointsArr) {
@@ -70,7 +70,7 @@ function buildAdjacency(jointsArr) {
     return adj;
 }
 
-
+//robot/joints.js
 /**
  *Revolute order from base joint (BFS along the chain))
  */
@@ -102,7 +102,7 @@ function orderedRevoluteFromBaseJoint(robotRecord, baseJoint) {
     return order;
 }
 
-
+//robot/joints.js
 function getOrderedRevoluteJoints(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
@@ -141,8 +141,7 @@ function getOrderedRevoluteJoints(robotRecord) {
     return ordered;
 }
 
-
-
+//robot/joints.js
 function getOrderedRevoluteJointNames(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
@@ -186,10 +185,7 @@ function getOrderedRevoluteJointNames(robotRecord) {
     return ordered;
 }
 
-
-
-
-
+//opcua/connection.js
 function buildAxisToJointMap(robotRecord, anglesMsg) {
     // OPC UA sort Axis
     const axisNames = Object.keys(anglesMsg.angles).sort((a, b) => {
@@ -227,7 +223,7 @@ function buildAxisToJointMap(robotRecord, anglesMsg) {
     return map;
 }
 
-
+//opcua/connection.js
 function buildEndEffectorMap(robotRecord) {
     const manipulator = robotRecord.manipulator;
     const { opcua } = robotRecord.state;
@@ -290,8 +286,7 @@ function buildEndEffectorMap(robotRecord) {
     return opcua.endEffectorMap;
 }
 
-
-
+//opcua/connection.js
 function loadDeviceSet(robotRecord, opcUaUrl) {
     const encodedUrl = encodeURIComponent(opcUaUrl);
     fetch(`http://127.0.0.1:8000/device_set_rendered?url=${encodedUrl}`)
@@ -303,7 +298,7 @@ function loadDeviceSet(robotRecord, opcUaUrl) {
             }
         });
 }
-
+//opcua/subscriptions.js
 function updateSubscriptionTable(nodeId, value, robotRecord) {
     // Update State
     if (robotRecord) {
@@ -340,7 +335,7 @@ function updateSubscriptionTable(nodeId, value, robotRecord) {
     }
 }
 
-
+//opcua/subscriptions.js
 function removeSubscriptionRow(nodeId, robotRecord) {
     // Update State
     if (robotRecord) {
@@ -356,9 +351,11 @@ function removeSubscriptionRow(nodeId, robotRecord) {
     if (row) row.remove();
 }
 
+//opcua/connection.js
 export function handleSocketMessage(event) {
     // console.log("Message from server:", event.data);
     const rawData = event.data;
+    console.log("[WS raw]", rawData);
     
     const sepIndex = rawData.indexOf("|");
     if (sepIndex === -1) {
@@ -393,7 +390,7 @@ export function handleSocketMessage(event) {
         handleStatusMessage(targetRobot, message, robotUrl);
     }
 }
-
+//opcua/connection.js
 function handleProtocolMessage(robotRecord, data) {
     const manipulator = robotRecord.manipulator;
     const { ui, opcua, connectivity, interaction } = robotRecord.state;
@@ -564,8 +561,9 @@ function handleProtocolMessage(robotRecord, data) {
         }
     }
 }
-
+//opcua/connection.js
 function handleStatusMessage(robotRecord, data, originUrl) {
+    console.log("[STATUS]", { originUrl, data, robotId: robotRecord.id, connectedUrl: robotRecord.state.connectivity.connectedUrl });
     logMessageToBox(`🔔 ${data}`);
     const { opcua, ui, connectivity } = robotRecord.state;
     // Handle method call result
@@ -677,7 +675,7 @@ function handleStatusMessage(robotRecord, data, originUrl) {
         }
     }
 }
-
+//ui/layout.js
 function setInfoBoxState(expanded) {
     // --- DOM Elements ---
     const infoBox = document.getElementById('info-box');
@@ -690,6 +688,7 @@ function setInfoBoxState(expanded) {
     infoToggleBtn.textContent = expanded ? "collapse »" : "« expand";
 }
 
+//ui/layout.js
 // Toggle OPC UA panel (works)
 export function toggleOpcUaSection() {
 
@@ -701,7 +700,7 @@ export function toggleOpcUaSection() {
     });
 }
 
-
+//ui/layout.js
 // Toggle Robot Dashboard panel (works)
 export function toggleRobotDashboardSection() {
     const toggleRobotDashboard = document.getElementById('toggle-robot-dashboard');
@@ -712,7 +711,7 @@ export function toggleRobotDashboardSection() {
     });
 }
 
-
+//opcua/connection.js
 export function connectOpcUa(robotRecord) {
     const infoToggleBtn = document.getElementById("info-toggle-btn");
     infoToggleBtn.style.display = "none";
@@ -741,7 +740,7 @@ export function connectOpcUa(robotRecord) {
         alert("WebSocket is not connected.");
     }
 }
-
+//opcua/connection.js
 export function disconnectOpcUa(robotRecord) {
     if (!robotRecord) return console.warn("No active robot.");
     const { connectivity } = robotRecord.state;
@@ -759,7 +758,7 @@ export function disconnectOpcUa(robotRecord) {
         alert("WebSocket is not connected.");
     }
 }
-
+//opcua/addressSpace.js
 function showNodeProperties(element, robotRecord) {
     // If no robotRecord provided, try to find active (backwards compat)
     if (!robotRecord) robotRecord = getActiveRobot();
@@ -799,11 +798,12 @@ function showNodeProperties(element, robotRecord) {
     propertiesBox.style.display = "block";
 }
 
-
+//opcua/connection.js
 // --- OPC UA Sync Toggle State ---
 //done
 export function handleOpcUaSyncToggle(robotRecord, event) {
     const checkbox = event.target;
+    console.log("[SYNC TOGGLE]", { robotId: robotRecord?.id, url: robotRecord?.state?.connectivity?.connectedUrl, checked: checkbox.checked });
     if (!robotRecord) {
         logMessageToBox('❌ No active robot.');
         return false;
@@ -858,6 +858,7 @@ export function handleOpcUaSyncToggle(robotRecord, event) {
         }
     }
 }
+//opcua/addressSpace.js
 function updateReferencesTable(refs, robotRecord) {
     // Update State
     if (robotRecord) {
@@ -897,7 +898,7 @@ function updateReferencesTable(refs, robotRecord) {
         referencesTable.appendChild(newTbody);
     }
 }
-//done
+//opcua/addressSpace.js
 export function handleOpcUaNodeSelection(robotRecord, event) {
     
 
@@ -933,8 +934,7 @@ export function handleOpcUaNodeSelection(robotRecord, event) {
             console.warn(`[${robotRecord.id}] Error loading references:`, err);
         });
 }
-//done
-
+//opcua/addressSpace.js
 export async function handleSubtreeClick(robotRecord, e) {
     if (!(e.target.tagName === "SUMMARY" || e.target.tagName === "SPAN") || !e.target.dataset.nodeId) {
         return;
@@ -973,6 +973,7 @@ export async function handleSubtreeClick(robotRecord, e) {
     ui.selectedNodeElement = summary;
     showNodeProperties(summary, robotRecord);
 }
+//ui/layout.js
 export function switchTab(tabName) { //Done i think maybe TODO because different
     const buttons = document.querySelectorAll(".tab-btn");
     buttons.forEach((btn) => {
@@ -993,7 +994,7 @@ export function switchTab(tabName) { //Done i think maybe TODO because different
     });
     console.log(`Switched UI to ${tabName} tab.`);
 }
-
+//ui/logging.js
 export function logMessageToBox(msg) {
     const logContainer = document.getElementById('message-log');
     const line = document.createElement('div');
@@ -1001,11 +1002,11 @@ export function logMessageToBox(msg) {
     line.textContent = msg;
     logContainer.prepend(line);
 }
-//done
+//ui/logging.js
 export function clearLog() {
     document.getElementById('message-log').innerHTML ='';
 }
-//done
+//opcua/contextMenu.js
 export function handleContextMenu(robotRecord, e) {
     if(!robotRecord) return;
   const target = e.target;
@@ -1025,6 +1026,7 @@ export function handleContextMenu(robotRecord, e) {
         ui.selectedNodeElement = null;
     }
 }
+//opcua/contextMenu.js
 export function handleNodeClick(robotRecord, e) {
     if(!robotRecord) return;
     const { ui } = robotRecord.state;
@@ -1043,7 +1045,7 @@ export function handleNodeClick(robotRecord, e) {
         showNodeProperties(e.target, robotRecord);
     }
 }
-//done
+//opcua/contextMenu.js
 export function handleContextCallMethod(robotRecord) {
     if(!robotRecord) return;
     const menu = document.getElementById("custom-context-menu");
@@ -1097,7 +1099,7 @@ export function handleContextCallMethod(robotRecord) {
         connectivity.socket.send(`call|${JSON.stringify(payload)}`);
     }
 }
-//done
+//opcua/contextMenu.js
 export function handleContextSubscribe(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -1122,7 +1124,7 @@ export function handleContextSubscribe(robotRecord) {
         connectivity.socket.send("subscribe|" + JSON.stringify(payload));
         ui.showSubscriptionsTabOnNextCustom = true;
     }
-}//done
+}//opcua/contextMenu.js
 export function handleContextUnsubscribe(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -1144,7 +1146,7 @@ export function handleContextUnsubscribe(robotRecord) {
         };
         connectivity.socket.send("unsubscribe|" + JSON.stringify(payload));
     }
-}//done
+}//opcua/contextMenu.js
 export function handleContextSubscribeEvent(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -1167,7 +1169,7 @@ export function handleContextSubscribeEvent(robotRecord) {
         connectivity.socket.send("subscribeEvent|" + JSON.stringify(payload));
         ui.showSubscriptionsTabOnNextCustom = true;
     }
-} // done
+} // opcua/contextMenu.js
 export function handleContextUnsubscribeEvent(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -1190,6 +1192,7 @@ export function handleContextUnsubscribeEvent(robotRecord) {
         connectivity.socket.send("unsubscribeEvent|" + JSON.stringify(payload));
     }
 }
+//opcua/contextMenu.js
 function showInputParameterPopup(rawHtml, callback) {
     let htmlToParse = rawHtml.trim();
     if (!/^<ul[\s>]/i.test(htmlToParse)) {
@@ -1268,13 +1271,15 @@ function showInputParameterPopup(rawHtml, callback) {
         callback(data);
     });
 }
+
+//opcua/contextMenu.js
 export function handleGlobalMouseDown(e) {
     const menu = document.getElementById('custom-context-menu');
     if (menu.style.display === 'block' && !menu.contains(e.target)) {
         menu.style.display = 'none';
     }
 }
-
+//ui/layout.js
 /**
  * Forces the target element to match the source element's width
  */
@@ -1283,7 +1288,7 @@ export const syncWidth = (source, target) => {
         target.style.width = source.style.width;
     }
 };
-
+//ui/layout.js
 /**
  * Creates an observer that ensures target width follows source width
  */
@@ -1292,7 +1297,7 @@ export const initWidthObserver = (source, target) => {
     observer.observe(source, { attributes: true, attributeFilter: ['style'] });
     return observer;
 };
-
+//ui/layout.js
 /**
  * Creates an observer that prevents the 'checked' class from being applied.
  * Starts the observer immediately after calling the method
@@ -1309,8 +1314,8 @@ export const initAnimationBlocker = (element) => {
     observer.observe(element, { attributes: true, attributeFilter: ['class'] });
     return observer;
 };
-
-/**
+//ui/layout.js
+/** 
  * Pure logic to determine the next UI state based on current expansion
  */
 export const getToggleDimensions = (isCurrentlyExpanded) => {
@@ -1319,25 +1324,7 @@ export const getToggleDimensions = (isCurrentlyExpanded) => {
         label: isCurrentlyExpanded ? "« expand" : "collapse »",
     };
 };
-
-// Merker für letzte EEF-Positionen
-function getVal(j) {
-    return Array.isArray(j.jointValue) ? Number(j.jointValue[0]) : Number(j.angle || 0);
-}
-function getLimits(j) {
-    const lim = j?.limit || j?._limit || j?._raw?.limit || {};
-    const toNum = v => (v === undefined || v === null || v === '' ? NaN : Number(v));
-    return { lower: toNum(lim.lower ?? lim.min), upper: toNum(lim.upper ?? lim.max) };
-}
-//helper method that get a robotRecord.manipulator.robot
-function getEEFMasters(robot) {
-    if (window.endEffectorMap?.byName) {
-        return Object.keys(endEffectorMap.byName)
-            .map(n => robot.joints[n])
-            .filter(j => j && j.jointType === 'prismatic' && !j.mimic);
-    }
-    return Object.values(robot.joints).filter(j => j.jointType === 'prismatic' && !j.mimic);
-}
+//ui/robotUiState.js
 function getFormattedJointString(robotRecord) {
     const manipulator = robotRecord.manipulator;
     const r = manipulator.robot;
@@ -1371,7 +1358,7 @@ function getFormattedJointString(robotRecord) {
     }
     return jointValues;
 }
-
+//ui/robotUiState.js
 export function updateRevoluteJointStatus(robotRecord) {
     
     // Only update UI if active
@@ -1394,6 +1381,29 @@ export function updateRevoluteJointStatus(robotRecord) {
         }
     }
 }
+
+//ui/robotUiState.js
+// Merker für letzte EEF-Positionen
+function getVal(j) {
+    return Array.isArray(j.jointValue) ? Number(j.jointValue[0]) : Number(j.angle || 0);
+}
+//ui/robotUiState.js
+function getLimits(j) {
+    const lim = j?.limit || j?._limit || j?._raw?.limit || {};
+    const toNum = v => (v === undefined || v === null || v === '' ? NaN : Number(v));
+    return { lower: toNum(lim.lower ?? lim.min), upper: toNum(lim.upper ?? lim.max) };
+}
+//ui/robotUiState.js
+//helper method that get a robotRecord.manipulator.robot
+function getEEFMasters(robot) {
+    if (window.endEffectorMap?.byName) {
+        return Object.keys(endEffectorMap.byName)
+            .map(n => robot.joints[n])
+            .filter(j => j && j.jointType === 'prismatic' && !j.mimic);
+    }
+    return Object.values(robot.joints).filter(j => j.jointType === 'prismatic' && !j.mimic);
+}
+//ui/robotUiState.js
 export function handleManipulateEnd(robotRecord) {
     const { connectivity } = robotRecord.state;
     if (!connectivity.socket || 
@@ -1501,7 +1511,7 @@ export function handleManipulateEnd(robotRecord) {
         connectivity.socket.send(`call|${JSON.stringify(payload)}`);
     }
 }
-
+//opcua/addresSpace.js
 export function refreshSelectedNode(robotRecord) {
     if(!robotRecord) return;
     const { ui, connectivity } = robotRecord.state;
@@ -1540,7 +1550,7 @@ export function refreshSelectedNode(robotRecord) {
 
     showNodeProperties(el, robotRecord);
 }
-
+//ui/robotUiState.js
 function updateRobotLockToggleVisibility(robotRecord) {
     const container = document.getElementById('robot-lock-toggle-container');
     if (!container) return;
@@ -1557,14 +1567,14 @@ function updateRobotLockToggleVisibility(robotRecord) {
     const hasRoboticsNamespace = robotRecord.state.opcua.hasRoboticsNamespace === true;
     container.style.display = hasRoboticsNamespace ? '' : 'none';
 }
-
+//ui/robotUiState.js
 export function handleHomeClick(robotRecord) {
     const manipulator = robotRecord.manipulator;
     if (manipulator) {
         manipulator.dispatchEvent(new Event('reset-angles'));
     }
 }
-
+//robot/mcp.js
 //connect and setup method if mcp socket doesn't exist. called in 
 function setup_mcp_socket(robotRecord) {
     if (!robotRecord) return;
@@ -1639,7 +1649,7 @@ function setup_mcp_socket(robotRecord) {
         connectivity.socketMcp = null;
     };
 }
-
+//robot/mcp.js
 function disconnect_mcp_socket(robotRecord) {
     if (!robotRecord) return;
 
@@ -1653,7 +1663,7 @@ function disconnect_mcp_socket(robotRecord) {
         console.log(`[${robotId}] MCP WebSocket disconnected successfully.`);
     }
 }
-
+//robot/mcp.js
 export function toggleMcpIntegration(robotRecord, event) {
     if (!robotRecord) return;
     if (event.target.checked) {
@@ -1664,7 +1674,7 @@ export function toggleMcpIntegration(robotRecord, event) {
         robotRecord.opcua.syncEnabled = false;
     }
 }
-
+//robot/mcp.js
 export function sendMcpRobotStateUpdate(robotRecord) {
     const manipulator = robotRecord.manipulator;
     const { connectivity } = robotRecord.state;
@@ -1677,7 +1687,7 @@ export function sendMcpRobotStateUpdate(robotRecord) {
     const jointValues = getFormattedJointString(robotRecord);
     connectivity.socketMcp.send('ANGLES|' + jointValues.join(', '));
 }
-
+//ui/robotUiState.js
 export function updateRobotSpecificUI(robotRecord) {
     // clear tables first
     const subsTable = document.getElementById('subscriptions-table');
