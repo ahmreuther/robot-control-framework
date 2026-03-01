@@ -1,4 +1,11 @@
+// Disclaimer:
+// This file was refactored to pass robot records into helpers so joint mapping works per robot.
+// Please keep new code following this per-robot pattern.
 // Utils: Extract URDF joints from viewer
+/*
+Per-robot joint helpers. Normalize URDF joints so mapping works the same across loaders.
+Keep new code per robot.
+*/
 function normalizeMapLike(mapLike) {
     const out = {};
     if (!mapLike) return out;
@@ -10,6 +17,7 @@ function normalizeMapLike(mapLike) {
     return out;
 }
 
+// Convert the URDF joint map into a simple array.
 function urdfJointsArray(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
@@ -30,16 +38,19 @@ function urdfJointsArray(robotRecord) {
     return arr;
 }
 
+// Check if a joint is revolute or continuous.
 function isRevoluteType(t) {
     t = String(t || '').toLowerCase();
     return t === 'revolute' || t === 'continuous';
 }
 
+// Check if a joint is prismatic.
 export function isPrismaticType(t) {
     t = String(t || '').toLowerCase();
     return t === 'prismatic';
 }
 
+// Read joint limits safely across parser variants.
 export function getJointLimits(j) {
     // robustes Auslesen, je nach Parser
     const lim = j?.limit || j?._limit || j?._raw?.limit || {};
@@ -53,6 +64,7 @@ export function getJointLimits(j) {
 }
 
 // Adjacency: parentLink -> [JointObjects]
+// Build a map of link → joints for traversal.
 function buildAdjacency(jointsArr) {
     const adj = new Map();
     for (const j of jointsArr) {
@@ -66,6 +78,7 @@ function buildAdjacency(jointsArr) {
 /**
  *Revolute order from base joint (BFS along the chain))
  */
+// BFS from the base joint to get a stable revolute order for this robot.
 export function orderedRevoluteFromBaseJoint(robotRecord, baseJoint) {
     const jointsArr = urdfJointsArray(robotRecord);
     const adj = buildAdjacency(jointsArr);
@@ -94,6 +107,7 @@ export function orderedRevoluteFromBaseJoint(robotRecord, baseJoint) {
     return order;
 }
 
+// Walk the URDF chain to collect revolute joints in order.
 export function getOrderedRevoluteJoints(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
@@ -132,6 +146,7 @@ export function getOrderedRevoluteJoints(robotRecord) {
     return ordered;
 }
 
+// Same as above but return names only; used by OPC UA axis mapping.
 export function getOrderedRevoluteJointNames(robotRecord) {
     const manipulator = robotRecord.manipulator;
 

@@ -1,3 +1,6 @@
+/*
+Layout helpers stay per robot. Keep new code following the same per-robot pattern.
+*/
 export function setInfoBoxState(expanded) {
     // --- DOM Elements ---
     const infoBox = document.getElementById('info-box');
@@ -10,7 +13,7 @@ export function setInfoBoxState(expanded) {
     infoToggleBtn.textContent = expanded ? "collapse »" : "« expand";
 }
 
-// Toggle OPC UA panel (works)
+// Toggle the OPC UA panel.
 export function toggleOpcUaSection() {
 
     const toggleOpcUa = document.getElementById('toggle-opc-ua');
@@ -21,7 +24,7 @@ export function toggleOpcUaSection() {
     });
 }
 
-// Toggle Robot Dashboard panel (works)
+// Toggle the robot dashboard panel.
 export function toggleRobotDashboardSection() {
     const toggleRobotDashboard = document.getElementById('toggle-robot-dashboard');
     const robotDashboardSection = document.getElementById('robot-dashboard');
@@ -31,7 +34,8 @@ export function toggleRobotDashboardSection() {
     });
 }
 
-export function switchTab(tabName) { //Done i think maybe TODO because different
+// Switch tabs (address space, subscriptions, events).
+export function switchTab(tabName) {
     const buttons = document.querySelectorAll(".tab-btn");
     buttons.forEach((btn) => {
         if (btn.getAttribute("data-tab") === tabName) {
@@ -52,28 +56,21 @@ export function switchTab(tabName) { //Done i think maybe TODO because different
     console.log(`Switched UI to ${tabName} tab.`);
 }
 
-/**
- * Forces the target element to match the source element's width
- */
+// Make the target element match the source width.
 export const syncWidth = (source, target) => {
     if (source && target) {
         target.style.width = source.style.width;
     }
 };
 
-/**
- * Creates an observer that ensures target width follows source width
- */
+// Mirror width changes from source to target.
 export const initWidthObserver = (source, target) => {
     const observer = new MutationObserver(() => syncWidth(source, target));
     observer.observe(source, { attributes: true, attributeFilter: ['style'] });
     return observer;
 };
 
-/**
- * Creates an observer that prevents the 'checked' class from being applied.
- * Starts the observer immediately after calling the method
- */
+// Remove the 'checked' class whenever it appears.
 export const initAnimationBlocker = (element) => {
     if (!element) return null;
     const observer = new MutationObserver((mutations) => {
@@ -87,9 +84,7 @@ export const initAnimationBlocker = (element) => {
     return observer;
 };
 
-/**
- * Pure logic to determine the next UI state based on current expansion
- */
+// Return the next width/label pair based on expansion state.
 export const getToggleDimensions = (isCurrentlyExpanded) => {
     return {
         width: isCurrentlyExpanded ? "450px" : "750px",

@@ -31,6 +31,15 @@ flowchart TD
     A[Frontend: Web UI, IK/FK] <-->|HTTP/WebSocket| C[Backend: Python, OPC UA Client]
 ```
 
+### Frontend Interfaces (multi-robot)
+- `frontend/src/robot/robotManager.js`: Registry for all robots. Keeps per-robot state (connectivity, UI, OPC UA info), hands out the active robot, assigns slot indices so rigs do not overlap, and shares one OPC UA socket instead of reconnecting per robot.
+- `frontend/src/scene/sceneManager.js`: Loads a URDF into a rig and offsets it by slot. The rig carries the world transform so the robot itself can stay at origin for IK/FK stability; `disposeRobotNode` frees GPU resources when a robot is removed.
+- `frontend/src/URDFIKManipulator.js`: Per-robot IK/FK controller. Gizmo/target live on the rig so slot offsets don’t break IK; drag controls are rebuilt per robot to scope raycasting/highlighting. Emits `angle-change`, `manipulate-start/end`; press `t` to toggle IK gizmo vs FK joint dragging.
+- `frontend/src/opcua/connection.js` (plus `addressSpace.js`, `contextMenu.js`): Uses one shared backend WebSocket and demuxes messages by URL to the right robot. Maintains per-robot axis→joint maps, sync toggles, subscriptions, and status UI only for the active robot.
+- `frontend/src/ui/*`: UI helpers (layout, logging, robot UI state) that read/write the per-robot state exposed by `robotManager`.
+
+**Rig + baseGroup:** Each robot is loaded into its own rig (`THREE.Group`) that carries the slot/world offset. The robot stays at local origin so IK/FK math remains stable. Manipulators attach their gizmo to that rig via `baseGroup` so the offset is applied once, not twice. Removing a robot also removes its rig and frees GPU resources.
+
 ---
 ## Prerequisites
 For development, you will need:

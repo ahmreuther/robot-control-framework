@@ -1,10 +1,15 @@
+/*
+Per-robot OPC UA helpers. One shared WebSocket is routed by URL to the right robot.
+Keeps axis→joint maps, feeds the correct manipulator, and only updates UI for the active robot.
+Keep new code per robot, not globals.
+*/
 import { getActiveRobot, listRobots } from "../robot/robotManager.js";
 import { isPrismaticType, getJointLimits, getOrderedRevoluteJointNames } from "../robot/joints.js";
 import { setInfoBoxState } from "../ui/layout.js";
 import { logMessageToBox } from '../ui/logging.js';
 import { updateRevoluteJointStatus, updateRobotLockToggleVisibility } from "../ui/robotUiState.js";
 
-//used in handleOpcUaSyncToggle and handleProtocolMessage -> no need to export it
+// Map OPC UA axes to URDF joints for this robot; cache the mapping.
 function buildAxisToJointMap(robotRecord, anglesMsg) {
     // OPC UA sort Axis
     const axisNames = Object.keys(anglesMsg.angles).sort((a, b) => {
@@ -42,7 +47,7 @@ function buildAxisToJointMap(robotRecord, anglesMsg) {
     return map;
 }
 
-// helper in buildAxisToJointMap
+// Helper: build prismatic end-effector map for this robot.
 function buildEndEffectorMap(robotRecord) {
     const manipulator = robotRecord.manipulator;
     const { opcua } = robotRecord.state;
@@ -104,7 +109,8 @@ function buildEndEffectorMap(robotRecord) {
 
     return opcua.endEffectorMap;
 }
-//used in handleStatusMessage -> no export
+// Load the device set HTML for this robot only.
+// used in handleStatusMessage -> no export
 function loadDeviceSet(robotRecord, opcUaUrl) {
     const encodedUrl = encodeURIComponent(opcUaUrl);
     fetch(`http://127.0.0.1:8000/device_set_rendered?url=${encodedUrl}`)
@@ -117,6 +123,7 @@ function loadDeviceSet(robotRecord, opcUaUrl) {
         });
 }
 
+// Track subscription values per robot and only update the active one on screen.
 // used in handleProtocolMessage -> no export
 function updateSubscriptionTable(nodeId, value, robotRecord) {
     // Update State
@@ -154,6 +161,7 @@ function updateSubscriptionTable(nodeId, value, robotRecord) {
     }
 }
 
+// Remove subscription rows and cache for this robot only.
 //used in handleProtocolMessage -> no export
 function removeSubscriptionRow(nodeId, robotRecord) {
     // Update State
@@ -170,6 +178,7 @@ function removeSubscriptionRow(nodeId, robotRecord) {
     if (row) row.remove();
 }
 
+// Connect this robot to OPC UA via the shared socket.
 export function connectOpcUa(robotRecord) {
     const infoToggleBtn = document.getElementById("info-toggle-btn");
     infoToggleBtn.style.display = "none";
@@ -199,6 +208,7 @@ export function connectOpcUa(robotRecord) {
     }
 }
 
+// Ask backend to disconnect this robot without affecting others.
 export function disconnectOpcUa(robotRecord) {
     if (!robotRecord) return console.warn("No active robot.");
     const { connectivity } = robotRecord.state;
@@ -217,6 +227,8 @@ export function disconnectOpcUa(robotRecord) {
     }
 }
 
+// Route incoming socket messages to the robot that owns the URL prefix.
+// Backend messages look like "<opcua-url>|payload"; "Global" prefix is reserved for broadcast notices.
 export function handleSocketMessage(event) {
     // console.log("Message from server:", event.data);
     const rawData = event.data;
@@ -255,6 +267,7 @@ export function handleSocketMessage(event) {
     }
 }
 
+// Handle streaming OPC UA data (angles, events, robot info) for one robot.
 function handleProtocolMessage(robotRecord, data) {
     const manipulator = robotRecord.manipulator;
     const { ui, opcua, connectivity, interaction } = robotRecord.state;
@@ -426,6 +439,7 @@ function handleProtocolMessage(robotRecord, data) {
     }
 }
 
+// Handle status text for one robot (connect/disconnect, namespace checks, method status).
 function handleStatusMessage(robotRecord, data, originUrl) {
     logMessageToBox(`🔔 ${data}`);
     const { opcua, ui, connectivity } = robotRecord.state;
@@ -539,6 +553,7 @@ function handleStatusMessage(robotRecord, data, originUrl) {
     }
 }
 
+// Turn sync on/off for one robot; start streams and apply last angles when turning on.
 export function handleOpcUaSyncToggle(robotRecord, event) {
     const checkbox = event.target;
     if (!robotRecord) {

@@ -1,8 +1,12 @@
+/*
+UI state helpers remain per robot. Keep new code following this pattern.
+*/
 import { getActiveRobot } from '../robot/robotManager.js';
 import { setInfoBoxState } from '../ui/layout.js';
 import { logMessageToBox } from '../ui/logging.js';
 
 
+// Format revolute joint angles for display/logging; respects the radians toggle.
 export function getFormattedJointString(robotRecord) {
     const manipulator = robotRecord.manipulator;
     const r = manipulator.robot;
@@ -37,6 +41,7 @@ export function getFormattedJointString(robotRecord) {
     return jointValues;
 }
 
+// Update dashboard labels (joint + TCP) only if this robot is active.
 export function updateRevoluteJointStatus(robotRecord) {
     
     // Only update UI if active
@@ -59,18 +64,19 @@ export function updateRevoluteJointStatus(robotRecord) {
         }
     }
 }
-//helper methods for handleManipulateEnd
+// Helper methods for handleManipulateEnd.
 
 function getVal(j) {
     return Array.isArray(j.jointValue) ? Number(j.jointValue[0]) : Number(j.angle || 0);
 }
 
+// Read limits safely for mimic/end effector checks.
 function getLimits(j) {
     const lim = j?.limit || j?._limit || j?._raw?.limit || {};
     const toNum = v => (v === undefined || v === null || v === '' ? NaN : Number(v));
     return { lower: toNum(lim.lower ?? lim.min), upper: toNum(lim.upper ?? lim.max) };
 }
-//helper method that get a robotRecord.manipulator.robot
+// Find prismatic masters for end effector toggling.
 function getEEFMasters(robot) {
     if (window.endEffectorMap?.byName) {
         return Object.keys(endEffectorMap.byName)
@@ -80,6 +86,7 @@ function getEEFMasters(robot) {
     return Object.values(robot.joints).filter(j => j.jointType === 'prismatic' && !j.mimic);
 }
 
+// After user moves the robot, decide whether to call OPC UA GoTo or toggle the end effector.
 export function handleManipulateEnd(robotRecord) {
     const { connectivity } = robotRecord.state;
     if (!connectivity.socket || 
@@ -101,7 +108,7 @@ export function handleManipulateEnd(robotRecord) {
     const eefMasters = getEEFMasters(r);
     let eefTriggered = false;
 
-    // --- Endeffektor prüfen ---
+    // Check end effector travel.
     for (const j of eefMasters) {
         const cur = getVal(j);
         const last = opcua.lastEEFPositions?.[j.name];
@@ -115,22 +122,22 @@ export function handleManipulateEnd(robotRecord) {
             if (atLower || atUpper) {
                 const nodeId = opcua.toggleEndEffMethodNodeId;
                 if (!nodeId) {
-                    logMessageToBox('⚠️ “toggleEndEff” method not yet known. Please connect or try again.');
+                    logMessageToBox('⚠️ toggleEndEff method not yet known. Please connect or try again.');
                     break;
                 }
 
                 const payload = { nodeId, url: connectivity.connectedUrl };
-                console.log("Send End Effector after limit reached:", payload);
+                console.log("Send end effector after limit reached:", payload);
 
                 if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
                     connectivity.socket.send(`call|${JSON.stringify(payload)}`);
                     eefTriggered = true;
                 }
-                break; // nur ein EEF-Call
+                break; // only one end-effector call
             }
         }
     }
-
+    // Store latest end-effector positions.
     // letzte EEF-Positionen merken
     eefMasters.forEach(j => { 
         if (!opcua.lastEEFPositions) {
@@ -139,9 +146,9 @@ export function handleManipulateEnd(robotRecord) {
         opcua.lastEEFPositions[j.name] = getVal(j);
     });
 
-    if (eefTriggered) return; // nur Endeffektor gesendet → fertig
+    if (eefTriggered) return; // end-effector call sent; nothing else to do
 
-    // --- Revolute prüfen: nur senden, wenn sich was geändert hat ---
+    // Check revolute joints; send only if changed.
     const jointValuesRad = [];
     let revoluteChanged = false;
 
@@ -151,7 +158,7 @@ export function handleManipulateEnd(robotRecord) {
             const value = Array.isArray(joint.jointValue) ? joint.jointValue[0] : joint.angle;
             jointValuesRad.push(parseFloat(value.toFixed(6)));
 
-            // prüfen ob sich gegenüber letztem Stand geändert hat
+            // Check if value changed since last time.
             const lastEEFPositions = opcua.lastEEFPositions?.[name];
             if (lastEEFPositions === undefined || lastEEFPositions !== value) {
                 revoluteChanged = true;
@@ -159,13 +166,13 @@ export function handleManipulateEnd(robotRecord) {
         }
     }
 
-    if (!revoluteChanged) return; // nix Neues → kein GoTo
+    if (!revoluteChanged) return; // no change; skip GoTo
 
     const jointsString = JSON.stringify(jointValuesRad);
     const nodeId = opcua.gotoMethodNodeId;
 
     if (!nodeId) {
-        logMessageToBox('⚠️ “Go To” method not yet known. Please connect or try again.');
+        logMessageToBox('⚠️ Go To method not yet known. Please connect or try again.');
         return;
     }
 
@@ -188,6 +195,7 @@ export function handleManipulateEnd(robotRecord) {
     }
 }
 
+// Reset robot pose to home for this manipulator.
 export function handleHomeClick(robotRecord) {
     const manipulator = robotRecord.manipulator;
     if (manipulator) {
@@ -195,6 +203,7 @@ export function handleHomeClick(robotRecord) {
     }
 }
 
+// Restore or clear UI panels when switching active robots.
 export function updateRobotSpecificUI(robotRecord) {
     // clear tables first
     const subsTable = document.getElementById('subscriptions-table');
@@ -354,6 +363,7 @@ export function updateRobotSpecificUI(robotRecord) {
     updateRobotLockToggleVisibility(robotRecord);
 }
 
+// Show or hide the lock toggle based on robotics namespace support for the active robot.
 export function updateRobotLockToggleVisibility(robotRecord) {
     const container = document.getElementById('robot-lock-toggle-container');
     if (!container) return;

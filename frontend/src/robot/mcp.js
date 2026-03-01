@@ -1,7 +1,11 @@
+/*
+Per-robot MCP helpers so sockets stay scoped to each robot.
+Keep new code per robot.
+*/
 import { Vector3 } from "three";
 import { getFormattedJointString } from "../ui/robotUiState";
 
-//connect and setup method if mcp socket doesn't exist. called in 
+// Open an MCP socket for this robot to send/receive TCP pose and joint angles.
 function setup_mcp_socket(robotRecord) {
     if (!robotRecord) return;
     const { connectivity } = robotRecord.state;
@@ -76,6 +80,7 @@ function setup_mcp_socket(robotRecord) {
     };
 }
 
+// Close the MCP socket for this robot only.
 function disconnect_mcp_socket(robotRecord) {
     if (!robotRecord) return;
 
@@ -90,6 +95,7 @@ function disconnect_mcp_socket(robotRecord) {
     }
 }
 
+// Turn MCP integration on/off for this robot based on the checkbox.
 export function toggleMcpIntegration(robotRecord, event) {
     if (!robotRecord) return;
     if (event.target.checked) {
@@ -101,6 +107,7 @@ export function toggleMcpIntegration(robotRecord, event) {
     }
 }
 
+// Send current TCP pose and joint string to the MCP backend for this robot.
 export function sendMcpRobotStateUpdate(robotRecord) {
     const manipulator = robotRecord.manipulator;
     const { connectivity } = robotRecord.state;

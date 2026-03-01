@@ -1,3 +1,6 @@
+/*
+Logging helpers. Newest entries go on top. Keep additions per robot when needed.
+*/
 export function logMessageToBox(msg) {
     const logContainer = document.getElementById('message-log');
     const line = document.createElement('div');
@@ -5,7 +8,7 @@ export function logMessageToBox(msg) {
     line.textContent = msg;
     logContainer.prepend(line);
 }
-//done
+// Clear the log view.
 export function clearLog() {
     document.getElementById('message-log').innerHTML ='';
 }

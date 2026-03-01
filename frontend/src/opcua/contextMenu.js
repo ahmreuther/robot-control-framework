@@ -1,5 +1,10 @@
+/*
+Per-robot context menu helpers so clicks act on the selected robot.
+Keep new code on the robot record, not globals.
+*/
 import { showNodeProperties, refreshSelectedNode } from '../opcua/addressSpace';
 
+// Open or close the custom context menu for this robot's selected node.
 export function handleContextMenu(robotRecord, e) {
     if(!robotRecord) return;
   const target = e.target;
@@ -19,6 +24,7 @@ export function handleContextMenu(robotRecord, e) {
         ui.selectedNodeElement = null;
     }
 }
+// Track clicked nodes per robot and refresh properties if needed.
 export function handleNodeClick(robotRecord, e) {
     if(!robotRecord) return;
     const { ui } = robotRecord.state;
@@ -38,7 +44,7 @@ export function handleNodeClick(robotRecord, e) {
     }
 }
 
-//helper for handleContextCallMethod
+/* Small helper: show a modal for method parameters before calling the OPC UA method. */
 function showInputParameterPopup(rawHtml, callback) {
     let htmlToParse = rawHtml.trim();
     if (!/^<ul[\s>]/i.test(htmlToParse)) {
@@ -117,7 +123,7 @@ function showInputParameterPopup(rawHtml, callback) {
         callback(data);
     });
 }
-//done
+// Call an OPC UA method on the selected node for this robot, showing inputs if needed.
 export function handleContextCallMethod(robotRecord) {
     if(!robotRecord) return;
     const menu = document.getElementById("custom-context-menu");
@@ -135,7 +141,7 @@ export function handleContextCallMethod(robotRecord) {
         return;
     }
 
-    // Suche nach InputArguments in den Kind-Elementen
+    // Look for InputArguments in the child elements.
     const inputNode = Array.from(
         ui.selectedNodeElement.parentElement.querySelectorAll("summary, span")
     ).find(el => el.dataset.name && el.dataset.name.endsWith('InputArguments'));
@@ -171,7 +177,7 @@ export function handleContextCallMethod(robotRecord) {
         connectivity.socket.send(`call|${JSON.stringify(payload)}`);
     }
 }
-//done
+// Subscribe to data on the selected variable node for this robot.
 export function handleContextSubscribe(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -196,7 +202,8 @@ export function handleContextSubscribe(robotRecord) {
         connectivity.socket.send("subscribe|" + JSON.stringify(payload));
         ui.showSubscriptionsTabOnNextCustom = true;
     }
-}//done
+}
+// Unsubscribe from data on the selected variable node for this robot.
 export function handleContextUnsubscribe(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -218,7 +225,8 @@ export function handleContextUnsubscribe(robotRecord) {
         };
         connectivity.socket.send("unsubscribe|" + JSON.stringify(payload));
     }
-}//done
+}
+// Subscribe to events on the selected object node for this robot.
 export function handleContextSubscribeEvent(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -241,7 +249,8 @@ export function handleContextSubscribeEvent(robotRecord) {
         connectivity.socket.send("subscribeEvent|" + JSON.stringify(payload));
         ui.showSubscriptionsTabOnNextCustom = true;
     }
-} // done
+}
+// Unsubscribe from events on the selected object node for this robot.
 export function handleContextUnsubscribeEvent(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -265,6 +274,7 @@ export function handleContextUnsubscribeEvent(robotRecord) {
     }
 }
 
+// Hide the context menu when clicking outside.
 export function handleGlobalMouseDown(e) {
     const menu = document.getElementById('custom-context-menu');
     if (menu.style.display === 'block' && !menu.contains(e.target)) {
