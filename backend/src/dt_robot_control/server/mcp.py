@@ -1,3 +1,9 @@
+"""
+Thin MCP server that exposes robot state (TCP pose, rotation, joints) and forwards MCP tool calls to
+connected browser clients via WebSocket. The browser is the source of truth; this layer just relays
+latest values and pushes commands back to every connected viewer.
+"""
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastmcp import FastMCP, Context
 from typing import List
@@ -7,6 +13,7 @@ mcp = FastMCP("Robotics MCP Server")
 
 router = APIRouter()
 
+# Latest values received from the browser stream; kept simple for now.
 angles = []
 tool_center_point = []
 tool_center_point_rot = []
@@ -18,6 +25,7 @@ websockets = set()
 # --- WebSocket server ---
 @router.websocket("/ws_mcp")
 async def websocket_endpoint(websocket: WebSocket):
+    """Accepts browser telemetry (TCP pose/quaternion, joint angles) and stores latest values."""
     await websocket.accept()
     websockets.add(websocket)
     try:

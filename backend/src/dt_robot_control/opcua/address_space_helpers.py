@@ -1,3 +1,10 @@
+"""
+Helpers to read/browse OPC UA nodes for rendering.
+
+Pulled out from the legacy GetAddressSpace/opcua modules so templating/REST rendering does not mix
+with client transport code. Provides reusable utilities for both REST fragments and websocket flows.
+"""
+
 from asyncua import ua
 
 # --- Constants ---

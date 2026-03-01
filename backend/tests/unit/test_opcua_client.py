@@ -311,7 +311,7 @@ async def test_send_robot_info_to_frontend(opcua_client, mock_websocket):
     
     mock_websocket.send_text.assert_called_once()
     call_args = mock_websocket.send_text.call_args[0][0]
-    assert call_args.startswith("x|robotinfo:")
+    assert call_args.startswith("opc.tcp://localhost:4840|x|robotinfo:")
     assert "ACME" in call_args
     assert "RoboArm" in call_args
     assert "SN123" in call_args

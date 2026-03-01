@@ -29,6 +29,7 @@ def subhandler_custom(mock_websocket, mock_node_manager):
     """Create a SubHandler in custom mode."""
     return SubHandler(
         name="TestHandler",
+        url="opc.tcp://test",  # URL prefix is part of the ws payload protocol
         websocket=mock_websocket,
         mode="custom",
         node_manager=mock_node_manager
@@ -41,6 +42,7 @@ def subhandler_axes(mock_websocket, mock_node_manager):
     get_expected = lambda: 2
     return SubHandler(
         name="AxesHandler",
+        url="opc.tcp://test",
         websocket=mock_websocket,
         get_expected_count=get_expected,
         mode="axes",
@@ -53,6 +55,7 @@ def subhandler_mode(mock_websocket, mock_node_manager):
     """Create a SubHandler in mode mode."""
     return SubHandler(
         name="ModeHandler",
+        url="opc.tcp://test",
         websocket=mock_websocket,
         mode="mode",
         node_manager=mock_node_manager
@@ -149,7 +152,7 @@ async def test_process_datachange_custom_mode(subhandler_custom, mock_websocket)
     
     await subhandler_custom._process_datachange(node, 42.5)
     
-    expected_msg = f"x|custom:{json.dumps({'nodeId': 'ns=2;i=1234', 'value': 42.5})}"
+    expected_msg = f"opc.tcp://test|x|custom:{json.dumps({'nodeId': 'ns=2;i=1234', 'value': 42.5})}"
     mock_websocket.send_text.assert_called_once_with(expected_msg)
 
 
@@ -160,7 +163,7 @@ async def test_process_datachange_custom_mode_without_nodeid(subhandler_custom, 
     
     await subhandler_custom._process_datachange(node, 100)
     
-    expected_msg = f"x|custom:{json.dumps({'nodeId': 'simple_string_node', 'value': 100})}"
+    expected_msg = f"opc.tcp://test|x|custom:{json.dumps({'nodeId': 'simple_string_node', 'value': 100})}"
     mock_websocket.send_text.assert_called_once_with(expected_msg)
 
 
@@ -171,7 +174,7 @@ async def test_process_datachange_mode_mode(subhandler_mode, mock_websocket):
     
     await subhandler_mode._process_datachange(node, "RUNNING")
     
-    mock_websocket.send_text.assert_called_once_with("x|Mode:RUNNING")
+    mock_websocket.send_text.assert_called_once_with("opc.tcp://test|x|Mode:RUNNING")
 
 
 @pytest.mark.asyncio
@@ -219,7 +222,7 @@ async def test_process_datachange_axes_mode_all_axes(subhandler_axes, mock_webso
     # Should send after receiving all expected axes
     assert mock_websocket.send_text.call_count == 1
     call_args = mock_websocket.send_text.call_args[0][0]
-    assert call_args.startswith("x|angles:")
+    assert call_args.startswith("opc.tcp://test|x|angles:")
     
     # Parse the JSON payload
     json_str = call_args.split("x|angles:")[1]
@@ -293,7 +296,7 @@ def test_status_change_notification(subhandler_custom, capsys):
     subhandler_custom.status_change_notification("Connected")
     
     captured = capsys.readouterr()
-    assert "[TestHandler] Status changed: Connected" in captured.out
+    assert "[opc.tcp://test] Status changed: Connected" in captured.out
 
 
 @pytest.mark.asyncio

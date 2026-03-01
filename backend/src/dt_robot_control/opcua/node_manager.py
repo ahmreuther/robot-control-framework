@@ -5,6 +5,9 @@ from asyncua import ua
 class NodeManager:
     """
     Provides utilities for browsing and searching nodes in an OPC UA address space.
+
+    Extracted from the older GetAddressSpace helpers so traversal/search is decoupled from
+    transports and can be reused by both REST rendering and WebSocket streaming.
     """
 
     def __init__(self, opcua_client):

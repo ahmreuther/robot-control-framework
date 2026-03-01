@@ -40,6 +40,15 @@ flowchart TD
 
 **Rig + baseGroup:** Each robot is loaded into its own rig (`THREE.Group`) that carries the slot/world offset. The robot stays at local origin so IK/FK math remains stable. Manipulators attach their gizmo to that rig via `baseGroup` so the offset is applied once, not twice. Removing a robot also removes its rig and frees GPU resources.
 
+### Backend Service (FastAPI + OPC UA)
+- `backend/main.py`: FastAPI entrypoint that wires OPC UA routes, the WebSocket router, and the MCP sub-app into one server with a shared lifespan and CORS restricted to `http://localhost:1234`.
+- `backend/src/dt_robot_control/opcua/opcua_client.py`: Wrapper around `asyncua.Client` (connect/disconnect, robotics helpers, dynamic method calls, optional WebSocket pushes to the frontend).
+- `backend/src/dt_robot_control/opcua/subscription_manager.py`: Discovers axes/mode/custom nodes and manages data/event subscriptions.
+- `backend/src/dt_robot_control/opcua/node_manager.py`: Browsing/search utilities (BFS, DisplayName/BrowseName matching) used by the client and subscription handlers.
+- `backend/src/dt_robot_control/opcua/endpoints.py`: REST endpoints to list/browse OPC UA nodes.
+- `backend/src/dt_robot_control/websocket/`: WebSocket endpoints consumed by the frontend for OPC UA messaging and slot routing.
+- `backend/src/dt_robot_control/server/mcp.py`: MCP tool server and WebSocket bridge; mirrors TCP pose/quaternion/joints from the browser and relays MCP tool commands back.
+
 ---
 ## Prerequisites
 For development, you will need:

@@ -9,8 +9,14 @@ from starlette.websockets import WebSocketState
 
 class SubHandler:
     """
-       Handler for OPC UA DataChange events, supports various modes (“axes,” “mode,” “custom”).
-    """
+        Handler for OPC UA DataChange events, supports various modes (“axes,” “mode,” “custom”).
+
+        Extracted from the legacy opcua websocket handler so asyncua callbacks stay decoupled from
+        transport and can be reused by WebSocket or future transports without duplicating logic.
+
+        Emits URL-prefixed websocket payloads (`url|x|angles:{...}`, `url|x|event:{...}`) so the
+         frontend can route multi-robot streams over one socket without collisions.
+     """
     def __init__(self, name="Client", url=None, websocket: WebSocket = None, get_expected_count=None, mode="custom", node_manager=None):
         self.name = name
         self.url = url

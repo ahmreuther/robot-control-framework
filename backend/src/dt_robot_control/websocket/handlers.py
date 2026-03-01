@@ -1,3 +1,14 @@
+"""
+WebSocket message handlers for OPC UA actions (connect, subscribe, call, stream).
+
+Split out from the earlier monolithic opcua websocket module so transport dispatching lives here
+and OPC UA concerns stay in `opcua_client` + managers. Keeps message parsing/testability isolated
+from client logic and reuses the shared SubscriptionManager/NodeManager instead of ad-hoc calls.
+
+Protocol note: messages and responses are prefixed with the OPC UA URL (`url|...`) so a single
+WebSocket can multiplex multiple robots without mixing data.
+"""
+
 import json
 from fastapi import WebSocket
 from typing import Dict

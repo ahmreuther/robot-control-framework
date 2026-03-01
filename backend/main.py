@@ -1,3 +1,10 @@
+"""
+FastAPI entrypoint that stitches together the OPC UA routes, WebSocket router, and the MCP tool server.
+
+- Shares a lifespan with the MCP app so both start/stop together and so socket state can be shared.
+- Restricts CORS to the frontend dev origin.
+"""
+
 import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,9 +12,9 @@ from typing import List, TypedDict, Set
 
 from contextlib import asynccontextmanager
 
-from dt_robot_control.opcua import opcua_nodes
-import dt_robot_control.server.mcp_server as mcp_server
-from dt_robot_control.api.websocket import router as ws_router
+from dt_robot_control.opcua import endpoints
+import dt_robot_control.server.mcp as mcp
+from dt_robot_control.websocket import router as ws_router
 
 
 class State(TypedDict):
@@ -25,11 +32,11 @@ async def app_lifespan(app: FastAPI):
 
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
-    # Run both lifespans
+    # Run both lifespans; also initialize shared MCP socket state.
     async with app_lifespan(app):
-        async with mcp_server.mcp_app.lifespan(app):
+        async with mcp.mcp_app.lifespan(app):
             # app.state.mcp_sockets = set()
-            mcp_server.mcp_app.state.mcp_sockets = set()
+            mcp.mcp_app.state.mcp_sockets = set()
             yield # {"mcp_sockets", set()}
 
 
@@ -52,9 +59,9 @@ app.add_middleware(
 # --- Router Configuration ---
 
 app.include_router(ws_router.router)  # WebSocket endpoints
-app.include_router(opcua_nodes.router)  # REST endpoints for OPC UA browsing
-app.include_router(mcp_server.router)
-app.mount("/llm", mcp_server.mcp_app)
+app.include_router(endpoints.router)  # REST endpoints for OPC UA browsing
+app.include_router(mcp.router)
+app.mount("/llm", mcp.mcp_app)
 
 # --- Static File Serving & Entrypoint ---
 

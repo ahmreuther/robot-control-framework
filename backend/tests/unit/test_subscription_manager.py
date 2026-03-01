@@ -27,6 +27,7 @@ def mock_opcua_client():
     client.client = MagicMock()  # asyncua.Client
     client.client.create_subscription = AsyncMock()
     client.client.get_node = MagicMock()
+    client.url = "opc.tcp://test"  # used for URL-prefixed websocket messages
     return client
 
 
