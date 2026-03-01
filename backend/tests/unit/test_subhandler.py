@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from types import SimpleNamespace
@@ -131,6 +132,25 @@ def test_encode_eu_to_jsonable_with_unknown_type():
     result = SubHandler.encode_eu_to_jsonable(CustomObject())
     assert result == "custom_object"
 
+def test_encode_eu_to_jsonable_import_error(monkeypatch):
+    """Ensure import failure is tolerated and falls back to string."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def boom(name, *args, **kwargs):
+        if name == "asyncua":
+            raise ImportError("boom")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", boom)
+
+    class Dummy:
+        def __str__(self):
+            return "dummy"
+
+    assert SubHandler.encode_eu_to_jsonable(Dummy()) == "dummy"
+
 
 def test_reset(subhandler_custom):
     """Test reset method clears state."""
@@ -196,6 +216,65 @@ async def test_process_datachange_axes_mode_single_axis(subhandler_axes, mock_we
     mock_websocket.send_text.assert_not_called()
     assert subhandler_axes.latest_values == {"Axis1": 1.57}
     assert subhandler_axes.unit_type == "radians"
+
+@pytest.mark.asyncio
+async def test_process_datachange_axis_unit_read_error(subhandler_axes, mock_websocket, mock_node_manager):
+    axis_node = FakeNode("ns=2;i=100", "Axis1")
+    param_set = FakeNode("ns=2;i=101", "ParameterSet", parent=axis_node)
+    actual_pos = FakeNode("ns=2;i=102", "ActualPosition", parent=param_set)
+
+    mock_node_manager.find_descendant_by_name = AsyncMock(side_effect=Exception("fail"))
+
+    await subhandler_axes._process_datachange(actual_pos, 1.0)
+
+    # Unit type should stay None due to exception
+    assert subhandler_axes.unit_type is None
+
+@pytest.mark.asyncio
+async def test_process_datachange_general_error(subhandler_axes):
+    """If parent lookups explode, handler should swallow the exception."""
+    bad_node = FakeNode("ns=2;i=999", "Bad", parent=None)
+    # Force get_parent to raise
+    bad_node.get_parent = AsyncMock(side_effect=RuntimeError("boom"))
+
+    # websocket is connected in fixture
+    await subhandler_axes._process_datachange(bad_node, 1.0)
+
+    # No exception propagates; nothing sent
+    subhandler_axes.websocket.send_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_event_notification_field_str_error(subhandler_custom, mock_websocket):
+    class Weird:
+        def __str__(self):
+            raise ValueError("nope")
+
+    class Event:
+        def __init__(self):
+            self.good = "ok"
+            self.bad = Weird()
+
+    mock_websocket.send_text.reset_mock()
+
+    subhandler_custom.event_notification(Event())
+    await asyncio.sleep(0)
+    # Should still enqueue send_text despite bad field string conversion
+    mock_websocket.send_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_event_notification_total_failure(subhandler_custom, monkeypatch):
+    class BadEvent:
+        def __dir__(self):
+            raise RuntimeError("boom")
+
+    # Force websocket send_text to observe any attempted send
+    subhandler_custom.websocket.send_text.reset_mock()
+    subhandler_custom.event_notification(BadEvent())
+    await asyncio.sleep(0)
+    # No send_text should be queued because we bail early
+    subhandler_custom.websocket.send_text.assert_not_called()
 
 
 @pytest.mark.asyncio
