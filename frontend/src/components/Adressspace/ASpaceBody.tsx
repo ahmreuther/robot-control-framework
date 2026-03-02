@@ -20,6 +20,10 @@ interface ASpaceBodyProps {
   addSubscription: (node: UaNode) => void;
   addEventSubscription: (node: UaNode) => void;
   openMethodDialog: (node: UaNode) => void;
+  onRemoveEvent: (nodeId: string) => void;
+  onRemoveSubscription: (nodeId: string) => void;
+  subscriptions: Array<{ nodeId: string }>;
+  eventSubscriptions: Array<{ nodeId: string }>;
 }
 
 const STORAGE_KEY_EXPANDED = 'addressSpace_expandedNodes';
@@ -31,6 +35,10 @@ export function buildTreeData(
   addSubscription: (node: UaNode) => void,
   addEventSubscription: (node: UaNode) => void,
   openMethodDialog: (node: UaNode) => void,
+  onRemoveSubscription: (nodeId: string) => void,
+  onRemoveEvent: (nodeId: string) => void,
+  subscriptions: Array<{ nodeId: string }>,
+  eventSubscriptions: Array<{ nodeId: string }>,
 ): TreeDataNode[] {
   if (!store.rootId) return [];
 
@@ -41,6 +49,9 @@ export function buildTreeData(
 
     const hasChildrenKnown = Array.isArray(childIds);
     const children = hasChildrenKnown ? childIds.map(build) : [];
+
+    const isSubscribed = subscriptions.some((s) => s.nodeId === id);
+    const isEventSubscribed = eventSubscriptions.some((s) => s.nodeId === id);
 
     return {
       key: id,
@@ -67,13 +78,31 @@ export function buildTreeData(
             {node.displayName}
           </span>
           {node.nodeClass.toLowerCase() === 'variable' && (
-            <button onClick={() => addSubscription(node)} className="button-ghost break-keep">
-              Subscribe
+            <button
+              onClick={() => {
+                if (isSubscribed) {
+                  onRemoveSubscription(node.nodeId);
+                } else {
+                  addSubscription(node);
+                }
+              }}
+              className="button-ghost break-keep"
+            >
+              {isSubscribed ? 'Unsubscribe' : 'Subscribe'}
             </button>
           )}
           {node.nodeClass.toLowerCase() === 'object' && (
-            <button onClick={() => addEventSubscription(node)} className="button-ghost break-keep">
-              Subscribe
+            <button
+              onClick={() => {
+                if (isEventSubscribed) {
+                  onRemoveEvent(node.nodeId);
+                } else {
+                  addEventSubscription(node);
+                }
+              }}
+              className="button-ghost break-keep"
+            >
+              {isEventSubscribed ? 'Unsubscribe' : 'Subscribe'}
             </button>
           )}
           {node.nodeClass.toLowerCase() === 'method' && (
@@ -100,6 +129,10 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
   addEventSubscription,
   openMethodDialog,
   onNodeSelect,
+  onRemoveEvent,
+  onRemoveSubscription,
+  subscriptions,
+  eventSubscriptions,
 }) => {
   const makeStore = (root: UaNode | null): UaStore =>
     root
@@ -134,8 +167,22 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
         addSubscription,
         addEventSubscription,
         openMethodDialog,
+        onRemoveSubscription,
+        onRemoveEvent,
+        subscriptions,
+        eventSubscriptions,
       ),
-    [store, onNodeSelect, addSubscription, addEventSubscription, openMethodDialog],
+    [
+      store,
+      onNodeSelect,
+      addSubscription,
+      addEventSubscription,
+      openMethodDialog,
+      onRemoveSubscription,
+      onRemoveEvent,
+      subscriptions,
+      eventSubscriptions,
+    ],
   );
 
   const inflightRef = useRef<Map<string, Promise<void>>>(new Map());

@@ -2,10 +2,9 @@ import type { Subscription } from '../hooks/useSubscriptions';
 
 interface VariablesPanelProps {
   subscriptions: Subscription[];
-  onRemove: (nodeId: string) => void;
 }
 
-export const VariablesPanel = ({ subscriptions, onRemove }: VariablesPanelProps) => {
+export const VariablesPanel = ({ subscriptions }: VariablesPanelProps) => {
   return (
     <div className="panel mb-2">
       <header className="panel-header">
@@ -17,7 +16,6 @@ export const VariablesPanel = ({ subscriptions, onRemove }: VariablesPanelProps)
             <th>Variable</th>
             <th>NodeId</th>
             <th>Value</th>
-            <th></th>
           </tr>
         </thead>
         {subscriptions.length === 0 && (
@@ -37,11 +35,6 @@ export const VariablesPanel = ({ subscriptions, onRemove }: VariablesPanelProps)
                 {s.nodeId}
               </td>
               <td className="cell-mono">{s.value ?? ''}</td>
-              <td className="text-right">
-                <button onClick={() => onRemove(s.nodeId)} className="button-ghost">
-                  Unsubscribe
-                </button>
-              </td>
             </tr>
           ))}
         </tbody>

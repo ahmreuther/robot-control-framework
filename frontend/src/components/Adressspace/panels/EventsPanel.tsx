@@ -2,10 +2,9 @@ import type { EventSubscription } from '../hooks/useEventSubscriptions';
 
 interface EventsPanelProps {
   subscriptions: EventSubscription[];
-  onRemove: (nodeId: string) => void;
 }
 
-export const EventsPanel = ({ subscriptions, onRemove }: EventsPanelProps) => {
+export const EventsPanel = ({ subscriptions }: EventsPanelProps) => {
   return (
     <div className="panel mb-2">
       <header className="panel-header">
@@ -16,7 +15,6 @@ export const EventsPanel = ({ subscriptions, onRemove }: EventsPanelProps) => {
           <tr>
             <th>Object</th>
             <th>NodeId</th>
-            <th></th>
           </tr>
         </thead>
         {subscriptions.length === 0 && (
@@ -34,11 +32,6 @@ export const EventsPanel = ({ subscriptions, onRemove }: EventsPanelProps) => {
               <td className="cell-muted">{s.displayName}</td>
               <td className="cell-mono" title={s.nodeId}>
                 {s.nodeId}
-              </td>
-              <td className="text-right">
-                <button onClick={() => onRemove(s.nodeId)} className="button-ghost">
-                  Unsubscribe
-                </button>
               </td>
             </tr>
           ))}

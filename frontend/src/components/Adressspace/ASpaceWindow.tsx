@@ -72,6 +72,10 @@ export function ASpaceWindow() {
                       addEventSubscription={addEventSubscription}
                       openMethodDialog={openMethodDialog}
                       onNodeSelect={setSelectedNode}
+                      onRemoveEvent={removeEventSubscription}
+                      onRemoveSubscription={removeSubscription}
+                      subscriptions={subscriptions}
+                      eventSubscriptions={eventSubscriptions}
                     />
                   )}
                   {methodDialogOpen && (
@@ -91,11 +95,8 @@ export function ASpaceWindow() {
               </Panel>
               <Panel>
                 <div className="flex-col h-full overflow-y-auto mt-2 mr-2">
-                  <VariablesPanel subscriptions={subscriptions} onRemove={removeSubscription} />
-                  <EventsPanel
-                    subscriptions={eventSubscriptions}
-                    onRemove={removeEventSubscription}
-                  />
+                  <VariablesPanel subscriptions={subscriptions} />
+                  <EventsPanel subscriptions={eventSubscriptions} />
                 </div>
               </Panel>
             </Group>

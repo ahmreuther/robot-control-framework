@@ -1,9 +1,6 @@
-// useSubscriptions.ts - Hook für Variable-Subscriptions mit Polling
-
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { UaNode } from '../types';
-import { REST_BACKEND_BASE } from '../types';
 
 export interface Subscription {
   nodeId: string;
@@ -11,11 +8,8 @@ export interface Subscription {
   value: string | null;
 }
 
-const POLL_MS = 2000;
-
 export function useSubscriptions(opcUaUrl: string | null, socket: WebSocket | null) {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const pollRef = useRef<number | null>(null);
 
   // ========== ADD SUBSCRIPTION ==========
   const addSubscription = useCallback(
@@ -49,53 +43,32 @@ export function useSubscriptions(opcUaUrl: string | null, socket: WebSocket | nu
     [socket, opcUaUrl],
   );
 
-  // ========== POLLING für Werte ==========
   useEffect(() => {
-    // Nichts zu pollen
-    if (subscriptions.length === 0 || !opcUaUrl) return;
+    if (!socket) return;
 
-    const poll = async () => {
-      const results = await Promise.all(
-        subscriptions.map(async (s) => {
-          try {
-            const encodedUrl = encodeURIComponent(opcUaUrl);
-            const encodedNodeId = encodeURIComponent(s.nodeId);
-            const res = await fetch(
-              `${REST_BACKEND_BASE}/node_value?url=${encodedUrl}&nodeid=${encodedNodeId}`,
-            );
-            if (!res.ok) return { nodeId: s.nodeId, value: `error(${res.status})` };
+    const handleMessage = (event: MessageEvent) => {
+      if (typeof event.data !== 'string') return;
 
-            const payload = await res.json();
-            const value = payload?.value ?? payload;
+      const msg = event.data;
+      if (!msg.startsWith('x|custom:')) return;
 
-            return { nodeId: s.nodeId, value: String(value) };
-          } catch (err: any) {
-            console.error('[useSubscriptions] Poll error:', s.nodeId, err);
-            return { nodeId: s.nodeId, value: `error(${err?.message ?? 'network'})` };
-          }
-        }),
-      );
+      const payloadRaw = msg.slice('x|custom:'.length);
+      try {
+        const payload = JSON.parse(payloadRaw);
+        if (!payload?.nodeId || typeof payload.value === 'undefined') return;
 
-      // Werte aktualisieren
-      setSubscriptions((prev) =>
-        prev.map((p) => {
-          const r = results.find((x) => x.nodeId === p.nodeId);
-          return r ? { ...p, value: r.value } : p;
-        }),
-      );
-    };
-
-    // Sofort pollen und dann alle POLL_MS
-    poll();
-    pollRef.current = window.setInterval(poll, POLL_MS);
-
-    return () => {
-      if (pollRef.current) {
-        window.clearInterval(pollRef.current);
-        pollRef.current = null;
+        const nextValue = String(payload.value);
+        setSubscriptions((prev) =>
+          prev.map((p) => (p.nodeId === payload.nodeId ? { ...p, value: nextValue } : p)),
+        );
+      } catch (err) {
+        console.warn('[useSubscriptions] Custom subscription parse error', err);
       }
     };
-  }, [subscriptions.length, opcUaUrl]); // Nur bei Längenänderung neu starten
+
+    socket.addEventListener('message', handleMessage);
+    return () => socket.removeEventListener('message', handleMessage);
+  }, [socket]);
 
   return {
     subscriptions,

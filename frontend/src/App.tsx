@@ -123,7 +123,7 @@ function App() {
                         alt="PLCM logo"
                         className="h-10 w-auto bg-gray-200 rounded-sm p-1"
                       />
-                      <div className="panel-  title text-sm">Digital Twin Robots</div>
+                      <div className="panel-title text-sm">Digital Twin Robots</div>
 
                       <Settings settings={settings} toggleSettings={toggleSettings} />
                     </header>
