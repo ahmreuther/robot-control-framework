@@ -28,6 +28,7 @@ export interface JointStateManager {
   angles: number[];
   activeWriter: JointWriter | null;
   listeners: Set<JointStateListener>;
+  jointNames: string[];
 
   mountWriter(id: string, priority: number): boolean;
   unmountWriter(id: string): void;
@@ -38,6 +39,10 @@ export interface JointStateManager {
 
   getAngles(): number[];
   getActiveWriter(): JointWriter | null;
+
+  setJointNames(jointNames: string[]): void;
+  getOrderedRevoluteJointNames(): string[];
+  getJointNameToIndexMap(): Record<string, number>;
 }
 
 const createJointStateManager = (): JointStateManager => {
@@ -45,11 +50,13 @@ const createJointStateManager = (): JointStateManager => {
   let activeWriter: JointWriter | null = null;
   const writers = new Map<string, JointWriter>();
   const listeners = new Set<JointStateListener>();
+  let jointNames: string[] = [];
 
   return {
     angles,
     activeWriter,
     listeners,
+    jointNames,
 
     mountWriter(id: string, priority: number) {
       const newWriter: JointWriter = { id, priority };
@@ -74,7 +81,6 @@ const createJointStateManager = (): JointStateManager => {
 
     setAngles(id: string, angles: number[]) {
       if (activeWriter?.id !== id) return false;
-
       this.angles = angles;
       listeners.forEach((listener) => listener(angles));
       return true;
@@ -91,6 +97,22 @@ const createJointStateManager = (): JointStateManager => {
 
     getActiveWriter() {
       return activeWriter;
+    },
+
+    setJointNames(names: string[]) {
+      this.jointNames = names;
+    },
+
+    getOrderedRevoluteJointNames() {
+      return this.jointNames;
+    },
+
+    getJointNameToIndexMap() {
+      const map: Record<string, number> = {};
+      this.jointNames.forEach((name, idx) => {
+        map[name] = idx;
+      });
+      return map;
     },
   };
 };

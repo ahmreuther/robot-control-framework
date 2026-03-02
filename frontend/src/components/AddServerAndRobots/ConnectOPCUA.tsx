@@ -11,6 +11,7 @@ export interface ConnectOPCUAProps {
 function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
   const defaultUrls = [
     'opc.tcp://127.0.0.1:4840/freeopcua/server/',
+    'opc.tcp://10.10.38.25:4840/freeopcua/server/',
     'opc.tcp://10.10.38.26:4840/freeopcua/server/',
     'opc.tcp://10.10.38.27:4840/freeopcua/server/',
     'opc.tcp://10.10.38.28:4840/freeopcua/server/',

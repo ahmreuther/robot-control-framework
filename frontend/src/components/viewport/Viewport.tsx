@@ -70,6 +70,8 @@ export interface ViewportProps {
   setHoveredJointMesh?: (index: number | null) => void;
   effectComposer?: boolean;
   environment?: boolean;
+  pendingJoints: number[];
+  setPendingJoints: (joints: number[]) => void;
 }
 
 export function Viewport(props: ViewportProps) {
@@ -145,6 +147,8 @@ export function Viewport(props: ViewportProps) {
               showCollisionMesh={props.showCollisionMesh}
               setHoveredJointMesh={props.setHoveredJointMesh}
               setMovedDistance={setMovedDistance}
+              pendingJoints={props.pendingJoints}
+              setPendingJoints={props.setPendingJoints}
             />
           </Suspense>
         </Canvas>

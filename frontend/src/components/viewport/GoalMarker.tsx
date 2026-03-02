@@ -4,12 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { Mesh } from 'three';
 import type { URDFRobot } from 'urdf-loader';
 import type { URDFJoint } from 'urdf-loader/src/URDFClasses';
-
+import { useSyncContext } from '../../contexts/SyncContext';
 import type { JointStateManager } from '../../hooks/useJointState';
 import { WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
-import { useMethodCall } from '../Adressspace/hooks/useMethodCall';
-import { UaNode } from '../Adressspace/types';
-import { useSocket } from '../../hooks/use-socket';
+import { useSendMessage } from '../../hooks/send-message';
 
 interface GoalMarkerProps {
   onPositionChange: (position: [number, number, number]) => void;
@@ -23,6 +21,7 @@ interface GoalMarkerProps {
   robot?: URDFRobot;
   setMovedDistance?: (distance: number) => void;
   setPendingJoints: (joints: number[]) => void;
+  solveIKOnce?: () => number[] | null;
 }
 
 function GoalMarker({
@@ -37,7 +36,10 @@ function GoalMarker({
   setMovedDistance,
   setPendingJoints,
   robot,
+  solveIKOnce,
 }: GoalMarkerProps) {
+  const { isSyncActive } = useSyncContext();
+  const { sendMessage } = useSendMessage();
   const meshRef = useRef<Mesh>(null);
   const isDraggingRef = useRef(false);
   const lastPosRef = useRef<[number, number, number] | null>(null);
@@ -45,13 +47,6 @@ function GoalMarker({
   const dragStartPosRef = useRef<[number, number, number] | null>(null);
   const [mode, setMode] = useState<'translate' | 'rotate'>('translate');
   const [local, setLocal] = useState<boolean>(false);
-  const socket = useSocket();
-  const {
-    isOpen: methodDialogOpen,
-    result: methodResult,
-    isLoading: methodLoading,
-    directCallMethod,
-  } = useMethodCall('opc.tcp://127.0.0.1:4840/freeopcua/server/', socket as any);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -121,6 +116,11 @@ function GoalMarker({
     isDraggingRef.current = true;
     jointManager.mountWriter(WRITER_ID.IK, WRITER_PRIORITY.IK);
     onDrag(true);
+    if (isSyncActive) {
+      jointManager.unmountWriter(WRITER_ID.SYN);
+      // sendMessage("cancel stream joint position");
+      // sendMessage("cancel stream mode");
+    }
     if (meshRef.current) {
       dragStartPosRef.current = [
         meshRef.current.position.x,
@@ -142,7 +142,17 @@ function GoalMarker({
     onDrag(false);
     dragStartPosRef.current = null;
     setMovedDistance(0);
-    setPendingJoints(jointManager.getAngles());
+    // Unmount SYN writer if sync is active (method call will be triggered)
+    if (isSyncActive) {
+      jointManager.unmountWriter(WRITER_ID.SYN);
+    }
+    // Solve IK once and set the pending joints
+    if (solveIKOnce) {
+      const solvedAngles = solveIKOnce();
+      if (solvedAngles) {
+        setPendingJoints(solvedAngles);
+      }
+    }
   };
 
   return (

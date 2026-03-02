@@ -17,6 +17,7 @@ export interface JointAnglesPanelProps {
   setShowCollisionMesh?: (show: boolean) => void;
   reloadKey: number;
   hoveredJointMesh?: number | null;
+  setPendingJoints?: (joints: number[]) => void;
 }
 
 export function JointAnglesPanel({
@@ -27,6 +28,7 @@ export function JointAnglesPanel({
   setShowCollisionMesh,
   reloadKey,
   hoveredJointMesh,
+  setPendingJoints,
 }: JointAnglesPanelProps) {
   const [showRadians, setShowRadians] = useState(false);
   const [localAngles, setLocalAngles] = useState<number[]>([]);
@@ -66,8 +68,7 @@ export function JointAnglesPanel({
         <div className="space-y-2">
           {localAngles.map((angle, i) => {
             const property = jointProperties?.[i];
-            if (property == null) return null;
-            if (property.min === property.max) return null;
+            if (property && property.min === property.max) return null;
 
             const minDisp = property.min;
             const maxDisp = property.max;
@@ -89,6 +90,7 @@ export function JointAnglesPanel({
                   jointManager={jointManager}
                   radToDeg={radToDeg}
                   degToRad={degToRad}
+                  setPendingJoints={setPendingJoints}
                 />
               </div>
             );

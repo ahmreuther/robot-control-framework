@@ -5,6 +5,7 @@ import { RobotInfoContext } from '../../contexts/RobotInfoContext';
 import { useUrlContext } from '../../contexts/UrlContext';
 import { useSendMessage } from '../../hooks/send-message';
 import { type JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
+import { useSyncContext } from '../../contexts/SyncContext';
 
 export interface SynchronizeButtonProps {
   jointManager: JointStateManager;
@@ -13,7 +14,7 @@ export interface SynchronizeButtonProps {
 export default function Synchronize_Button({ jointManager }: SynchronizeButtonProps) {
   const { url: connectedUrl } = useUrlContext();
   const { setLogs } = useLogContext();
-  const [isSyncActive, setIsSyncActive] = useState(false);
+  const { isSyncActive, setIsSyncActive } = useSyncContext();
   const { sendMessage } = useSendMessage();
 
   const axleValues = useContext(RobotInfoContext).axleValues;
@@ -48,7 +49,7 @@ export default function Synchronize_Button({ jointManager }: SynchronizeButtonPr
 
   return (
     <button
-      className="button-ghost"
+      className={`button-ghost ${isSyncActive ? 'active' : ''}`}
       onClick={() => {
         toggle();
         const maySwitch = synchronize(switchState);

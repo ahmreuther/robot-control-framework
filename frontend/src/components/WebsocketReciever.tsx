@@ -31,8 +31,8 @@ export interface WebSocketRecieverProps {
 
 export default function WebSocketReciever({ jointManager }: WebSocketRecieverProps) {
   const socket = useContext(SocketContext);
-
   const {
+    axleValues,
     setRobotName,
     setRobotStatus,
     setRobotMode,
@@ -41,7 +41,6 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
     orderedJointNames,
     setGotoMethodNodeId,
   } = useRobotInfoContext();
-
   const { setLogs } = useLogContext();
 
   const { url, setUrl } = useContext(UrlContext);
@@ -264,11 +263,41 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
     ],
   );
 
+  // Effect 1: Process WebSocket messages
   useEffect(() => {
     if (!socket?.lastMessage) return;
     const { data } = socket.lastMessage;
+    console.log('Websocket data:', data);
     if (typeof data === 'string') handleMessage(data);
   }, [socket?.lastMessage, handleMessage]);
 
+  // Effect 2: Update jointManager when axleValues change
+  useEffect(() => {
+    if (!axleValues || !jointManager) return;
+
+    // 1. Sort axis names numerically
+    const axisNames = Object.keys(axleValues).sort((a, b) => {
+      const ai = parseInt(a.match(/(\\d+)$/)?.[1] || '0', 10);
+      const bi = parseInt(b.match(/(\\d+)$/)?.[1] || '0', 10);
+      return ai - bi;
+    });
+
+    // 2. Get URDF joint names in order
+    const urdfJointNames = jointManager.getOrderedRevoluteJointNames
+      ? jointManager.getOrderedRevoluteJointNames()
+      : [];
+
+    // 3. Build axis to joint index map
+    const n = Math.min(axisNames.length, urdfJointNames.length);
+    const jointAngles: number[] = new Array(urdfJointNames.length).fill(0);
+
+    for (let i = 0; i < n; i++) {
+      const axis = axisNames[i];
+      const jointIndex = i;
+      jointAngles[jointIndex] = axleValues[axis];
+    }
+
+    jointManager.setAngles(WRITER_ID.SYN, jointAngles);
+  }, [axleValues, jointManager]);
   return null;
 }

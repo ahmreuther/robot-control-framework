@@ -3,9 +3,8 @@ import { useEffect, useState } from 'react';
 import type { JointStateManager } from '../../hooks/useJointState';
 import { WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
 import type { JointProperty } from '../../hooks/useSceneState';
-import { useMethodCall } from '../Adressspace/hooks/useMethodCall';
-import { UaNode } from '../Adressspace/types';
-import { useSocket } from '../../hooks/use-socket';
+import { useSyncContext } from '../../contexts/SyncContext';
+import { useSendMessage } from '../../hooks/send-message';
 
 export interface SliderProps {
   minDisp: number;
@@ -19,6 +18,7 @@ export interface SliderProps {
   showRadians: boolean;
   radToDeg: (rad: number) => number;
   degToRad: (deg: number) => number;
+  setPendingJoints: (joints: number[]) => void;
 }
 
 export function SliderInput({
@@ -33,11 +33,14 @@ export function SliderInput({
   showRadians,
   radToDeg,
   degToRad,
+  setPendingJoints,
 }: SliderProps) {
   let minDispLocal = minDisp;
   let maxDispLocal = maxDisp;
   let valueDispLocal = valueDisp;
   let stepDisp: number;
+  const { isSyncActive } = useSyncContext();
+  const { sendMessage } = useSendMessage();
   const angle = localAngles[i];
   if (property?.jointType === 'prismatic') {
     minDispLocal = (property.min ?? 0) * 1000;
@@ -63,14 +66,6 @@ export function SliderInput({
         : valueDispLocal.toFixed(1),
   );
 
-  const socket = useSocket();
-  const {
-    isOpen: methodDialogOpen,
-    result: methodResult,
-    isLoading: methodLoading,
-    directCallMethod,
-  } = useMethodCall('opc.tcp://127.0.0.1:4840/freeopcua/server/', socket as any);
-
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -86,19 +81,18 @@ export function SliderInput({
   useEffect(() => {
     if (!isEditing) return;
     jointManager.mountWriter(WRITER_ID.FK, WRITER_PRIORITY.FK);
-
+    if (isSyncActive) {
+      jointManager.unmountWriter(WRITER_ID.SYN);
+      // sendMessage('cancel stream joint position');
+      // sendMessage('cancel stream mode');
+    }
     const handleEnd = () => {
+      // Unmount SYN writer if sync is active (method call will be triggered)
+      if (isSyncActive) {
+        setPendingJoints(localAngles);
+      }
       jointManager.unmountWriter(WRITER_ID.FK);
       setIsEditing(false);
-      const tmpNode: UaNode = {
-        nodeId: 'ns=4;s=Go To',
-        displayName: 'Go To Node',
-        nodeClass: 'Method',
-      };
-      directCallMethod(tmpNode, {
-        mode: 'automatic',
-        joints: JSON.stringify(jointManager.getAngles()),
-      });
     };
     window.addEventListener('mouseup', handleEnd);
     window.addEventListener('touchend', handleEnd);
@@ -107,7 +101,7 @@ export function SliderInput({
       window.removeEventListener('touchend', handleEnd);
       jointManager.unmountWriter(WRITER_ID.FK);
     };
-  }, [localAngles]);
+  }, [localAngles, isSyncActive]);
 
   const handleBeginEdit = () => setIsEditing(true);
 

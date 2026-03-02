@@ -13,9 +13,8 @@ import GoalMarker from './GoalMarker';
 import RobotLoader from './RobotLoader';
 import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
 import { useSolverConfig } from '../../contexts/useSolverConfigContext';
-import { useMethodCall } from '../Adressspace/hooks/useMethodCall';
-import { useSocket } from 'src/hooks/use-socket';
-import { UaNode } from '../Adressspace/types';
+import { useSyncContext } from '../../contexts/SyncContext';
+import { useSendMessage } from '../../hooks/send-message';
 import MessageController from './MessageController';
 
 export const SOLVE_STATUS = {
@@ -37,6 +36,8 @@ interface RobotProps {
   showCollisionMesh: boolean;
   setHoveredJointMesh?: (index: number | null) => void;
   setMovedDistance?: (distance: number) => void;
+  pendingJoints: number[];
+  setPendingJoints: (joints: number[] | null) => void;
 }
 
 export function Robot({
@@ -49,7 +50,11 @@ export function Robot({
   showCollisionMesh,
   setHoveredJointMesh,
   setMovedDistance,
+  pendingJoints,
+  setPendingJoints,
 }: RobotProps) {
+  const { isSyncActive } = useSyncContext();
+  const { sendMessage } = useSendMessage();
   const { config: solverConfig } = useSolverConfig();
   const { setOrderedJointNames } = useRobotInfoContext();
   const robotRef = useRef<URDFRobot>(null);
@@ -104,8 +109,6 @@ export function Robot({
   const [localJointAngles, setLocalJointAngles] = useState<number[]>([]);
   const jointAnglesRef = useRef<number[]>([]);
 
-  const [pendingJoints, setPendingJoints] = useState<number[]>([]);
-
   const { camera, gl } = useThree();
 
   const originalMaterialMapRef = useRef<Map<THREE.Object3D, THREE.Material>>(new Map()); // Store original materials
@@ -129,14 +132,6 @@ export function Robot({
   const hoveredJointRef = useRef<URDFJoint>(null);
 
   const [showGoalMarker, setShowGoalMarker] = useState(false);
-
-  const socket = useSocket();
-  const {
-    isOpen: methodDialogOpen,
-    result: methodResult,
-    isLoading: methodLoading,
-    directCallMethod,
-  } = useMethodCall('opc.tcp://127.0.0.1:4840/freeopcua/server/', socket as any);
 
   useEffect(() => {
     if (!robotRef.current) return;
@@ -266,6 +261,9 @@ export function Robot({
       setOrderedJointNames(ordered);
       console.log('[Robot] Ordered joint names:', ordered);
 
+      const jointNames = Object.keys(robot.joints ?? {});
+      jointManager.setJointNames(jointNames);
+
       // Load home pose from configuration
       try {
         const response = await fetch('/urdf/home_poses.json');
@@ -280,7 +278,6 @@ export function Robot({
 
         if (configKey && homePosesConfig[configKey]) {
           const config = homePosesConfig[configKey];
-          const jointNames = Object.keys(robot.joints ?? {});
           const degToRad = (deg: number) => (deg * Math.PI) / 180;
           const homeAngles: number[] = [];
           config.homePosition.forEach((value: number, index: number) => {
@@ -428,9 +425,18 @@ export function Robot({
   // DragControls handlers
   const handleDragStart = () => {
     jointManager.mountWriter(WRITER_ID.DRAG, WRITER_PRIORITY.DRAG);
+    if (isSyncActive) {
+      jointManager.unmountWriter(WRITER_ID.SYN);
+      // sendMessage('cancel stream joint position');
+      // sendMessage('cancel stream mode');
+    }
     onDrag?.(true);
   };
   const handleDragEnd = () => {
+    // Unmount SYN writer if sync is active (method call will be triggered)
+    if (isSyncActive) {
+      setPendingJoints(jointManager.getAngles());
+    }
     jointManager.unmountWriter(WRITER_ID.DRAG);
     onDrag?.(false);
   };
@@ -569,6 +575,48 @@ export function Robot({
     }
   };
 
+  const solveIKOnce = useCallback(() => {
+    const robot = robotRef.current;
+    const goal = goalRef.current;
+    const solver = solverRef.current;
+    const ikRoot = ikRootRef.current;
+    const robotGroup = robotGroupRef.current;
+
+    if (!robot || !goal || !solver || !ikRoot || !robotGroup) {
+      console.warn('IK components not ready');
+      return;
+    }
+
+    // Sync IK with current robot state
+    setIKFromUrdf(ikRoot, robot);
+
+    // Solve IK
+    const statuses = solver.solve();
+    const statusesArr = [...statuses];
+    onSolveStatusesChange?.(statusesArr);
+
+    const converged = statusesArr.every((status: number) => status === SOLVE_STATUS.CONVERGED);
+    convergedRef.current = converged;
+
+    if (converged) {
+      setUrdfFromIK(robot, ikRoot);
+      robot.updateMatrixWorld(true);
+
+      // Extract new angles from robot after IK solution
+      const jointNames = Object.keys(robot.joints ?? {});
+      const newAngles = jointNames.map((name) => robot.joints[name]?.angle ?? 0);
+      jointAnglesRef.current = newAngles;
+
+      // Update last valid goal
+      lastValidGoalPositionRef.current = [...goalPosition];
+      lastValidGoalQuaternionRef.current = [...goalQuaternion];
+
+      return newAngles;
+    }
+
+    return null;
+  }, [goalPosition, goalQuaternion, onSolveStatusesChange]);
+
   return (
     <>
       <RobotLoader urdfPath={urdfPath} onRobotReady={handleRobotReady} />
@@ -584,7 +632,11 @@ export function Robot({
           onUpdateJoint={handleUpdateJoint}
         />
       )}
-      <MessageController pendingJoints={pendingJoints} setPendingJoints={setPendingJoints} />
+      <MessageController
+        pendingJoints={pendingJoints}
+        setPendingJoints={setPendingJoints}
+        jointManager={jointManager}
+      />
       {!isAnimatingRef.current && showGoalMarker && (
         <GoalMarker
           onPositionChange={setGoalPosition}
@@ -598,6 +650,7 @@ export function Robot({
           {...(robotRef.current ? { robot: robotRef.current } : {})}
           {...(setMovedDistance ? { setMovedDistance } : {})}
           setPendingJoints={setPendingJoints}
+          solveIKOnce={solveIKOnce}
         />
       )}
     </>

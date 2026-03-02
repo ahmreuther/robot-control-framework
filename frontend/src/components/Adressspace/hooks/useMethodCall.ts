@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLoading } from '../../../contexts/LoadingContext';
 import { fetchNodeValue, fetchReferences } from '../api';
 import type { UaNode } from '../types';
+import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
+import { useSyncExternalStore } from 'react';
 
 export type InputArgTuple = [name: string, type: number];
 export interface MethodCallState {
@@ -18,7 +20,57 @@ export interface MethodCallState {
   _hideLoading: (() => void) | null;
 }
 
-export function useMethodCall(opcUaUrl: string | null, socket: WebSocket | null) {
+export type DirectMethodCallStatusState = {
+  status: 'Pending' | 'Ready';
+  lastSentAt: number | null;
+  lastResultAt: number | null;
+  lastNodeId: string | null;
+  lastResult: string | null;
+};
+
+const INITIAL_DIRECT_METHOD_CALL_STATUS: DirectMethodCallStatusState = {
+  status: 'Ready',
+  lastSentAt: null,
+  lastResultAt: null,
+  lastNodeId: null,
+  lastResult: null,
+};
+
+let directMethodCallStatusStore: DirectMethodCallStatusState = INITIAL_DIRECT_METHOD_CALL_STATUS;
+const directMethodCallStatusListeners = new Set<() => void>();
+
+function subscribeDirectMethodCallStatus(listener: () => void) {
+  directMethodCallStatusListeners.add(listener);
+  return () => {
+    directMethodCallStatusListeners.delete(listener);
+  };
+}
+
+function getDirectMethodCallStatusSnapshot() {
+  return directMethodCallStatusStore;
+}
+
+function updateDirectMethodCallStatusStore(update: Partial<DirectMethodCallStatusState>) {
+  directMethodCallStatusStore = {
+    ...directMethodCallStatusStore,
+    ...update,
+  };
+  directMethodCallStatusListeners.forEach((listener) => listener());
+}
+
+export function useDirectMethodCallStatus() {
+  return useSyncExternalStore(
+    subscribeDirectMethodCallStatus,
+    getDirectMethodCallStatusSnapshot,
+    getDirectMethodCallStatusSnapshot,
+  );
+}
+
+export function useMethodCall(
+  opcUaUrl: string | null,
+  socket: WebSocket | null,
+  jointManager?: JointStateManager,
+) {
   const [state, setState] = useState<MethodCallState>({
     isOpen: false,
     node: null,
@@ -201,7 +253,15 @@ export function useMethodCall(opcUaUrl: string | null, socket: WebSocket | null)
           inputs: finalInputs,
         });
         activeSocket.send(`call|${payload}`);
-        console.log(payload);
+        console.log(`call|${payload}`);
+
+        updateDirectMethodCallStatusStore({
+          status: 'Pending',
+          lastSentAt: Date.now(),
+          lastNodeId: node.nodeId,
+          lastResult: null,
+        });
+
         setState((prev) => ({
           ...prev,
           node,
@@ -222,7 +282,36 @@ export function useMethodCall(opcUaUrl: string | null, socket: WebSocket | null)
     [opcUaUrl, socket],
   );
 
-  // ========== LISTEN FOR RESULTS ==========
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleDirectMethodCallStatus = (event: MessageEvent) => {
+      if (directMethodCallStatusStore.status !== 'Pending') {
+        return;
+      }
+
+      const message = String(event.data ?? '');
+
+      if (message.startsWith('Method call result:')) {
+        const result = message.replace('Method call result:', '').trim();
+        updateDirectMethodCallStatusStore({
+          status: 'Ready',
+          lastResultAt: Date.now(),
+          lastResult: result,
+        });
+      } else if (message.startsWith('❌') && message.toLowerCase().includes('method')) {
+        updateDirectMethodCallStatusStore({
+          status: 'Ready',
+          lastResultAt: Date.now(),
+          lastResult: message,
+        });
+      }
+    };
+
+    socket.addEventListener('message', handleDirectMethodCallStatus);
+    return () => socket.removeEventListener('message', handleDirectMethodCallStatus);
+  }, [socket]);
+
   useEffect(() => {
     if (!socket || !state.isOpen) return;
 
@@ -261,7 +350,7 @@ export function useMethodCall(opcUaUrl: string | null, socket: WebSocket | null)
 
     socket.addEventListener('message', handleMessage);
     return () => socket.removeEventListener('message', handleMessage);
-  }, [socket, state.isOpen]);
+  }, [socket, state.isOpen, opcUaUrl]);
 
   return {
     // State

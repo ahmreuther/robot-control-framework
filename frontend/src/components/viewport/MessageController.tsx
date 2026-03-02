@@ -1,59 +1,64 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMethodCall } from '../Adressspace/hooks/useMethodCall';
+import { useDirectMethodCallStatus, useMethodCall } from '../Adressspace/hooks/useMethodCall';
 import { UaNode } from '../Adressspace/types';
 import { useSocket } from '../../hooks/use-socket';
+import { useSyncContext } from '../../contexts/SyncContext';
+import { useUrlContext } from '../../contexts/UrlContext';
+import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
+
 interface MessageControllerProps {
   pendingJoints: number[];
   setPendingJoints: (joints: number[] | null) => void;
+  jointManager: JointStateManager;
 }
 
-function MessageController({ pendingJoints, setPendingJoints }: MessageControllerProps) {
-  //const [pending, setPending] = useState(null);
-  // pending: null | { id: string, payload: any, ts: number }
+const GO_TO_NODE_ID = 'ns=4;s=Go To';
 
-  //   const onMouseUp = (e, nodeId, payload) => {
-  //     e.preventDefault(); // important if inside <form>
-  //     // Snapshot everything you need NOW (no stale state later)
-  //     setPending({ id: nodeId, payload, ts: Date.now() });
-  //   };
+function MessageController({ pendingJoints, jointManager }: MessageControllerProps) {
+  const { url: opcUaUrl } = useUrlContext();
+  const { isSyncActive } = useSyncContext();
   const socket = useSocket();
+  const methodCallStatus = useDirectMethodCallStatus();
+  const [waitingForMethodResult, setWaitingForMethodResult] = useState(false);
+  const lastRequestedJointsKeyRef = useRef<string | null>(null);
 
-  const {
-    isOpen: methodDialogOpen,
-    result: methodResult,
-    isLoading: methodLoading,
-    directCallMethod,
-  } = useMethodCall('opc.tcp://127.0.0.1:4840/freeopcua/server/', socket as any);
-
-  const tmpNode: UaNode = {
-    nodeId: 'ns=4;s=Go To',
-    displayName: 'Go To Node',
-    nodeClass: 'Method',
-  };
+  const { directCallMethod } = useMethodCall(opcUaUrl, socket as any);
 
   useEffect(() => {
-    if (!pendingJoints) return;
+    if (!isSyncActive) return;
+    if (waitingForMethodResult) return;
+    if (methodCallStatus.status !== 'Ready') return;
+    const jointsKey = JSON.stringify(pendingJoints);
+    if (jointsKey === lastRequestedJointsKeyRef.current) return;
 
-    const controller = new AbortController();
+    const tmpNode: UaNode = {
+      nodeId: GO_TO_NODE_ID,
+      displayName: 'Go To Node',
+      nodeClass: 'Method',
+    };
 
-    (async () => {
-      try {
-        directCallMethod(tmpNode, {
-          mode: 'automatic',
-          joints: JSON.stringify(pendingJoints),
-        });
-        // success handling here
-      } catch (err) {
-        // AbortError is normal when a new pending action replaces the old
-        if (err?.name !== 'AbortError') console.error(err);
-      } finally {
-        // Clear so we don't re-run for the same action
-        setPendingJoints(null);
-      }
-    })();
+    directCallMethod(tmpNode, {
+      mode: 'automatic',
+      joints: jointsKey,
+    });
+    jointManager.mountWriter(WRITER_ID.SYN, WRITER_PRIORITY.SYN);
+    lastRequestedJointsKeyRef.current = jointsKey;
+    setWaitingForMethodResult(true);
+  }, [
+    pendingJoints,
+    isSyncActive,
+    directCallMethod,
+    waitingForMethodResult,
+    methodCallStatus.status,
+    jointManager,
+  ]);
 
-    return () => controller.abort();
-  }, [pendingJoints]);
+  useEffect(() => {
+    if (!waitingForMethodResult) return;
+    if (methodCallStatus.status !== 'Ready') return;
+    if (methodCallStatus.lastNodeId !== GO_TO_NODE_ID) return;
+    setWaitingForMethodResult(false);
+  }, [waitingForMethodResult, methodCallStatus.status, methodCallStatus.lastNodeId]);
 
   return <></>;
 }

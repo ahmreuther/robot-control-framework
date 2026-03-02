@@ -21,6 +21,8 @@ import { useJointState } from './hooks/useJointState';
 import { useSceneState } from './hooks/useSceneState';
 import useServersAndRobots from './hooks/useServersAndRobots';
 import { SolverConfigProvider } from './contexts/useSolverConfigContext';
+import MessageController from './components/viewport/MessageController';
+import { SyncProvider } from './contexts/SyncContext';
 
 export interface SettingsState {
   environment: boolean;
@@ -83,6 +85,8 @@ function App() {
     'none',
   );
 
+  const [pendingJoints, setPendingJoints] = useState<number[]>([]);
+
   useEffect(() => {
     const active = servers.find((s) => s.id === activeASpaceServerId);
     setOpcuaUrl(active?.connectedUrl ?? null);
@@ -95,178 +99,122 @@ function App() {
   }, [servers, activeASpaceServerId]);
 
   return (
-    <SolverConfigProvider>
-      <RobotInfoProvider
-        robotName={robotName}
-        robotInfo={robotInfo}
-        robotMode={robotMode}
-        robotStatus={robotStatus}
-        axleValues={axleValues}
-        setAxleValues={setAxleValues}
-        orderedJointNames={orderedJointNames}
-        setOrderedJointNames={setOrderedJointNames}
-        gotoMethodNodeId={gotoMethodNodeId}
-        setGotoMethodNodeId={setGotoMethodNodeId}
-        setRobotInfo={setRobotInfo}
-        setRobotMode={setRobotMode}
-        setRobotName={setRobotName}
-        setRobotStatus={setRobotStatus}
-      >
-        <SocketProvider url={websocketUrl}>
-          <LogProvider logs={logs} setLogs={setLogs}>
-            <LoadingProvider>
-              <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
-                <div className="w-full h-screen overflow-hidden">
-                  <MobilePanelControls
-                    className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`}
-                    mobilePanelState={mobilePanelState}
-                    setMobilePanelState={setMobilePanelState}
-                    showClose={false}
-                  />
-                  <WebSocketReciever jointManager={jointManager} />
-                  {!(isMobile && mobilePanelState !== 'none') ? (
-                    <Group orientation="vertical">
-                      <header className="panel-header flex">
-                        <img
-                          src={logoPlcm}
-                          alt="PLCM logo"
-                          className="h-10 w-auto bg-gray-200 rounded-sm p-1"
-                        />
-                        <div className="panel-title text-sm">Digital Twin Robots</div>
-
-                        <Settings settings={settings} toggleSettings={toggleSettings} />
-                      </header>
-                      <Group>
-                        <Panel defaultSize="85%">
-                          <Group orientation="vertical">
-                            <Panel>
-                              <Group>
-                                <Panel>
-                                  <JointAnglesPanel
-                                    jointManager={jointManager}
-                                    jointProperties={jointProperties}
-                                    showCollisionMesh={showCollisionMesh}
-                                    setShowCollisionMesh={setShowCollisionMesh}
-                                    reloadKey={reloadKey}
-                                    hoveredJointMesh={hoveredJointMesh}
-                                  />
-                                </Panel>
-                                <Panel defaultSize="85%">
-                                  <Viewport
-                                    key={reloadKey}
-                                    urdfPath={selectedRobot?.url ?? null}
-                                    jointManager={jointManager}
-                                    onJointLimitsLoaded={setJointLimits}
-                                    showCollisionMesh={showCollisionMesh}
-                                    setHoveredJointMesh={setHoveredJointMesh}
-                                    effectComposer={settings.effectComposer}
-                                    environment={settings.environment}
-                                  />
-                                </Panel>
-                              </Group>
-                            </Panel>
-                            <Panel defaultSize="35%">
-                              <div className="panel flex flex-col h-full">
-                                <header className="panel-header">
-                                  <div className="flex items-center gap-4">
-                                    <div className="panel-title">Servers:</div>
-                                    <nav
-                                      className="panel-nav"
-                                      role="tablist"
-                                      aria-label="Address Space servers"
-                                    >
-                                      {servers.length
-                                        ? servers.map((s) => (
-                                            <button
-                                              key={s.id}
-                                              role="tab"
-                                              className="panel-tab"
-                                              aria-selected={s.id === activeASpaceServerId}
-                                              onClick={() => setActiveASpaceServerId(s.id)}
-                                              type="button"
-                                            >
-                                              {s.name}
-                                            </button>
-                                          ))
-                                        : null}
-                                    </nav>
-                                  </div>
-                                </header>
-                                <div className="panel-body flex-1 overflow-auto">
-                                  <Group>
-                                    <Panel defaultSize="70%">
-                                      <ASpaceWindow />
-                                    </Panel>
-                                    <Panel>
-                                      <MessageLog />
-                                    </Panel>
-                                  </Group>
-                                </div>
-                              </div>
-                            </Panel>
-                          </Group>
-                        </Panel>
-                        <Panel>
-                          <RobotsServersManager
-                            servers={servers}
-                            robots={robots}
-                            jointManager={jointManager}
-                            addServer={addServer}
-                            removeServer={removeServer}
-                            addRobot={addRobot}
-                            removeRobot={removeRobot}
-                            connectRobotToServer={connectRobotToServer}
-                            disconnectRobot={disconnectRobot}
-                            onSelectURDF={handleRobotSelect}
+    <LoadingProvider>
+      <SolverConfigProvider>
+        <RobotInfoProvider
+          robotName={robotName}
+          robotInfo={robotInfo}
+          robotMode={robotMode}
+          robotStatus={robotStatus}
+          axleValues={axleValues}
+          setAxleValues={setAxleValues}
+          orderedJointNames={orderedJointNames}
+          setOrderedJointNames={setOrderedJointNames}
+          gotoMethodNodeId={gotoMethodNodeId}
+          setGotoMethodNodeId={setGotoMethodNodeId}
+          setRobotInfo={setRobotInfo}
+          setRobotMode={setRobotMode}
+          setRobotName={setRobotName}
+          setRobotStatus={setRobotStatus}
+        >
+          <SyncProvider>
+            <SocketProvider url={websocketUrl}>
+              <LogProvider logs={logs} setLogs={setLogs}>
+                <UrlProvider url={opcuaUrl} setUrl={setOpcuaUrl}>
+                  <div className="w-full h-screen overflow-hidden">
+                    <MobilePanelControls
+                      className={`md:hidden flex items-center gap-2 mb-2 ${mobilePanelState !== 'none' ? 'hidden' : ''}`}
+                      mobilePanelState={mobilePanelState}
+                      setMobilePanelState={setMobilePanelState}
+                      showClose={false}
+                    />
+                    <WebSocketReciever jointManager={jointManager} />
+                    {!(isMobile && mobilePanelState !== 'none') ? (
+                      <Group orientation="vertical">
+                        <header className="panel-header flex">
+                          <img
+                            src={logoPlcm}
+                            alt="PLCM logo"
+                            className="h-10 w-auto bg-gray-200 rounded-sm p-1"
                           />
-                        </Panel>
-                      </Group>
-                    </Group>
-                  ) : (
-                    <div className="px-2 py-2">
-                      <div className="flex items-center justify-between mb-2 z-50">
-                        <img
-                          src={logoPlcm}
-                          alt="PLCM logo"
-                          className="h-10 w-auto bg-gray-200 rounded-sm p-1"
-                        />
-                        <Settings settings={settings} toggleSettings={toggleSettings} />
-                        <MobilePanelControls
-                          className="flex items-center gap-2"
-                          mobilePanelState={mobilePanelState}
-                          setMobilePanelState={setMobilePanelState}
-                          showClose={true}
-                        />
-                      </div>
-                      <div>
-                        {mobilePanelState === 'main' && (
-                          <div className="h-full gap-2 flex flex-col">
-                            <div className="w-full h-[60vh]">
-                              <Viewport
-                                key={reloadKey}
-                                urdfPath={selectedRobot?.url ?? null}
-                                jointManager={jointManager}
-                                onJointLimitsLoaded={setJointLimits}
-                                showCollisionMesh={showCollisionMesh}
-                                setHoveredJointMesh={setHoveredJointMesh}
-                                effectComposer={settings.effectComposer}
-                                environment={settings.environment}
-                              />
-                            </div>
-                            <div className="w-full z-50 max-h-[30vh] overflow-auto">
-                              <JointAnglesPanel
-                                jointManager={jointManager}
-                                jointProperties={jointProperties}
-                                showCollisionMesh={showCollisionMesh}
-                                setShowCollisionMesh={setShowCollisionMesh}
-                                reloadKey={reloadKey}
-                                hoveredJointMesh={hoveredJointMesh}
-                              />
-                            </div>
-                          </div>
-                        )}
-                        {mobilePanelState === 'side' && (
-                          <div className="flex flex-col gap-4">
+                          <div className="panel-title text-sm">Digital Twin Robots</div>
+
+                          <Settings settings={settings} toggleSettings={toggleSettings} />
+                        </header>
+                        <Group>
+                          <Panel defaultSize="85%">
+                            <Group orientation="vertical">
+                              <Panel>
+                                <Group>
+                                  <Panel>
+                                    <JointAnglesPanel
+                                      jointManager={jointManager}
+                                      jointProperties={jointProperties}
+                                      showCollisionMesh={showCollisionMesh}
+                                      setShowCollisionMesh={setShowCollisionMesh}
+                                      reloadKey={reloadKey}
+                                      hoveredJointMesh={hoveredJointMesh}
+                                      setPendingJoints={setPendingJoints}
+                                    />
+                                  </Panel>
+                                  <Panel defaultSize="85%">
+                                    <Viewport
+                                      key={reloadKey}
+                                      urdfPath={selectedRobot?.url ?? null}
+                                      jointManager={jointManager}
+                                      onJointLimitsLoaded={setJointLimits}
+                                      showCollisionMesh={showCollisionMesh}
+                                      setHoveredJointMesh={setHoveredJointMesh}
+                                      effectComposer={settings.effectComposer}
+                                      environment={settings.environment}
+                                      pendingJoints={pendingJoints}
+                                      setPendingJoints={setPendingJoints}
+                                    />
+                                  </Panel>
+                                </Group>
+                              </Panel>
+                              <Panel defaultSize="35%">
+                                <div className="panel flex flex-col h-full">
+                                  <header className="panel-header">
+                                    <div className="flex items-center gap-4">
+                                      <div className="panel-title">Servers:</div>
+                                      <nav
+                                        className="panel-nav"
+                                        role="tablist"
+                                        aria-label="Address Space servers"
+                                      >
+                                        {servers.length
+                                          ? servers.map((s) => (
+                                              <button
+                                                key={s.id}
+                                                role="tab"
+                                                className="panel-tab"
+                                                aria-selected={s.id === activeASpaceServerId}
+                                                onClick={() => setActiveASpaceServerId(s.id)}
+                                                type="button"
+                                              >
+                                                {s.name}
+                                              </button>
+                                            ))
+                                          : null}
+                                      </nav>
+                                    </div>
+                                  </header>
+                                  <div className="panel-body flex-1 overflow-auto">
+                                    <Group>
+                                      <Panel defaultSize="70%">
+                                        <ASpaceWindow />
+                                      </Panel>
+                                      <Panel>
+                                        <MessageLog />
+                                      </Panel>
+                                    </Group>
+                                  </div>
+                                </div>
+                              </Panel>
+                            </Group>
+                          </Panel>
+                          <Panel>
                             <RobotsServersManager
                               servers={servers}
                               robots={robots}
@@ -277,56 +225,125 @@ function App() {
                               removeRobot={removeRobot}
                               connectRobotToServer={connectRobotToServer}
                               disconnectRobot={disconnectRobot}
+                              onSelectURDF={handleRobotSelect}
                             />
-                          </div>
-                        )}
-                        {mobilePanelState === 'bot' && (
-                          <div>
-                            <header className="panel-header">
-                              <div className="flex items-center gap-4">
-                                <div className="panel-title">Servers:</div>
-                                <nav
-                                  className="panel-nav"
-                                  role="tablist"
-                                  aria-label="Address Space servers"
-                                >
-                                  {servers.length
-                                    ? servers.map((s) => (
-                                        <button
-                                          key={s.id}
-                                          role="tab"
-                                          className="panel-tab"
-                                          aria-selected={s.id === activeASpaceServerId}
-                                          onClick={() => setActiveASpaceServerId(s.id)}
-                                          type="button"
-                                        >
-                                          {s.name}
-                                        </button>
-                                      ))
-                                    : null}
-                                </nav>
+                          </Panel>
+                        </Group>
+                      </Group>
+                    ) : (
+                      <div className="px-2 py-2">
+                        <div className="flex items-center justify-between mb-2 z-50">
+                          <img
+                            src={logoPlcm}
+                            alt="PLCM logo"
+                            className="h-10 w-auto bg-gray-200 rounded-sm p-1"
+                          />
+                          <Settings settings={settings} toggleSettings={toggleSettings} />
+                          <MobilePanelControls
+                            className="flex items-center gap-2"
+                            mobilePanelState={mobilePanelState}
+                            setMobilePanelState={setMobilePanelState}
+                            showClose={true}
+                          />
+                        </div>
+                        <div>
+                          {mobilePanelState === 'main' && (
+                            <div className="h-full gap-2 flex flex-col">
+                              <div className="w-full h-[60vh]">
+                                <Viewport
+                                  key={reloadKey}
+                                  urdfPath={selectedRobot?.url ?? null}
+                                  jointManager={jointManager}
+                                  onJointLimitsLoaded={setJointLimits}
+                                  showCollisionMesh={showCollisionMesh}
+                                  setHoveredJointMesh={setHoveredJointMesh}
+                                  effectComposer={settings.effectComposer}
+                                  environment={settings.environment}
+                                  pendingJoints={pendingJoints}
+                                  setPendingJoints={setPendingJoints}
+                                />
                               </div>
-                            </header>
-                            <div className="flex flex-col gap-2 h-[80vh]">
-                              <div className="flex-1 min-h-0 ml-2">
-                                <ASpaceWindow />
-                              </div>
-                              <div className="flex-1 min-h-0">
-                                <MessageLog />
+                              <div className="w-full z-50 max-h-[30vh] overflow-auto">
+                                <JointAnglesPanel
+                                  jointManager={jointManager}
+                                  jointProperties={jointProperties}
+                                  showCollisionMesh={showCollisionMesh}
+                                  setShowCollisionMesh={setShowCollisionMesh}
+                                  reloadKey={reloadKey}
+                                  hoveredJointMesh={hoveredJointMesh}
+                                  setPendingJoints={setPendingJoints}
+                                />
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                          {mobilePanelState === 'side' && (
+                            <div className="flex flex-col gap-4">
+                              <RobotsServersManager
+                                servers={servers}
+                                robots={robots}
+                                jointManager={jointManager}
+                                addServer={addServer}
+                                removeServer={removeServer}
+                                addRobot={addRobot}
+                                removeRobot={removeRobot}
+                                connectRobotToServer={connectRobotToServer}
+                                disconnectRobot={disconnectRobot}
+                              />
+                            </div>
+                          )}
+                          {mobilePanelState === 'bot' && (
+                            <div>
+                              <header className="panel-header">
+                                <div className="flex items-center gap-4">
+                                  <div className="panel-title">Servers:</div>
+                                  <nav
+                                    className="panel-nav"
+                                    role="tablist"
+                                    aria-label="Address Space servers"
+                                  >
+                                    {servers.length
+                                      ? servers.map((s) => (
+                                          <button
+                                            key={s.id}
+                                            role="tab"
+                                            className="panel-tab"
+                                            aria-selected={s.id === activeASpaceServerId}
+                                            onClick={() => setActiveASpaceServerId(s.id)}
+                                            type="button"
+                                          >
+                                            {s.name}
+                                          </button>
+                                        ))
+                                      : null}
+                                  </nav>
+                                </div>
+                              </header>
+                              <div className="flex flex-col gap-2 h-[80vh]">
+                                <div className="flex-1 min-h-0 ml-2">
+                                  <ASpaceWindow />
+                                </div>
+                                <div className="flex-1 min-h-0">
+                                  <MessageLog />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </UrlProvider>
-            </LoadingProvider>
-          </LogProvider>
-        </SocketProvider>
-      </RobotInfoProvider>
-    </SolverConfigProvider>
+                    )}
+                  </div>
+                </UrlProvider>
+              </LogProvider>
+            </SocketProvider>
+            <MessageController
+              pendingJoints={pendingJoints}
+              setPendingJoints={setPendingJoints}
+              jointManager={jointManager}
+            />
+          </SyncProvider>
+        </RobotInfoProvider>
+      </SolverConfigProvider>
+    </LoadingProvider>
   );
 }
 

@@ -1,5 +1,3 @@
-// LoadingContext.tsx - Global loading and error management with Ant Design
-
 import { message, notification } from 'antd';
 import React, { createContext, type PropsWithChildren, useCallback, useContext } from 'react';
 
