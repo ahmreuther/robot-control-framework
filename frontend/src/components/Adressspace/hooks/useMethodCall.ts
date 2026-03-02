@@ -139,6 +139,89 @@ export function useMethodCall(opcUaUrl: string | null, socket: WebSocket | null)
     }
   }, [state.node, state.inputValues, socket, opcUaUrl]);
 
+  // ================= DIRECT + FETCH METHOD =================
+  const directCallMethod = useCallback(
+    async (node: UaNode, inputValues?: Record<string, any>) => {
+      if (!node) {
+        console.warn('Cannot call method: node is missing');
+        return;
+      }
+
+      // Wait for socket to be ready
+      const waitForSocket = () =>
+        new Promise<WebSocket>((resolve) => {
+          const check = () => {
+            if (socket && socket.readyState === WebSocket.OPEN) resolve(socket);
+            else setTimeout(check, 50);
+          };
+          check();
+        });
+
+      const activeSocket = await waitForSocket();
+      // Fetch InputArguments
+      let inputArgTuples: InputArgTuple[] = [];
+      try {
+        const refs = await fetchReferences(opcUaUrl, node.nodeId);
+        const inputArgRef = refs.find((ref) => ref.BrowseName === '0:InputArguments');
+        if (inputArgRef) {
+          const valueRaw = await fetchNodeValue(opcUaUrl, inputArgRef.NodeId);
+          let value: any = [];
+          try {
+            value = JSON.parse(valueRaw);
+          } catch {
+            value = valueRaw;
+          }
+          if (Array.isArray(value)) {
+            inputArgTuples = value.map((arg: any) => [
+              arg.Name || 'arg',
+              arg.DataType && typeof arg.DataType === 'object' && 'Identifier' in arg.DataType
+                ? arg.DataType.Identifier
+                : arg.DataType,
+            ]);
+          }
+        }
+      } catch (err) {
+        console.warn('[callMethodDirectly] Error fetching InputArguments:', err);
+      }
+
+      const finalInputs =
+        inputValues ??
+        inputArgTuples.reduce(
+          (acc, [name]) => {
+            acc[name] = '';
+            return acc;
+          },
+          {} as Record<string, string>,
+        );
+
+      try {
+        const payload = JSON.stringify({
+          url: opcUaUrl,
+          nodeId: node.nodeId,
+          inputs: finalInputs,
+        });
+        activeSocket.send(`call|${payload}`);
+        console.log(payload);
+        setState((prev) => ({
+          ...prev,
+          node,
+          inputs: inputArgTuples,
+          isLoading: true,
+          result: 'Calling method...',
+        }));
+      } catch (err: any) {
+        setState((prev) => ({
+          ...prev,
+          node,
+          inputs: inputArgTuples,
+          isLoading: false,
+          result: `❌ Invalid JSON: ${err.message}`,
+        }));
+      }
+    },
+    [opcUaUrl, socket],
+  );
+
   // ========== LISTEN FOR RESULTS ==========
   useEffect(() => {
     if (!socket || !state.isOpen) return;
@@ -193,5 +276,6 @@ export function useMethodCall(opcUaUrl: string | null, socket: WebSocket | null)
     closeMethodDialog,
     setInputValue,
     callMethod,
+    directCallMethod,
   };
 }

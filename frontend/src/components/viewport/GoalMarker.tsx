@@ -7,6 +7,9 @@ import type { URDFJoint } from 'urdf-loader/src/URDFClasses';
 
 import type { JointStateManager } from '../../hooks/useJointState';
 import { WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
+import { useMethodCall } from '../Adressspace/hooks/useMethodCall';
+import { UaNode } from '../Adressspace/types';
+import { useSocket } from '../../hooks/use-socket';
 
 interface GoalMarkerProps {
   onPositionChange: (position: [number, number, number]) => void;
@@ -19,6 +22,7 @@ interface GoalMarkerProps {
   handleUnhover: (joint: URDFJoint | null) => void;
   robot?: URDFRobot;
   setMovedDistance?: (distance: number) => void;
+  setPendingJoints: (joints: number[]) => void;
 }
 
 function GoalMarker({
@@ -31,6 +35,7 @@ function GoalMarker({
   converged = true,
   handleUnhover,
   setMovedDistance,
+  setPendingJoints,
   robot,
 }: GoalMarkerProps) {
   const meshRef = useRef<Mesh>(null);
@@ -40,6 +45,13 @@ function GoalMarker({
   const dragStartPosRef = useRef<[number, number, number] | null>(null);
   const [mode, setMode] = useState<'translate' | 'rotate'>('translate');
   const [local, setLocal] = useState<boolean>(false);
+  const socket = useSocket();
+  const {
+    isOpen: methodDialogOpen,
+    result: methodResult,
+    isLoading: methodLoading,
+    directCallMethod,
+  } = useMethodCall('opc.tcp://127.0.0.1:4840/freeopcua/server/', socket as any);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -130,6 +142,7 @@ function GoalMarker({
     onDrag(false);
     dragStartPosRef.current = null;
     setMovedDistance(0);
+    setPendingJoints(jointManager.getAngles());
   };
 
   return (

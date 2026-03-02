@@ -13,6 +13,10 @@ import GoalMarker from './GoalMarker';
 import RobotLoader from './RobotLoader';
 import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
 import { useSolverConfig } from '../../contexts/useSolverConfigContext';
+import { useMethodCall } from '../Adressspace/hooks/useMethodCall';
+import { useSocket } from 'src/hooks/use-socket';
+import { UaNode } from '../Adressspace/types';
+import MessageController from './MessageController';
 
 export const SOLVE_STATUS = {
   CONVERGED: 0,
@@ -100,6 +104,8 @@ export function Robot({
   const [localJointAngles, setLocalJointAngles] = useState<number[]>([]);
   const jointAnglesRef = useRef<number[]>([]);
 
+  const [pendingJoints, setPendingJoints] = useState<number[]>([]);
+
   const { camera, gl } = useThree();
 
   const originalMaterialMapRef = useRef<Map<THREE.Object3D, THREE.Material>>(new Map()); // Store original materials
@@ -123,6 +129,14 @@ export function Robot({
   const hoveredJointRef = useRef<URDFJoint>(null);
 
   const [showGoalMarker, setShowGoalMarker] = useState(false);
+
+  const socket = useSocket();
+  const {
+    isOpen: methodDialogOpen,
+    result: methodResult,
+    isLoading: methodLoading,
+    directCallMethod,
+  } = useMethodCall('opc.tcp://127.0.0.1:4840/freeopcua/server/', socket as any);
 
   useEffect(() => {
     if (!robotRef.current) return;
@@ -570,6 +584,7 @@ export function Robot({
           onUpdateJoint={handleUpdateJoint}
         />
       )}
+      <MessageController pendingJoints={pendingJoints} setPendingJoints={setPendingJoints} />
       {!isAnimatingRef.current && showGoalMarker && (
         <GoalMarker
           onPositionChange={setGoalPosition}
@@ -582,6 +597,7 @@ export function Robot({
           jointManager={jointManager}
           {...(robotRef.current ? { robot: robotRef.current } : {})}
           {...(setMovedDistance ? { setMovedDistance } : {})}
+          setPendingJoints={setPendingJoints}
         />
       )}
     </>

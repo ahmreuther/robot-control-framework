@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react';
 import type { JointStateManager } from '../../hooks/useJointState';
 import { WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
 import type { JointProperty } from '../../hooks/useSceneState';
+import { useMethodCall } from '../Adressspace/hooks/useMethodCall';
+import { UaNode } from '../Adressspace/types';
+import { useSocket } from '../../hooks/use-socket';
 
 export interface SliderProps {
   minDisp: number;
@@ -60,6 +63,14 @@ export function SliderInput({
         : valueDispLocal.toFixed(1),
   );
 
+  const socket = useSocket();
+  const {
+    isOpen: methodDialogOpen,
+    result: methodResult,
+    isLoading: methodLoading,
+    directCallMethod,
+  } = useMethodCall('opc.tcp://127.0.0.1:4840/freeopcua/server/', socket as any);
+
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -79,6 +90,15 @@ export function SliderInput({
     const handleEnd = () => {
       jointManager.unmountWriter(WRITER_ID.FK);
       setIsEditing(false);
+      const tmpNode: UaNode = {
+        nodeId: 'ns=4;s=Go To',
+        displayName: 'Go To Node',
+        nodeClass: 'Method',
+      };
+      directCallMethod(tmpNode, {
+        mode: 'automatic',
+        joints: JSON.stringify(jointManager.getAngles()),
+      });
     };
     window.addEventListener('mouseup', handleEnd);
     window.addEventListener('touchend', handleEnd);
