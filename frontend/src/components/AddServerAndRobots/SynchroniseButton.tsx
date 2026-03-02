@@ -21,15 +21,11 @@ export default function Synchronize_Button({ jointManager }: SynchronizeButtonPr
 
   const [switchState, setToggle] = useState(false);
 
-  const toggle = () => {
-    setToggle((prev) => !prev);
-  };
-
   function synchronize(toggleState: boolean): boolean {
     if (!connectedUrl) {
       console.log('No OPC UA client connected. Please connect first.');
       setLogs((prev) => prev + 'No OPC UA client connected. Please connect first.\n');
-      return !toggleState;
+      return false;
     }
 
     if (toggleState) {
@@ -51,10 +47,12 @@ export default function Synchronize_Button({ jointManager }: SynchronizeButtonPr
     <button
       className={`button-ghost ${isSyncActive ? 'active' : ''}`}
       onClick={() => {
-        toggle();
-        const maySwitch = synchronize(switchState);
-        if (!maySwitch) return;
-        setIsSyncActive(switchState);
+        const newState = !switchState;
+        const maySwitch = synchronize(newState);
+        if (maySwitch) {
+          setToggle(newState);
+          setIsSyncActive(newState);
+        }
       }}
     >
       Sync
