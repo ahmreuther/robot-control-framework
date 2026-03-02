@@ -120,11 +120,11 @@ export default function RobotsServersManager(props: Props) {
                     <div className="flex items-center gap-2">
                       <Synchronize_Button jointManager={jointManager} />
                       <button
-                        className="button-ghost"
+                        className={`button-ghost ${open ? 'active' : ''}`}
                         onClick={() => toggleRobotOpen(robot.id)}
                         aria-expanded={open}
                       >
-                        {open ? 'Hide' : 'Details'}
+                        Details
                       </button>
                       <button className="button-ghost" onClick={() => removeRobot(robot.id)}>
                         Remove

@@ -130,6 +130,13 @@
     color: rgb(var(--fg) / 0.4);
   }
 
+  .button-ghost.active {
+    border-color: rgb(var(--brand) / 0.7);
+    background: rgb(var(--brand) / 0.08);
+    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
+    color: rgb(var(--fg));
+  }
+
   .row {
     @apply border border-transparent transition-colors duration-150;
     border-color: transparent;

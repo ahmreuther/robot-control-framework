@@ -12,6 +12,7 @@ import { DragControls } from './DragControls';
 import GoalMarker from './GoalMarker';
 import RobotLoader from './RobotLoader';
 import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
+import { useSolverConfig } from '../../contexts/useSolverConfigContext';
 
 export const SOLVE_STATUS = {
   CONVERGED: 0,
@@ -45,6 +46,7 @@ export function Robot({
   setHoveredJointMesh,
   setMovedDistance,
 }: RobotProps) {
+  const { config: solverConfig } = useSolverConfig();
   const { setOrderedJointNames } = useRobotInfoContext();
   const robotRef = useRef<URDFRobot>(null);
   const getOrderedRevoluteJointNames = (robot: URDFRobot): string[] => {
@@ -301,6 +303,7 @@ export function Robot({
             jointLimits.push({
               min,
               max,
+
               jointType,
             });
           } else {
@@ -363,6 +366,23 @@ export function Robot({
       goal.makeClosure(ikEndEffector);
       goalRef.current = goal;
       const solver = new Solver(ikRoot);
+
+      // Apply solver configuration from context
+      solver.useSVD = solverConfig.useSVD;
+      solver.maxIterations = solverConfig.maxIterations;
+      solver.stallThreshold = solverConfig.stallThreshold;
+      solver.dampingFactor = solverConfig.dampingFactor;
+      solver.divergeThreshold = solverConfig.divergeThreshold;
+      solver.restPoseFactor = solverConfig.restPoseFactor;
+      solver.translationConvergeThreshold = solverConfig.translationConvergeThreshold;
+      solver.rotationConvergeThreshold = solverConfig.rotationConvergeThreshold;
+      solver.translationFactor = solverConfig.translationFactor;
+      solver.rotationFactor = solverConfig.rotationFactor;
+      solver.translationStep = solverConfig.translationStep;
+      solver.rotationStep = solverConfig.rotationStep;
+      solver.translationErrorClamp = solverConfig.translationErrorClamp;
+      solver.rotationErrorClamp = solverConfig.rotationErrorClamp;
+
       solverRef.current = solver;
     },
     [jointManager, onJointLimitsLoaded, setOrderedJointNames],

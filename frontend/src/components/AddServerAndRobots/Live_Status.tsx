@@ -3,24 +3,21 @@ import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
 export default function Live_Status() {
   const { robotName, robotStatus, robotMode, axleValues, robotInfo } = useRobotInfoContext();
   const jointsText =
-    Object.keys(axleValues).length === 0
+    axleValues && Object.keys(axleValues).length === 0
       ? ''
-      : Object.entries(axleValues)
-          .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
-          .join(', ');
+      : axleValues
+        ? Object.entries(axleValues)
+            .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
+            .join(', ')
+        : '';
 
   const rows: [string, string][] = [
     ['Connected Robot', robotName ? robotName : ''],
-    ['Manufacturer', robotInfo.manufacturer ? robotInfo.manufacturer : ''],
-    ['Serial Number', robotInfo.serialNumber ? robotInfo.serialNumber : ''],
+    ['Manufacturer', robotInfo?.manufacturer ? robotInfo.manufacturer : ''],
+    ['Serial Number', robotInfo?.serialNumber ? robotInfo.serialNumber : ''],
     ['Status', robotStatus ? robotStatus : ''],
     ['Mode', robotMode ? robotMode : ''],
     ['Joints', jointsText],
-    ['Lockout', ''],
-    ['Locking User', ''],
-    ['Remaining Lock Time', ''],
-    ['Remaining Session Time', ''],
-    ['Waypoints', ''],
   ];
 
   return (

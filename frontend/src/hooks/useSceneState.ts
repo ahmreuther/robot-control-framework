@@ -46,7 +46,7 @@ export function useSceneState(): SceneStateApi {
 
   const [showCollisionMesh, setShowCollisionMesh] = useState<boolean>(initialShowCollisionMesh);
   const [jointProperties, setJointLimits] = useState<(JointProperty | null)[]>(initialJointLimits);
-  const [selectedRobot, setSelectedRobot] = useState<ModelConfig>(ROBOT_MODELS[0]);
+  const [selectedRobot, setSelectedRobot] = useState<ModelConfig>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [hoveredJointMesh, setHoveredJointMesh] = useState<number | null>(null);
 

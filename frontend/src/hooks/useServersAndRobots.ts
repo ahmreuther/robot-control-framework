@@ -18,11 +18,13 @@ export default function useServersAndRobots() {
   const [robots, setRobots] = useState<Robot[]>([]);
   const [serverIdCounter, setServerIdCounter] = useState(1);
   const [robotIdCounter, setRobotIdCounter] = useState(1);
+  const [activeASpaceServerId, setActiveASpaceServerId] = useState<number | null>(null);
 
   const addServer = (name: string, connectedUrl: string, backendport: string | null = null) => {
     const id = serverIdCounter;
     setServers((prev) => [...prev, { id, name, robotIds: [], connectedUrl, backendport }]);
     setServerIdCounter((id) => id + 1);
+    setActiveASpaceServerId(id);
     return id;
   };
 
@@ -77,14 +79,6 @@ export default function useServersAndRobots() {
       ),
     );
   };
-
-  const [activeASpaceServerId, setActiveASpaceServerId] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (activeASpaceServerId !== null && !servers.find((s) => s.id === activeASpaceServerId)) {
-      setActiveASpaceServerId(null);
-    }
-  }, [servers, activeASpaceServerId]);
 
   return {
     servers,

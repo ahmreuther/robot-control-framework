@@ -79,7 +79,7 @@ function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
                 <button
                   onClick={() => {
                     const trimmed = serverName.trim();
-                    if (trimmed) {
+                    if (trimmed && localUrl) {
                       addServer(trimmed, localUrl.trim(), null);
                       handleConnect();
                       setServerName('');

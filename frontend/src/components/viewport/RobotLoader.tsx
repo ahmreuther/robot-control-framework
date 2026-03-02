@@ -21,6 +21,7 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
     //     scene.remove(groupRef.current);
     //     groupRef.current = null;
     // }
+    if (url === null) return;
     if (robotRef.current) {
       robotRef.current = null;
     }
