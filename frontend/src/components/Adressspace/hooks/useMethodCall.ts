@@ -26,6 +26,7 @@ export type DirectMethodCallStatusState = {
   lastResultAt: number | null;
   lastNodeId: string | null;
   lastResult: string | null;
+  hideLoading: (() => void) | null;
 };
 
 const INITIAL_DIRECT_METHOD_CALL_STATUS: DirectMethodCallStatusState = {
@@ -34,6 +35,7 @@ const INITIAL_DIRECT_METHOD_CALL_STATUS: DirectMethodCallStatusState = {
   lastResultAt: null,
   lastNodeId: null,
   lastResult: null,
+  hideLoading: null,
 };
 
 let directMethodCallStatusStore: DirectMethodCallStatusState = INITIAL_DIRECT_METHOD_CALL_STATUS;
@@ -51,6 +53,11 @@ function getDirectMethodCallStatusSnapshot() {
 }
 
 function updateDirectMethodCallStatusStore(update: Partial<DirectMethodCallStatusState>) {
+  // Clean up previous loading message if status changes to Ready
+  if (update.status === 'Ready' && directMethodCallStatusStore.hideLoading) {
+    directMethodCallStatusStore.hideLoading();
+  }
+
   directMethodCallStatusStore = {
     ...directMethodCallStatusStore,
     ...update,
@@ -255,11 +262,15 @@ export function useMethodCall(
         activeSocket.send(`call|${payload}`);
         console.log(`call|${payload}`);
 
+        // Show loading message
+        const hideLoading = message.loading(`Calling method ${node.displayName}...`, 0);
+
         updateDirectMethodCallStatusStore({
           status: 'Pending',
           lastSentAt: Date.now(),
           lastNodeId: node.nodeId,
           lastResult: null,
+          hideLoading,
         });
 
         setState((prev) => ({
@@ -290,20 +301,29 @@ export function useMethodCall(
         return;
       }
 
-      const message = String(event.data ?? '');
+      const messageText = String(event.data ?? '');
 
-      if (message.startsWith('Method call result:')) {
-        const result = message.replace('Method call result:', '').trim();
+      if (messageText.startsWith('Method call result:')) {
+        const result = messageText.replace('Method call result:', '').trim();
+
+        // Show success message
+        message.success('Method call completed', 2);
+
         updateDirectMethodCallStatusStore({
           status: 'Ready',
           lastResultAt: Date.now(),
           lastResult: result,
+          hideLoading: null,
         });
-      } else if (message.startsWith('❌') && message.toLowerCase().includes('method')) {
+      } else if (messageText.startsWith('❌') && messageText.toLowerCase().includes('method')) {
+        // Show error message
+        message.error('Method call failed', 2);
+
         updateDirectMethodCallStatusStore({
           status: 'Ready',
           lastResultAt: Date.now(),
-          lastResult: message,
+          lastResult: messageText,
+          hideLoading: null,
         });
       }
     };

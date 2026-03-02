@@ -6,6 +6,7 @@ import ConnectOPCUA from './ConnectOPCUA';
 import Live_Status from './Live_Status';
 import Synchronize_Button from './SynchroniseButton';
 import { type ModelConfig, URDFSelector } from './URDFSelector';
+import { useSyncContext } from '../../contexts/SyncContext';
 
 interface Robot {
   id: number;
@@ -53,9 +54,15 @@ export default function RobotsServersManager(props: Props) {
   const isRobotOpen = (id: number) => !!openRobotIds[id];
 
   const { sendMessage } = useSendMessage();
+  const { setIsSyncActive } = useSyncContext();
 
   function handleRemoveServer(serverId: number) {
-    //TODO: toggle all robot sync on false connected to this server
+    const connectedRobots = robots.filter((r) => r.serverId === serverId);
+    if (connectedRobots.length > 0) {
+      setIsSyncActive(false);
+      sendMessage('cancel stream joint position');
+      sendMessage('cancel stream mode');
+    }
     sendMessage('disconnect');
     removeServer(serverId);
   }
