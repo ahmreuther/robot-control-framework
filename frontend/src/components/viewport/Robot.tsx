@@ -259,7 +259,7 @@ export function Robot({
 
       const ordered = getOrderedRevoluteJointNames(robot);
       setOrderedJointNames(ordered);
-      console.log('[Robot] Ordered joint names:', ordered);
+      // console.log('[Robot] Ordered joint names:', ordered);
 
       const jointNames = Object.keys(robot.joints ?? {});
       jointManager.setJointNames(jointNames);
@@ -525,7 +525,7 @@ export function Robot({
   const highlightJointGeometry = (joint: URDFJoint, highlight: boolean) => {
     if (!joint) return;
     const traverse = (obj: any) => {
-      console.log(obj);
+      // console.log(obj);
       if (obj.type === 'Mesh') {
         if (highlight) {
           if (!originalMaterialMapRef.current.has(obj)) {

@@ -6,6 +6,7 @@ import { UrlContext } from '../contexts/UrlContext';
 import { SocketContext } from '../hooks/use-socket';
 import type { JointStateManager } from '../hooks/useJointState';
 import { WRITER_ID } from '../hooks/useJointState';
+import { useSyncContext } from '../contexts/SyncContext';
 
 const buildAxisToJointMap = (axisNames: string[], urdfJointNames: string[]) => {
   const sortedAxis = [...axisNames].sort((a, b) => {
@@ -40,8 +41,11 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
     setRobotInfo,
     orderedJointNames,
     setGotoMethodNodeId,
+    opcuaJointLength,
+    setOpcuaJointLength,
   } = useRobotInfoContext();
   const { setLogs } = useLogContext();
+  const { isSyncActive } = useSyncContext();
 
   const { url, setUrl } = useContext(UrlContext);
 
@@ -288,10 +292,14 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
       : [];
 
     // 3. Build axis to joint index map
-    const n = Math.min(axisNames.length, urdfJointNames.length);
+    const opcuaJointLength = Math.min(axisNames.length, urdfJointNames.length);
+    console.log('JointLenghOpcuas', { opcuaJointLength });
+    if (isSyncActive) {
+      setOpcuaJointLength(opcuaJointLength);
+    }
     const jointAngles: number[] = new Array(urdfJointNames.length).fill(0);
 
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < opcuaJointLength; i++) {
       const axis = axisNames[i];
       const jointIndex = i;
       jointAngles[jointIndex] = axleValues[axis];

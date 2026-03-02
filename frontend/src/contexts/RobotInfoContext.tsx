@@ -1,4 +1,4 @@
-import { createContext, type PropsWithChildren, useContext } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 
 export type AxleValues = Record<string, number>;
 
@@ -10,7 +10,7 @@ export interface RobotInfo {
   toggleEndEffMethodNodeId?: string | null;
 }
 
-interface RobotInfoContextType {
+type RobotInfoContextType = {
   robotName: string | null;
   setRobotName: (robotName: string | null) => void;
 
@@ -31,83 +31,51 @@ interface RobotInfoContextType {
 
   robotInfo: RobotInfo | null;
   setRobotInfo: (robotInfo: RobotInfo | null) => void;
-}
 
-export const RobotInfoContext = createContext<RobotInfoContextType>({
-  robotName: null,
-  setRobotName: () => {},
+  opcuaJointLength: number | null;
+  setOpcuaJointLength: (value: number | null) => void;
+};
 
-  robotStatus: 'Not Connected',
-  setRobotStatus: () => {},
+export const RobotInfoContext = createContext<RobotInfoContextType | undefined>(undefined);
 
-  robotMode: null,
-  setRobotMode: () => {},
+export function RobotInfoProvider({ children }: { children: ReactNode }) {
+  const [robotName, setRobotName] = useState<string | null>(null);
+  const [robotStatus, setRobotStatus] = useState<string | null>(null);
+  const [robotMode, setRobotMode] = useState<string | null>(null);
+  const [axleValues, setAxleValues] = useState<AxleValues | null>(null);
+  const [orderedJointNames, setOrderedJointNames] = useState<string[]>([]);
+  const [gotoMethodNodeId, setGotoMethodNodeId] = useState<string | null>(null);
+  const [robotInfo, setRobotInfo] = useState<RobotInfo | null>(null);
+  const [opcuaJointLength, setOpcuaJointLength] = useState<number | null>(null);
 
-  axleValues: {},
-  setAxleValues: () => {},
-
-  orderedJointNames: [],
-  setOrderedJointNames: () => {},
-
-  gotoMethodNodeId: null,
-  setGotoMethodNodeId: () => {},
-
-  robotInfo: {},
-  setRobotInfo: () => {},
-});
-
-export type RobotInfoProviderProps = PropsWithChildren<{
-  readonly robotName: string | null;
-  readonly setRobotName: (robotName: string | null) => void;
-
-  readonly robotStatus: string | null;
-  readonly setRobotStatus: (robotStatus: string | null) => void;
-
-  readonly robotMode: string | null;
-  readonly setRobotMode: (robotMode: string | null) => void;
-
-  readonly axleValues: AxleValues | null;
-  readonly setAxleValues: (axleValues: AxleValues | null) => void;
-
-  readonly orderedJointNames: string[];
-  readonly setOrderedJointNames: (orderedJointNames: string[]) => void;
-
-  readonly gotoMethodNodeId: string | null;
-  readonly setGotoMethodNodeId: (gotoMethodNodeId: string | null) => void;
-
-  readonly robotInfo: RobotInfo | null;
-  readonly setRobotInfo: (robotInfo: RobotInfo | null) => void;
-}>;
-
-export function RobotInfoProvider(props: RobotInfoProviderProps) {
   return (
     <RobotInfoContext.Provider
       value={{
-        robotName: props.robotName,
-        setRobotName: props.setRobotName,
-        robotStatus: props.robotStatus,
-        setRobotStatus: props.setRobotStatus,
-        robotMode: props.robotMode,
-        setRobotMode: props.setRobotMode,
-        axleValues: props.axleValues,
-        setAxleValues: props.setAxleValues,
-        orderedJointNames: props.orderedJointNames,
-        setOrderedJointNames: props.setOrderedJointNames,
-        gotoMethodNodeId: props.gotoMethodNodeId,
-        setGotoMethodNodeId: props.setGotoMethodNodeId,
-        robotInfo: props.robotInfo,
-        setRobotInfo: props.setRobotInfo,
+        robotName,
+        setRobotName,
+        robotStatus,
+        setRobotStatus,
+        robotMode,
+        setRobotMode,
+        axleValues,
+        setAxleValues,
+        orderedJointNames,
+        setOrderedJointNames,
+        gotoMethodNodeId,
+        setGotoMethodNodeId,
+        robotInfo,
+        setRobotInfo,
+        opcuaJointLength,
+        setOpcuaJointLength,
       }}
     >
-      {props.children}
+      {children}
     </RobotInfoContext.Provider>
   );
 }
 
 export function useRobotInfoContext() {
-  const context = useContext(RobotInfoContext);
-  if (!context) {
-    throw new Error('useRobotContext must be used within a RobotInfoProvider');
-  }
-  return context;
+  const ctx = useContext(RobotInfoContext);
+  if (!ctx) throw new Error('useRobotInfoContext must be used within RobotInfoProvider');
+  return ctx;
 }

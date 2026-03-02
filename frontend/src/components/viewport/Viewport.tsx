@@ -9,6 +9,7 @@ import type { JointProperty } from '../../hooks/useSceneState';
 import { Robot } from './Robot';
 import { SolverStatus } from './SolverStatus';
 import { Stats } from './Stats';
+import { MethodCallStatusPanel } from './MethodCallStatus';
 
 function EnvironmentLoader() {
   useEffect(() => {
@@ -86,6 +87,7 @@ export function Viewport(props: ViewportProps) {
         <div className="absolute top-0 left-0 z-50 flex gap-20">
           <Stats />
           <SolverStatus solveStatuses={solveStatuses} movedDistance={movedDistance} />
+          <MethodCallStatusPanel />
         </div>
 
         <Canvas camera={{ position: [1.5, 1.0, -2.0], up: [0, 1, 0], fov: 50 }}>

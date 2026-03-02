@@ -5,6 +5,7 @@ import { useSocket } from '../../hooks/use-socket';
 import { useSyncContext } from '../../contexts/SyncContext';
 import { useUrlContext } from '../../contexts/UrlContext';
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
+import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
 
 interface MessageControllerProps {
   pendingJoints: number[];
@@ -12,11 +13,10 @@ interface MessageControllerProps {
   jointManager: JointStateManager;
 }
 
-const GO_TO_NODE_ID = 'ns=4;s=Go To';
-
 function MessageController({ pendingJoints, jointManager }: MessageControllerProps) {
   const { url: opcUaUrl } = useUrlContext();
   const { isSyncActive } = useSyncContext();
+  const { gotoMethodNodeId, opcuaJointLength } = useRobotInfoContext();
   const socket = useSocket();
   const methodCallStatus = useDirectMethodCallStatus();
   const [waitingForMethodResult, setWaitingForMethodResult] = useState(false);
@@ -28,11 +28,13 @@ function MessageController({ pendingJoints, jointManager }: MessageControllerPro
     if (!isSyncActive) return;
     if (waitingForMethodResult) return;
     if (methodCallStatus.status !== 'Ready') return;
-    const jointsKey = JSON.stringify(pendingJoints);
+    if (opcuaJointLength === null) return;
+    const mappedJoints = pendingJoints.slice(0, opcuaJointLength);
+    const jointsKey = JSON.stringify(mappedJoints);
     if (jointsKey === lastRequestedJointsKeyRef.current) return;
 
     const tmpNode: UaNode = {
-      nodeId: GO_TO_NODE_ID,
+      nodeId: gotoMethodNodeId,
       displayName: 'Go To Node',
       nodeClass: 'Method',
     };
@@ -51,12 +53,20 @@ function MessageController({ pendingJoints, jointManager }: MessageControllerPro
     waitingForMethodResult,
     methodCallStatus.status,
     jointManager,
+    opcuaJointLength,
+    gotoMethodNodeId,
   ]);
+
+  useEffect(() => {
+    // force new request cycle when OPC UA joint length changes
+    lastRequestedJointsKeyRef.current = null;
+    setWaitingForMethodResult(false);
+  }, [opcuaJointLength]);
 
   useEffect(() => {
     if (!waitingForMethodResult) return;
     if (methodCallStatus.status !== 'Ready') return;
-    if (methodCallStatus.lastNodeId !== GO_TO_NODE_ID) return;
+    if (methodCallStatus.lastNodeId !== gotoMethodNodeId) return;
     setWaitingForMethodResult(false);
   }, [waitingForMethodResult, methodCallStatus.status, methodCallStatus.lastNodeId]);
 
