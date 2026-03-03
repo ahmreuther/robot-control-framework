@@ -1,25 +1,21 @@
-// provides the global state of the URL
+import { createContext, type PropsWithChildren, useContext, useState } from 'react';
 
-import { createContext, type PropsWithChildren, useContext } from 'react';
-
-interface UrlContextType {
+export interface UrlContextType {
   url: string | null;
   setUrl: (url: string | null) => void;
 }
 
-export const UrlContext = createContext<UrlContextType>({
-  url: null,
-  setUrl: () => {},
-});
+export const UrlContext = createContext<UrlContextType | undefined>(undefined);
 
 export type UrlProviderProps = PropsWithChildren<{
-  readonly url: string | null;
-  readonly setUrl: (url: string | null) => void;
+  readonly initialUrl?: string | null;
 }>;
 
 export function UrlProvider(props: UrlProviderProps) {
+  const [url, setUrl] = useState<string | null>(props.initialUrl ?? null);
+
   return (
-    <UrlContext.Provider value={{ url: props.url, setUrl: props.setUrl }}>
+    <UrlContext.Provider value={{ url, setUrl }}>
       {props.children}
     </UrlContext.Provider>
   );

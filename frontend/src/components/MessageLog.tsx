@@ -1,10 +1,10 @@
-import { useContext, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 
-import { LogContext } from '../contexts/LogContext';
+import { useLogContext } from '../contexts/LogContext';
 
 export function MessageLog() {
-  const { logs, setLogs } = useContext(LogContext);
+  const { logs, setLogs } = useLogContext();
 
   const [filter, setFilter] = useState('');
 
@@ -51,7 +51,7 @@ export function MessageLog() {
             data={lines}
             followOutput
             style={{ height: '100%' }}
-            itemContent={(index, line) => (
+            itemContent={(_, line) => (
               <div className="px-2 py-0.5 font-mono text-xs text-white/80 whitespace-pre-wrap break-words">
                 {line}
               </div>

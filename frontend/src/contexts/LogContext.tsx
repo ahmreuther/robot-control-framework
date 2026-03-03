@@ -1,24 +1,26 @@
-import React, { createContext, type PropsWithChildren, useContext } from 'react';
+import { createContext, type Dispatch, type PropsWithChildren, type SetStateAction, useContext, useState } from 'react';
 
 interface LogContextType {
   logs: string;
-  setLogs: React.Dispatch<React.SetStateAction<string>>;
+  setLogs: Dispatch<SetStateAction<string>>;
 }
 
-export const LogContext = createContext<LogContextType>({
-  logs: '',
-  setLogs: () => {},
-});
+export const LogContext = createContext<LogContextType | undefined>(undefined);
 
 export type LogProviderProps = PropsWithChildren<{
-  logs: string;
-  setLogs: React.Dispatch<React.SetStateAction<string>>;
+  initialLogs?: string;
 }>;
 
-export function LogProvider({ logs, setLogs, children }: LogProviderProps) {
+export function LogProvider({ children, initialLogs = '' }: LogProviderProps) {
+  const [logs, setLogs] = useState(initialLogs);
+
   return <LogContext.Provider value={{ logs, setLogs }}>{children}</LogContext.Provider>;
 }
 
 export function useLogContext() {
-  return useContext(LogContext);
+  const context = useContext(LogContext);
+  if (!context) {
+    throw new Error('useLogContext must be used within a LogProvider');
+  }
+  return context;
 }

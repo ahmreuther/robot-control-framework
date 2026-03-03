@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { SettingsState } from '../App';
+import type { SettingsState } from '../app/hooks/useAppShellState';
 import { useSolverConfig } from '../contexts/useSolverConfigContext';
 import { CheckBox } from './CheckBox';
 

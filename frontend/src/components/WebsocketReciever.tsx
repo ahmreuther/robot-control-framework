@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect } from 'react';
 
 import { useLogContext } from '../contexts/LogContext';
 import { useRobotInfoContext } from '../contexts/RobotInfoContext';
-import { UrlContext } from '../contexts/UrlContext';
+import { useUrlContext } from '../contexts/UrlContext';
 import { SocketContext } from '../hooks/use-socket';
 import type { JointStateManager } from '../hooks/useJointState';
 import { WRITER_ID } from '../hooks/useJointState';
@@ -47,7 +47,7 @@ export default function WebSocketReciever({ jointManager }: WebSocketRecieverPro
   const { setLogs } = useLogContext();
   const { isSyncActive } = useSyncContext();
 
-  const { url, setUrl } = useContext(UrlContext);
+  const { url, setUrl } = useUrlContext();
 
   function parseJson(input: string) {
     try {
