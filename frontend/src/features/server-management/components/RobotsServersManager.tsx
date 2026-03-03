@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { useSyncContext } from '../../../app/providers/contexts';
+import { useSyncContext } from '../../../features/robot-control/contexts/SyncContext';
 import { useSendMessage } from '../../../features/socket/hooks/useSendMessage';
 import type { JointStateManager } from '../../robot-control/hooks/useJointState';
 import ConnectOpcUa from './ConnectOpcUa';

@@ -1,4 +1,4 @@
-import type { Subscription } from '../../hooks/useSubscriptions';
+import type { Subscription } from '../hooks/useSubscriptions';
 
 interface VariablesPanelProps {
   subscriptions: Subscription[];

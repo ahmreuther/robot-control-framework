@@ -1,7 +1,12 @@
-import { ASpaceWindow, AddressSpaceServerTabs } from '../../features/address-space/components';
+import {
+  ASpaceWindow,
+  AddressSpaceServerTabs,
+  MessageLog,
+} from '../../features/address-space/components';
 import { JointAnglesPanel, Viewport } from '../../features/robot-control/components';
 import { RobotsServersManager } from '../../features/server-management/components';
-import { MessageLog, MobilePanelControls, Settings } from '../../shared/ui';
+import Settings from './Settings';
+import MobilePanelControls from './MobilePanelControls';
 import type { MobileControlsProps, WorkspaceLayoutProps } from './types';
 
 type MobileLayoutProps = WorkspaceLayoutProps & MobileControlsProps;
@@ -10,7 +15,11 @@ export function MobileLayout(props: MobileLayoutProps) {
   return (
     <div className="px-2 py-2">
       <div className="flex items-center justify-between mb-2 z-50">
-        <img src={props.logoSrc} alt="PLCM logo" className="h-10 w-auto bg-gray-200 rounded-sm p-1" />
+        <img
+          src={props.logoSrc}
+          alt="PLCM logo"
+          className="h-10 w-auto bg-gray-200 rounded-sm p-1"
+        />
         <Settings settings={props.settings} toggleSettings={props.toggleSettings} />
         <MobilePanelControls
           className="flex items-center gap-2"

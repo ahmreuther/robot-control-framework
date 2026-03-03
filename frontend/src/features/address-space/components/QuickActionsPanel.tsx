@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useLoading } from '../../../app/providers/contexts';
-import { fetchAllMethods } from '../api/addressSpaceApi';
+import { useLoading } from '../../../app/contexts/LoadingContext';
+import { fetchAllMethods } from '../model/addressSpaceApi';
 import type { UaNode } from '../model/types';
 
 interface QuickActionsPanelProps {

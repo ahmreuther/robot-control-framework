@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Group, Panel } from 'react-resizable-panels';
 
-import { useUrlContext } from '../../../app/providers/contexts';
+import { useUrlContext } from '../../server-management/contexts/UrlContext';
 import { useSocket } from '../../../features/socket/hooks/useSocket';
 import { ASpaceBody } from './ASpaceBody';
 import { useEventSubscriptions } from '../hooks/useEventSubscriptions';
 import { useMethodCall } from '../hooks/useMethodCall';
 import { useSubscriptions } from '../hooks/useSubscriptions';
-import { ASpaceDetailsPanel } from './panels/ASpaceDetailsPanel';
-import { EventsPanel } from './panels/EventsPanel';
-import { MethodDialog } from './panels/MethodDialog';
-import { VariablesPanel } from './panels/VariablesPanel';
+import { ASpaceDetailsPanel } from './ASpaceDetailsPanel';
+import { EventsPanel } from './EventsPanel';
+import { MethodDialog } from './MethodDialog';
+import { VariablesPanel } from './VariablesPanel';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import type { UaNode } from '../model/types';
 

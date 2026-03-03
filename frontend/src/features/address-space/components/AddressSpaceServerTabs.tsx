@@ -1,4 +1,4 @@
-import type { Server } from '../../server-management/model';
+import type { Server } from '../../server-management/hooks/useServersAndRobots';
 
 export interface AddressSpaceServerTabsProps {
   servers: Server[];

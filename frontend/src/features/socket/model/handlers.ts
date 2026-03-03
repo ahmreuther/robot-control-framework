@@ -1,12 +1,12 @@
 import { WRITER_ID } from '../../robot-control/hooks/useJointState';
-import { parseIncomingMessage, tryParseJson } from '../parser/parser';
+import { parseIncomingMessage, tryParseJson } from './parser';
 import type {
   AnglesPayload,
   ParsedIncomingMessage,
   RobotInfoPayload,
   WebSocketHandlerContext,
   WebSocketHandlerResult,
-} from '../model/types';
+} from './types';
 
 const DEGREE_UNIT = 'C81';
 
@@ -141,7 +141,10 @@ function handlePrefixedMessage(
     }
 
     default: {
-      ctx.appendLog(`Warning: Unsupported prefixed message '${parsed.rawPrefix}'.\n`, ctx.targetServerId);
+      ctx.appendLog(
+        `Warning: Unsupported prefixed message '${parsed.rawPrefix}'.\n`,
+        ctx.targetServerId,
+      );
       return { nextLastAxleUiUpdateAt: ctx.lastAxleUiUpdateAt };
     }
   }
@@ -165,7 +168,9 @@ function handlePlainMessage(msg: string, ctx: WebSocketHandlerContext): WebSocke
     });
   }
 
-  if (startsWithAny(msg, ['Disconnected from ', '🔌 Disconnected from ', 'Error: Disconnected from '])) {
+  if (
+    startsWithAny(msg, ['Disconnected from ', '🔌 Disconnected from ', 'Error: Disconnected from '])
+  ) {
     if (ctx.targetServerId !== null) {
       ctx.updateServerConnectionStatus(ctx.targetServerId, false);
     }
@@ -197,7 +202,13 @@ function handlePlainMessage(msg: string, ctx: WebSocketHandlerContext): WebSocke
     ctx.setActiveRuntimeServerId(null);
   }
 
-  if (startsWithAny(msg, ['Connection failed to', '❌ Connection failed to', 'Error: Connection failed to'])) {
+  if (
+    startsWithAny(msg, [
+      'Connection failed to',
+      '❌ Connection failed to',
+      'Error: Connection failed to',
+    ])
+  ) {
     if (ctx.targetServerId !== null) {
       ctx.updateServerConnectionStatus(ctx.targetServerId, false);
     }
@@ -209,7 +220,10 @@ function handlePlainMessage(msg: string, ctx: WebSocketHandlerContext): WebSocke
   return { nextLastAxleUiUpdateAt: ctx.lastAxleUiUpdateAt };
 }
 
-export function handleIncomingMessage(msg: string, ctx: WebSocketHandlerContext): WebSocketHandlerResult {
+export function handleIncomingMessage(
+  msg: string,
+  ctx: WebSocketHandlerContext,
+): WebSocketHandlerResult {
   const parsed = parseIncomingMessage(msg);
 
   if (parsed.kind === 'prefixed') {

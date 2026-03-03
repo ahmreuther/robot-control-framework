@@ -5,7 +5,7 @@ export function CheckBox({
 }: {
   label: string;
   value: boolean;
-  onToggle: (boolean) => void;
+  onToggle: (boolean: boolean) => void;
 }) {
   return (
     <div className="hover-surface flex space-x-1">

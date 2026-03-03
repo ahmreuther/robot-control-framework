@@ -1,7 +1,7 @@
 import { message, notification } from 'antd';
 import React, { createContext, type PropsWithChildren, useCallback, useContext } from 'react';
 
-import { useLogContext } from './LogContext';
+import { useLogContext } from '../../features/address-space/contexts/LogContext';
 
 interface LoadingContextType {
   executeWithLoading: <T>(

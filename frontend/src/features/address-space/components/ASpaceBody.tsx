@@ -4,7 +4,7 @@ import { Tree } from 'antd';
 import type { Key } from 'react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { fetchChildren, fetchRootNode } from '../api/addressSpaceApi';
+import { fetchChildren, fetchRootNode } from '../model/addressSpaceApi';
 import {
   getNodeClassEmoji,
   loadExpandedIds,

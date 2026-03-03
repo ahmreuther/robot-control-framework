@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  type UaNode,
-  useDirectMethodCallStatus,
-  useMethodCall,
-} from '../../address-space';
+import { type UaNode, useDirectMethodCallStatus, useMethodCall } from '../../address-space';
 import { useSocket } from '../../../features/socket/hooks/useSocket';
-import { useSyncContext } from '../../../app/providers/contexts';
-import { useUrlContext } from '../../../app/providers/contexts';
+import { useSyncContext } from '../contexts/SyncContext';
+import { useUrlContext } from '../../server-management/contexts/UrlContext';
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../hooks/useJointState';
-import { useRobotInfoContext } from '../../../app/providers/contexts';
+import { useRobotInfoContext } from '../contexts/RobotInfoContext';
 
 interface MessageControllerProps {
   pendingJoints: number[];
@@ -19,7 +15,11 @@ interface MessageControllerProps {
 let lastGlobalGotoRequestKey: string | null = null;
 let lastGlobalGotoRequestAt = 0;
 
-function MessageController({ pendingJoints, setPendingJoints, jointManager }: MessageControllerProps) {
+function MessageController({
+  pendingJoints,
+  setPendingJoints,
+  jointManager,
+}: MessageControllerProps) {
   const { url: opcUaUrl } = useUrlContext();
   const { isSyncActive } = useSyncContext();
   const { gotoMethodNodeId, opcuaJointLength } = useRobotInfoContext();

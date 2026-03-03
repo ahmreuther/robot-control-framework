@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
-import type { SettingsState } from '../../app/hooks/useAppShellState';
-import { useSolverConfig } from '../../app/providers/contexts';
-import { CheckBox } from './CheckBox';
+import type { SettingsState } from '../hooks/useAppShellState';
+import { useSolverConfig } from '../../features/robot-control/contexts/useSolverConfigContext';
+import { CheckBox } from '../../shared/CheckBox';
 
 interface SettingsProps {
   settings: SettingsState;

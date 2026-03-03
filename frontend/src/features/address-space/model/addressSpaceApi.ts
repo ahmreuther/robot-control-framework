@@ -1,11 +1,6 @@
-import type { UaNode } from '../model/types';
-import { REST_BACKEND_BASE } from '../model/types';
+import type { UaNode } from './types';
+import { REST_BACKEND_BASE } from './types';
 
-/**
- * Fetches children of a node from the backend
- * GET /opcua/browse?url=...&node_id=...
- * Returns JSON: { children: UaNode[] }
- */
 export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<UaNode[]> => {
   const encodedUrl = encodeURIComponent(opcUaUrl);
   const encodedNodeId = encodeURIComponent(nodeId);
@@ -99,14 +94,10 @@ export const fetchAllMethods = async (
 
   await explore(rootId);
 
-  // Sort lexicographically by displayName
   return methods.sort((a, b) => a.displayName.localeCompare(b.displayName));
 };
 
-export const fetchNodeValue = async (
-  opcUaUrl: string | null,
-  nodeId: string,
-): Promise<unknown> => {
+export const fetchNodeValue = async (opcUaUrl: string | null, nodeId: string): Promise<unknown> => {
   const encodedUrl = encodeURIComponent(opcUaUrl ?? '');
   const encodedNodeId = encodeURIComponent(nodeId);
 

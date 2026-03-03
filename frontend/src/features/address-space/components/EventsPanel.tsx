@@ -1,4 +1,4 @@
-import type { EventSubscription } from '../../hooks/useEventSubscriptions';
+import type { EventSubscription } from '../hooks/useEventSubscriptions';
 
 interface EventsPanelProps {
   subscriptions: EventSubscription[];

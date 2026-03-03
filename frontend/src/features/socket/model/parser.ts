@@ -1,4 +1,4 @@
-import type { KnownPrefixedKind, ParsedIncomingMessage } from '../model/types';
+import type { KnownPrefixedKind, ParsedIncomingMessage } from './types';
 
 const KNOWN_PREFIXES: ReadonlySet<string> = new Set([
   'custom',

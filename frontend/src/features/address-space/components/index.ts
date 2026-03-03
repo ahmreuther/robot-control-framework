@@ -1,7 +1,8 @@
 export { ASpaceWindow } from './ASpaceWindow';
 export { AddressSpaceServerTabs } from './AddressSpaceServerTabs';
+export { default as MessageLog } from './MessageLog';
 export { QuickActionsPanel } from './QuickActionsPanel';
-export { ASpaceDetailsPanel } from './panels/ASpaceDetailsPanel';
-export { EventsPanel } from './panels/EventsPanel';
-export { MethodDialog } from './panels/MethodDialog';
-export { VariablesPanel } from './panels/VariablesPanel';
+export { ASpaceDetailsPanel } from './ASpaceDetailsPanel';
+export { EventsPanel } from './EventsPanel';
+export { MethodDialog } from './MethodDialog';
+export { VariablesPanel } from './VariablesPanel';

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 
 import type { JointStateManager } from '../hooks/useJointState';
 import type { JointProperty } from '../hooks/useSceneState';
-import { CheckBox } from '../../../shared/ui/CheckBox';
+import { CheckBox } from '../../../shared/CheckBox';
 import { SliderInput } from './SliderInput';
 
 export interface JointAnglesPanelProps {

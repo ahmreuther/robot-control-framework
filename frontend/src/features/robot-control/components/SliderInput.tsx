@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { JointStateManager } from '../hooks/useJointState';
 import { WRITER_ID, WRITER_PRIORITY } from '../hooks/useJointState';
 import type { JointProperty } from '../hooks/useSceneState';
-import { useSyncContext } from '../../../app/providers/contexts';
+import { useSyncContext } from '../contexts/SyncContext';
 import { useSendMessage } from '../../../features/socket/hooks/useSendMessage';
 
 export interface SliderProps {

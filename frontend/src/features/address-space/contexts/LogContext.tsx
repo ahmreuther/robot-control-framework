@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 
-import { useServersContext } from './ServersContext';
+import { useServersContext } from '../../server-management/contexts/ServersContext';
 
 interface LogContextType {
   logs: string;

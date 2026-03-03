@@ -1,12 +1,17 @@
 import { useEffect } from 'react';
 
 import { useAppShellState } from './app/hooks/useAppShellState';
-import { DesktopLayout, MobileLayout } from './app/layout';
-import { AppProviders, useServersContext, useUrlContext } from './app/providers';
+import { AppProviders } from './app/AppProviders';
+import { DesktopLayout } from './app/layout/DesktopLayout';
+import { MobileLayout } from './app/layout/MobileLayout';
 import logoPlcm from './assets/Logo_PLCM_RGB_mit Text.svg';
-import { MessageController, useJointState, useSceneState } from './features/robot-control';
-import { WebSocketReceiver } from './features/socket';
-import { MobilePanelControls } from './shared/ui';
+import MessageController from './features/robot-control/components/MessageController';
+import { useJointState } from './features/robot-control/hooks/useJointState';
+import { useSceneState } from './features/robot-control/hooks/useSceneState';
+import { useServersContext } from './features/server-management/contexts/ServersContext';
+import { useUrlContext } from './features/server-management/contexts/UrlContext';
+import WebSocketReceiver from './features/socket/components/WebSocketReceiver';
+import MobilePanelControls from './app/layout/MobilePanelControls';
 
 function AppShell() {
   const jointManager = useJointState();

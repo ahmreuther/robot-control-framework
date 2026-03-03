@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Mesh } from 'three';
 import type { URDFRobot } from 'urdf-loader';
 import type { URDFJoint } from 'urdf-loader/src/URDFClasses';
-import { useSyncContext } from '../../../app/providers/contexts';
+import { useSyncContext } from '../contexts/SyncContext';
 import type { JointStateManager } from '../hooks/useJointState';
 import { WRITER_ID, WRITER_PRIORITY } from '../hooks/useJointState';
 import { useSendMessage } from '../../../features/socket/hooks/useSendMessage';

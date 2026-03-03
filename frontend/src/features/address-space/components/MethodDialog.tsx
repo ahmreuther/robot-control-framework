@@ -1,5 +1,5 @@
-import type { UaNode } from '../../model/types';
-import { typeMap } from '../../model/types';
+import type { UaNode } from '../model/types';
+import { typeMap } from '../model/types';
 
 type InputArgTuple = [name: string, type: number, valueRank?: number];
 interface MethodDialogProps {

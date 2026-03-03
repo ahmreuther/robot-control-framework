@@ -3,10 +3,10 @@
 import { message } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useLoading } from '../../../app/providers/contexts';
-import { useLogContext } from '../../../app/providers/contexts';
-import { useServersContext } from '../../../app/providers/contexts';
-import { fetchNodeValue, fetchReferences } from '../api/addressSpaceApi';
+import { useLoading } from '../../../app/contexts/LoadingContext';
+import { useLogContext } from '../contexts/LogContext';
+import { useServersContext } from '../../server-management/contexts/ServersContext';
+import { fetchNodeValue, fetchReferences } from '../model/addressSpaceApi';
 import type { UaNode } from '../model/types';
 import { JointStateManager } from '../../robot-control/hooks/useJointState';
 import { useSyncExternalStore } from 'react';

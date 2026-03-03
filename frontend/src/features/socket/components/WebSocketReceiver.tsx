@@ -1,12 +1,12 @@
 import { useContext, useEffect, useRef } from 'react';
 
-import { useLogContext } from '../../../app/providers/contexts';
-import { useRobotInfoContext } from '../../../app/providers/contexts';
-import { useServersContext } from '../../../app/providers/contexts';
-import { useSyncContext } from '../../../app/providers/contexts';
+import { useLogContext } from '../../../features/address-space/contexts/LogContext';
+import { useRobotInfoContext } from '../../../features/robot-control/contexts/RobotInfoContext';
+import { useServersContext } from '../../../features/server-management/contexts/ServersContext';
+import { useSyncContext } from '../../../features/robot-control/contexts/SyncContext';
 import { SocketContext } from '../../../features/socket/hooks/useSocket';
 import type { JointStateManager } from '../../robot-control/hooks/useJointState';
-import { handleIncomingMessage } from '../handlers/handlers';
+import { handleIncomingMessage } from '../model/handlers';
 
 export interface WebSocketReceiverProps {
   jointManager: JointStateManager;
@@ -16,7 +16,8 @@ export default function WebSocketReceiver({ jointManager }: WebSocketReceiverPro
   const socket = useContext(SocketContext);
   const lastProcessedMessageRef = useRef<MessageEvent | null>(null);
   const lastAxleUiUpdateAtRef = useRef(0);
-  const { getServerRobotState, updateServerRobotState, resetServerRobotState } = useRobotInfoContext();
+  const { getServerRobotState, updateServerRobotState, resetServerRobotState } =
+    useRobotInfoContext();
   const { appendLog } = useLogContext();
   const { isSyncActive } = useSyncContext();
   const {

@@ -1,6 +1,6 @@
 import { createContext, type PropsWithChildren, useContext } from 'react';
 
-import useServersAndRobots, { type Robot, type Server } from '../../../features/server-management/hooks';
+import useServersAndRobots, { type Robot, type Server } from '../hooks/useServersAndRobots';
 
 interface ServersContextType {
   servers: Server[];

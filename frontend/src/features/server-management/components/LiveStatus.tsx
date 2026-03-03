@@ -1,4 +1,4 @@
-import { useRobotInfoContext } from '../../../app/providers/contexts';
+import { useRobotInfoContext } from '../../../features/robot-control/contexts/RobotInfoContext';
 
 export interface LiveStatusProps {
   serverId: number | null;
@@ -6,7 +6,8 @@ export interface LiveStatusProps {
 
 export default function LiveStatus({ serverId }: LiveStatusProps) {
   const { getServerRobotState } = useRobotInfoContext();
-  const { robotName, robotStatus, robotMode, axleValues, robotInfo } = getServerRobotState(serverId);
+  const { robotName, robotStatus, robotMode, axleValues, robotInfo } =
+    getServerRobotState(serverId);
   const jointsText =
     axleValues && Object.keys(axleValues).length === 0
       ? ''

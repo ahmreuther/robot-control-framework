@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
-import { useLoading } from '../../../../app/providers/contexts';
-import type { NodeDetails, NodeReference } from '../../api/addressSpaceApi';
-import { fetchNodeDetails, fetchReferences } from '../../api/addressSpaceApi';
-import type { UaNode } from '../../model/types';
+import { useLoading } from '../../../app/contexts/LoadingContext';
+import type { NodeDetails, NodeReference } from '../model/addressSpaceApi';
+import { fetchNodeDetails, fetchReferences } from '../model/addressSpaceApi';
+import type { UaNode } from '../model/types';
 
 interface ASpaceDetailsPanelProps {
   node: UaNode | null;

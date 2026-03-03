@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 
-import { useLogContext } from '../../app/providers/contexts';
+import { useLogContext } from '../contexts/LogContext';
 
 function sanitizeLine(line: string) {
   return line

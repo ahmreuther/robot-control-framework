@@ -1,10 +1,14 @@
 import { useState } from 'react';
 
-import { useLogContext } from '../../../app/providers/contexts';
-import { useServersContext } from '../../../app/providers/contexts';
+import { useLogContext } from '../../../features/address-space/contexts/LogContext';
+import { useServersContext } from '../../../features/server-management/contexts/ServersContext';
 import { useSendMessage } from '../../../features/socket/hooks/useSendMessage';
-import { type JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../robot-control/hooks/useJointState';
-import { useSyncContext } from '../../../app/providers/contexts';
+import {
+  type JointStateManager,
+  WRITER_ID,
+  WRITER_PRIORITY,
+} from '../../robot-control/hooks/useJointState';
+import { useSyncContext } from '../../../features/robot-control/contexts/SyncContext';
 
 export interface SynchronizeButtonProps {
   jointManager: JointStateManager;

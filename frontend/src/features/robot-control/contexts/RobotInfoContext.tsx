@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
-import { useServersContext } from './ServersContext';
+import { useServersContext } from '../../server-management/contexts/ServersContext';
 
 export type AxleValues = Record<string, number>;
 

@@ -11,9 +11,9 @@ import type { JointProperty } from '../hooks/useSceneState';
 import { DragControls } from './DragControls';
 import GoalMarker from './GoalMarker';
 import RobotLoader from './RobotLoader';
-import { useRobotInfoContext } from '../../../app/providers/contexts';
-import { useSolverConfig } from '../../../app/providers/contexts';
-import { useSyncContext } from '../../../app/providers/contexts';
+import { useRobotInfoContext } from '../contexts/RobotInfoContext';
+import { useSolverConfig } from '../contexts/useSolverConfigContext';
+import { useSyncContext } from '../contexts/SyncContext';
 import { useSendMessage } from '../../../features/socket/hooks/useSendMessage';
 
 export const SOLVE_STATUS = {

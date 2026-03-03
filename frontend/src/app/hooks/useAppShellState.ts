@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import useIsMobile from '../../shared/lib/hooks/useIsMobile';
+import useIsMobile from './useIsMobile';
 
 export interface SettingsState {
   environment: boolean;

@@ -1,5 +1,5 @@
-import { useLogContext } from '../../../app/providers/contexts';
-import { useServersContext } from '../../../app/providers/contexts';
+import { useLogContext } from '../../../features/address-space/contexts/LogContext';
+import { useServersContext } from '../../../features/server-management/contexts/ServersContext';
 import { useSocket } from './useSocket';
 
 export interface SendMessageOptions {
@@ -52,7 +52,10 @@ export function useSendMessage() {
       return true;
     }
 
-    appendLog(`Error: WebSocket not ready (state ${socket?.readyState ?? 'unknown'}).\n`, targetServerId);
+    appendLog(
+      `Error: WebSocket not ready (state ${socket?.readyState ?? 'unknown'}).\n`,
+      targetServerId,
+    );
     return false;
   }
 
