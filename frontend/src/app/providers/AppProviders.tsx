@@ -1,13 +1,15 @@
 import type { PropsWithChildren } from 'react';
 
-import { LoadingProvider } from '../../contexts/LoadingContext';
-import { LogProvider } from '../../contexts/LogContext';
-import { RobotInfoProvider } from '../../contexts/RobotInfoContext';
-import { ServersProvider } from '../../contexts/ServersContext';
-import { SyncProvider } from '../../contexts/SyncContext';
-import { UrlProvider } from '../../contexts/UrlContext';
-import { SolverConfigProvider } from '../../contexts/useSolverConfigContext';
-import { SocketProvider } from '../../hooks/use-socket';
+import {
+  LoadingProvider,
+  LogProvider,
+  RobotInfoProvider,
+  ServersProvider,
+  SolverConfigProvider,
+  SyncProvider,
+  UrlProvider,
+} from './contexts';
+import { SocketProvider } from '../../features/socket';
 
 const WEBSOCKET_URL = 'ws://127.0.0.1:8001/ws';
 

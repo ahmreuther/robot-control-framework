@@ -1,8 +1,6 @@
-import type { ModelConfig } from '../../components/AddServerAndRobots/URDFSelector';
-import type { JointStateManager } from '../../hooks/useJointState';
-import type { JointProperty } from '../../hooks/useSceneState';
-import type { Robot, Server } from '../../hooks/useServersAndRobots';
-import type { MobilePanelState,SettingsState } from '../hooks/useAppShellState';
+import type { ModelConfig, Robot, Server } from '../../features/server-management/model';
+import type { JointProperty, JointStateManager } from '../../features/robot-control/hooks';
+import type { MobilePanelState, SettingsState } from '../hooks/useAppShellState';
 
 export interface WorkspaceLayoutProps {
   logoSrc: string;

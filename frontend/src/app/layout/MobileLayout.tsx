@@ -1,11 +1,7 @@
-import RobotsServersManager from '../../components/AddServerAndRobots/RobotsServersManager';
-import { ASpaceWindow } from '../../components/Adressspace/ASpaceWindow';
-import MessageLog from '../../components/MessageLog';
-import MobilePanelControls from '../../components/MobilePanelControls';
-import Settings from '../../components/Settings';
-import { JointAnglesPanel } from '../../components/viewport/JointAnglesPanel';
-import { Viewport } from '../../components/viewport/Viewport';
-import { AddressSpaceServerTabs } from '../components/AddressSpaceServerTabs';
+import { ASpaceWindow, AddressSpaceServerTabs } from '../../features/address-space/components';
+import { JointAnglesPanel, Viewport } from '../../features/robot-control/components';
+import { RobotsServersManager } from '../../features/server-management/components';
+import { MessageLog, MobilePanelControls, Settings } from '../../shared/ui';
 import type { MobileControlsProps, WorkspaceLayoutProps } from './types';
 
 type MobileLayoutProps = WorkspaceLayoutProps & MobileControlsProps;

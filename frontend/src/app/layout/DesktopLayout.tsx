@@ -1,12 +1,9 @@
 import { Group, Panel } from 'react-resizable-panels';
 
-import RobotsServersManager from '../../components/AddServerAndRobots/RobotsServersManager';
-import { ASpaceWindow } from '../../components/Adressspace/ASpaceWindow';
-import MessageLog from '../../components/MessageLog';
-import Settings from '../../components/Settings';
-import { JointAnglesPanel } from '../../components/viewport/JointAnglesPanel';
-import { Viewport } from '../../components/viewport/Viewport';
-import { AddressSpaceServerTabs } from '../components/AddressSpaceServerTabs';
+import { ASpaceWindow, AddressSpaceServerTabs } from '../../features/address-space/components';
+import { JointAnglesPanel, Viewport } from '../../features/robot-control/components';
+import { RobotsServersManager } from '../../features/server-management/components';
+import { MessageLog, Settings } from '../../shared/ui';
 import type { WorkspaceLayoutProps } from './types';
 
 export function DesktopLayout(props: WorkspaceLayoutProps) {
