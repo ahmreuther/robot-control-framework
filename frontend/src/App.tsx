@@ -8,10 +8,10 @@ import logoPlcm from './assets/Logo_PLCM_RGB_mit Text.svg';
 import MobilePanelControls from './components/MobilePanelControls';
 import MessageController from './components/viewport/MessageController';
 import WebSocketReceiver from './components/WebSocketReceiver';
+import { useServersContext } from './contexts/ServersContext';
 import { useUrlContext } from './contexts/UrlContext';
 import { useJointState } from './hooks/useJointState';
 import { useSceneState } from './hooks/useSceneState';
-import useServersAndRobots from './hooks/useServersAndRobots';
 
 function AppShell() {
   const jointManager = useJointState();
@@ -38,7 +38,7 @@ function AppShell() {
     disconnectRobot,
     activeASpaceServerId,
     setActiveASpaceServerId,
-  } = useServersAndRobots();
+  } = useServersContext();
 
   const {
     settings,

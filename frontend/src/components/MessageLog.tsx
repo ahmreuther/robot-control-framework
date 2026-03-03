@@ -3,17 +3,49 @@ import { Virtuoso } from 'react-virtuoso';
 
 import { useLogContext } from '../contexts/LogContext';
 
+function sanitizeLine(line: string) {
+  return line
+    .replace(/[✅❌📤📥🔔🔌🚫🔴🟢⚠️]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trimStart();
+}
+
+function getLineColorClass(line: string) {
+  const l = line.toLowerCase();
+
+  if (l.includes(' out ') || l.startsWith('sent')) {
+    return 'text-cyan-300';
+  }
+  if (l.includes('received') || l.includes('result:') || l.includes('connected')) {
+    return 'text-emerald-300';
+  }
+  if (
+    l.includes('error') ||
+    l.includes('failed') ||
+    l.includes('invalid') ||
+    l.includes('not ready') ||
+    l.includes('no client')
+  ) {
+    return 'text-rose-300';
+  }
+  if (l.includes('warning')) {
+    return 'text-amber-300';
+  }
+
+  return 'text-white/80';
+}
+
 export function MessageLog() {
-  const { logs, setLogs } = useLogContext();
+  const { logs, appendLog, clearLogs } = useLogContext();
 
   const [filter, setFilter] = useState('');
 
   function addManual() {
-    setLogs((prev) => prev + `new log line ${new Date().toLocaleTimeString()}\n`);
+    appendLog(`new log line ${new Date().toLocaleTimeString()}\n`);
   }
 
   function clearLog() {
-    setLogs('Cleared\n');
+    clearLogs();
   }
 
   const lines = useMemo(() => {
@@ -51,11 +83,18 @@ export function MessageLog() {
             data={lines}
             followOutput
             style={{ height: '100%' }}
-            itemContent={(_, line) => (
-              <div className="px-2 py-0.5 font-mono text-xs text-white/80 whitespace-pre-wrap break-words">
-                {line}
-              </div>
-            )}
+            itemContent={(_, line) => {
+              const cleanLine = sanitizeLine(line);
+              const colorClass = getLineColorClass(cleanLine);
+
+              return (
+                <div
+                  className={`px-2 py-0.5 font-mono text-xs whitespace-pre-wrap break-words ${colorClass}`}
+                >
+                  {cleanLine}
+                </div>
+              );
+            }}
           />
         </div>
       </div>

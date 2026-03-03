@@ -1,7 +1,12 @@
 import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
 
-export default function Live_Status() {
-  const { robotName, robotStatus, robotMode, axleValues, robotInfo } = useRobotInfoContext();
+export interface LiveStatusProps {
+  serverId: number | null;
+}
+
+export default function Live_Status({ serverId }: LiveStatusProps) {
+  const { getServerRobotState } = useRobotInfoContext();
+  const { robotName, robotStatus, robotMode, axleValues, robotInfo } = getServerRobotState(serverId);
   const jointsText =
     axleValues && Object.keys(axleValues).length === 0
       ? ''
@@ -12,11 +17,11 @@ export default function Live_Status() {
         : '';
 
   const rows: [string, string][] = [
-    ['Connected Robot', robotName ? robotName : ''],
-    ['Manufacturer', robotInfo?.manufacturer ? robotInfo.manufacturer : ''],
-    ['Serial Number', robotInfo?.serialNumber ? robotInfo.serialNumber : ''],
-    ['Status', robotStatus ? robotStatus : ''],
-    ['Mode', robotMode ? robotMode : ''],
+    ['Connected Robot', robotName ?? ''],
+    ['Manufacturer', robotInfo?.manufacturer ?? ''],
+    ['Serial Number', robotInfo?.serialNumber ?? ''],
+    ['Status', robotStatus ?? ''],
+    ['Mode', robotMode ?? ''],
     ['Joints', jointsText],
   ];
 

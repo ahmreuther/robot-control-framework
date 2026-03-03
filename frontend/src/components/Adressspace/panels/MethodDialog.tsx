@@ -19,7 +19,6 @@ export const MethodDialog = ({
   node,
   inputs,
   inputValues,
-  result,
   isLoading,
   onInputChange,
   onCall,
@@ -30,7 +29,10 @@ export const MethodDialog = ({
   return (
     <>
       <header className="panel-header">
-        <div className="panel-title">Input Parameters</div>
+        <div className="panel-title">
+          Input Parameters
+          {node ? <div className="panel-subtitle">{node.displayName}</div> : null}
+        </div>
         <button onClick={onClose} className="button-ghost">
           ✕
         </button>

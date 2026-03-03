@@ -15,7 +15,6 @@ import { useRobotInfoContext } from '../../contexts/RobotInfoContext';
 import { useSolverConfig } from '../../contexts/useSolverConfigContext';
 import { useSyncContext } from '../../contexts/SyncContext';
 import { useSendMessage } from '../../hooks/send-message';
-import MessageController from './MessageController';
 
 export const SOLVE_STATUS = {
   CONVERGED: 0,
@@ -632,11 +631,6 @@ export function Robot({
           onUpdateJoint={handleUpdateJoint}
         />
       )}
-      <MessageController
-        pendingJoints={pendingJoints}
-        setPendingJoints={setPendingJoints}
-        jointManager={jointManager}
-      />
       {!isAnimatingRef.current && showGoalMarker && (
         <GoalMarker
           onPositionChange={setGoalPosition}

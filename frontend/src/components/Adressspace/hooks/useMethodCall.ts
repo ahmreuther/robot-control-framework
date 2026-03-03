@@ -4,12 +4,35 @@ import { message } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useLoading } from '../../../contexts/LoadingContext';
+import { useLogContext } from '../../../contexts/LogContext';
+import { useServersContext } from '../../../contexts/ServersContext';
 import { fetchNodeValue, fetchReferences } from '../api';
 import type { UaNode } from '../types';
-import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../../hooks/useJointState';
+import { JointStateManager } from '../../../hooks/useJointState';
 import { useSyncExternalStore } from 'react';
 
 export type InputArgTuple = [name: string, type: number];
+type UaMethodArgument = {
+  Name?: string;
+  DataType?: number | { Identifier?: number } | null;
+};
+function extractInputArgTuples(value: unknown): InputArgTuple[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((rawArg): InputArgTuple => {
+    const arg = (rawArg ?? {}) as UaMethodArgument;
+    const dataType = arg.DataType;
+    const type =
+      typeof dataType === 'object' && dataType !== null && 'Identifier' in dataType
+        ? Number(dataType.Identifier ?? 0)
+        : Number(dataType ?? 0);
+
+    return [arg.Name || 'arg', type];
+  });
+}
+
 export interface MethodCallState {
   isOpen: boolean;
   node: UaNode | null;
@@ -40,6 +63,37 @@ const INITIAL_DIRECT_METHOD_CALL_STATUS: DirectMethodCallStatusState = {
 
 let directMethodCallStatusStore: DirectMethodCallStatusState = INITIAL_DIRECT_METHOD_CALL_STATUS;
 const directMethodCallStatusListeners = new Set<() => void>();
+
+/*
+Idempotency scaffold (disabled intentionally for backend compatibility)
+----------------------------------------------------------------------------
+Enable once backend parser accepts optional requestId fields in call payloads.
+
+const RECENT_REQUEST_TTL_MS = 10_000;
+const recentDirectMethodRequests = new Map<string, number>();
+
+function createMethodRequestId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function markRequest(requestId: string) {
+  const now = Date.now();
+  recentDirectMethodRequests.set(requestId, now);
+  for (const [id, ts] of recentDirectMethodRequests) {
+    if (now - ts > RECENT_REQUEST_TTL_MS) {
+      recentDirectMethodRequests.delete(id);
+    }
+  }
+}
+
+function wasRequestSeen(requestId: string) {
+  const ts = recentDirectMethodRequests.get(requestId);
+  return typeof ts === 'number' && Date.now() - ts <= RECENT_REQUEST_TTL_MS;
+}
+*/
 
 function subscribeDirectMethodCallStatus(listener: () => void) {
   directMethodCallStatusListeners.add(listener);
@@ -76,7 +130,7 @@ export function useDirectMethodCallStatus() {
 export function useMethodCall(
   opcUaUrl: string | null,
   socket: WebSocket | null,
-  jointManager?: JointStateManager,
+  _jointManager?: JointStateManager,
 ) {
   const [state, setState] = useState<MethodCallState>({
     isOpen: false,
@@ -89,6 +143,20 @@ export function useMethodCall(
   });
 
   const { executeWithLoading } = useLoading();
+  const { appendLog } = useLogContext();
+  const { activeRuntimeServerId, activeASpaceServerId } = useServersContext();
+  const targetServerId = activeRuntimeServerId ?? activeASpaceServerId;
+
+  const logOutgoingCall = useCallback(
+    (mode: 'method' | 'direct', msg: string, nodeId: string, inputs: Record<string, unknown>) => {
+      const ts = new Date().toISOString();
+      appendLog(
+        `[${ts}] OUT ${mode} call nodeId=${nodeId} inputs=${JSON.stringify(inputs)} payload=${msg}\n`,
+        targetServerId,
+      );
+    },
+    [appendLog, targetServerId],
+  );
 
   // ========== OPEN DIALOG ==========
   const openMethodDialog = useCallback(
@@ -105,24 +173,14 @@ export function useMethodCall(
 
           try {
             const valueRaw = await fetchNodeValue(opcUaUrl, inputArgRef.NodeId);
-            let value: any = [];
+            let value: unknown = [];
             try {
-              value = JSON.parse(valueRaw);
+              value = typeof valueRaw === 'string' ? JSON.parse(valueRaw) : valueRaw;
             } catch {
               value = valueRaw;
             }
 
-            if (Array.isArray(value)) {
-              return value.map(
-                (arg: any) =>
-                  [
-                    arg.Name || 'arg',
-                    arg.DataType && typeof arg.DataType === 'object' && 'Identifier' in arg.DataType
-                      ? arg.DataType.Identifier
-                      : arg.DataType,
-                  ] as InputArgTuple,
-              );
-            }
+            return extractInputArgTuples(value);
           } catch (err) {
             console.warn('[useMethodCall] Error fetching/parsing InputArguments value:', err);
           }
@@ -172,14 +230,17 @@ export function useMethodCall(
       return;
     }
     try {
+      // const requestId = createMethodRequestId(); // idempotency (disabled)
       const payload = JSON.stringify({
         url: opcUaUrl,
         nodeId: state.node.nodeId,
         inputs: state.inputValues,
+        // requestId, // idempotency (disabled until backend supports it)
       });
       const msg = `call|${payload}`;
       socket.send(msg);
       console.log('[useMethodCall] Sent method call:', msg);
+      logOutgoingCall('method', msg, state.node.nodeId, state.inputValues);
 
       // Show loading message
       const hideLoading = message.loading(`Calling method ${state.node.displayName}`, 0);
@@ -190,17 +251,17 @@ export function useMethodCall(
         result: 'Calling method...',
         _hideLoading: hideLoading,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       setState((prev) => ({
         ...prev,
-        result: `Invalid JSON: ${err.message}`,
+        result: `Invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
       }));
     }
-  }, [state.node, state.inputValues, socket, opcUaUrl]);
+  }, [state.node, state.inputValues, socket, opcUaUrl, logOutgoingCall]);
 
   // ================= DIRECT + FETCH METHOD =================
   const directCallMethod = useCallback(
-    async (node: UaNode, inputValues?: Record<string, any>) => {
+    async (node: UaNode, inputValues?: Record<string, unknown>) => {
       if (!node) {
         console.warn('Cannot call method: node is missing');
         return;
@@ -224,20 +285,13 @@ export function useMethodCall(
         const inputArgRef = refs.find((ref) => ref.BrowseName === '0:InputArguments');
         if (inputArgRef) {
           const valueRaw = await fetchNodeValue(opcUaUrl, inputArgRef.NodeId);
-          let value: any = [];
+          let value: unknown = [];
           try {
-            value = JSON.parse(valueRaw);
+            value = typeof valueRaw === 'string' ? JSON.parse(valueRaw) : valueRaw;
           } catch {
             value = valueRaw;
           }
-          if (Array.isArray(value)) {
-            inputArgTuples = value.map((arg: any) => [
-              arg.Name || 'arg',
-              arg.DataType && typeof arg.DataType === 'object' && 'Identifier' in arg.DataType
-                ? arg.DataType.Identifier
-                : arg.DataType,
-            ]);
-          }
+          inputArgTuples = extractInputArgTuples(value);
         }
       } catch (err) {
         console.warn('[callMethodDirectly] Error fetching InputArguments:', err);
@@ -254,13 +308,19 @@ export function useMethodCall(
         );
 
       try {
+        // const requestId = createMethodRequestId(); // idempotency (disabled)
+        // if (wasRequestSeen(requestId)) return; // idempotency (disabled)
         const payload = JSON.stringify({
           url: opcUaUrl,
           nodeId: node.nodeId,
           inputs: finalInputs,
+          // requestId, // idempotency (disabled until backend supports it)
         });
-        activeSocket.send(`call|${payload}`);
-        console.log(`call|${payload}`);
+        const msg = `call|${payload}`;
+        activeSocket.send(msg);
+        // markRequest(requestId); // idempotency (disabled)
+        console.log(msg);
+        logOutgoingCall('direct', msg, node.nodeId, finalInputs);
 
         // Show loading message
         const hideLoading = message.loading(`Calling method ${node.displayName}...`, 0);
@@ -280,17 +340,17 @@ export function useMethodCall(
           isLoading: true,
           result: 'Calling method...',
         }));
-      } catch (err: any) {
+      } catch (err: unknown) {
         setState((prev) => ({
           ...prev,
           node,
           inputs: inputArgTuples,
           isLoading: false,
-          result: `❌ Invalid JSON: ${err.message}`,
+          result: `❌ Invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
         }));
       }
     },
-    [opcUaUrl, socket],
+    [logOutgoingCall, opcUaUrl, socket],
   );
 
   useEffect(() => {

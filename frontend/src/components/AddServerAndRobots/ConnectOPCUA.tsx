@@ -1,11 +1,10 @@
-import { useContext, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { RobotInfoContext } from '../../contexts/RobotInfoContext';
 import { useSendMessage } from '../../hooks/send-message';
 
 export interface ConnectOPCUAProps {
-  addServer: (name: string, connectedUrl: string, backendport: string | null) => void;
+  addServer: (name: string, connectedUrl: string, backendport: string | null) => number;
 }
 
 function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
@@ -16,22 +15,18 @@ function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
     'opc.tcp://10.10.38.27:4840/freeopcua/server/',
     'opc.tcp://10.10.38.28:4840/freeopcua/server/',
   ];
+  const lastUrl = localStorage.getItem('lastOpcUaUrl');
+  const initialSavedUrls =
+    lastUrl && !defaultUrls.includes(lastUrl) ? [...defaultUrls, lastUrl] : defaultUrls;
+
   const [serverName, setServerName] = useState('');
   const [open, setOpen] = useState(false);
-  const [savedUrls, setSavedUrls] = useState<string[]>(defaultUrls);
-  const [localUrl, setLocalUrl] = useState<string>();
+  const [savedUrls] = useState<string[]>(initialSavedUrls);
+  const [localUrl, setLocalUrl] = useState('');
   const { sendMessage } = useSendMessage();
-  const isConnected = useContext(RobotInfoContext).robotStatus === 'Connected';
 
-  useEffect(() => {
-    const lastUrl = localStorage.getItem('lastOpcUaUrl');
-    if (lastUrl && !savedUrls.includes(lastUrl)) {
-      setSavedUrls((prev) => [...prev, lastUrl]);
-    }
-  }, []);
-
-  function handleConnect() {
-    sendMessage('connect', localUrl);
+  function handleConnect(serverId: number, url: string) {
+    sendMessage('connect', { serverId, url });
   }
   return (
     <div>
@@ -61,7 +56,6 @@ function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
                   aria-label="Server-Adress"
                   placeholder="OPC UA Server URL"
                   list="savedUrls"
-                  disabled={isConnected}
                   className="input-ghost w-full text-left"
                 />
                 <datalist id="savedUrls">
@@ -80,9 +74,10 @@ function ConnectOPCUA({ addServer }: ConnectOPCUAProps) {
                 <button
                   onClick={() => {
                     const trimmed = serverName.trim();
-                    if (trimmed && localUrl) {
-                      addServer(trimmed, localUrl.trim(), null);
-                      handleConnect();
+                    const trimmedUrl = localUrl.trim();
+                    if (trimmed && trimmedUrl) {
+                      const serverId = addServer(trimmed, trimmedUrl, null);
+                      handleConnect(serverId, trimmedUrl);
                       setServerName('');
                     }
                     setOpen(false);

@@ -11,6 +11,7 @@ export interface Server {
   robotIds: number[];
   connectedUrl: string | null;
   backendport: string | null;
+  isConnected: boolean;
 }
 
 export default function useServersAndRobots() {
@@ -19,10 +20,11 @@ export default function useServersAndRobots() {
   const [serverIdCounter, setServerIdCounter] = useState(1);
   const [robotIdCounter, setRobotIdCounter] = useState(1);
   const [activeASpaceServerId, setActiveASpaceServerId] = useState<number | null>(null);
+  const [activeRuntimeServerId, setActiveRuntimeServerId] = useState<number | null>(null);
 
   const addServer = (name: string, connectedUrl: string, backendport: string | null = null) => {
     const id = serverIdCounter;
-    setServers((prev) => [...prev, { id, name, robotIds: [], connectedUrl, backendport }]);
+    setServers((prev) => [...prev, { id, name, robotIds: [], connectedUrl, backendport, isConnected: false }]);
     setServerIdCounter((id) => id + 1);
     setActiveASpaceServerId(id);
     return id;
@@ -31,6 +33,8 @@ export default function useServersAndRobots() {
   const removeServer = (serverId: number) => {
     setServers((prev) => prev.filter((s) => s.id !== serverId));
     setRobots((prev) => prev.map((r) => (r.serverId === serverId ? { ...r, serverId: null } : r)));
+    setActiveASpaceServerId((prev) => (prev === serverId ? null : prev));
+    setActiveRuntimeServerId((prev) => (prev === serverId ? null : prev));
   };
 
   const addRobot = (name: string) => {
@@ -71,12 +75,24 @@ export default function useServersAndRobots() {
 
   const disconnectRobot = (robotId: number) => {
     const robot = robots.find((r) => r.id === robotId);
-    if (!robot || robot.serverId === null) return;
+    if (robot?.serverId === null || !robot) return;
     setRobots((prev) => prev.map((r) => (r.id === robotId ? { ...r, serverId: null } : r)));
     setServers((prev) =>
       prev.map((s) =>
         s.id === robot.serverId ? { ...s, robotIds: s.robotIds.filter((id) => id !== robotId) } : s,
       ),
+    );
+  };
+
+  const updateServerConnectedUrl = (serverId: number, connectedUrl: string | null) => {
+    setServers((prev) =>
+      prev.map((server) => (server.id === serverId ? { ...server, connectedUrl } : server)),
+    );
+  };
+
+  const updateServerConnectionStatus = (serverId: number, isConnected: boolean) => {
+    setServers((prev) =>
+      prev.map((server) => (server.id === serverId ? { ...server, isConnected } : server)),
     );
   };
 
@@ -91,5 +107,9 @@ export default function useServersAndRobots() {
     disconnectRobot,
     activeASpaceServerId,
     setActiveASpaceServerId,
+    activeRuntimeServerId,
+    setActiveRuntimeServerId,
+    updateServerConnectedUrl,
+    updateServerConnectionStatus,
   } as const;
 }

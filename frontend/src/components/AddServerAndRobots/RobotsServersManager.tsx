@@ -1,12 +1,12 @@
 import { useState } from 'react';
 
+import { useSyncContext } from '../../contexts/SyncContext';
 import { useSendMessage } from '../../hooks/send-message';
 import type { JointStateManager } from '../../hooks/useJointState';
 import ConnectOPCUA from './ConnectOPCUA';
 import Live_Status from './Live_Status';
 import Synchronize_Button from './SynchroniseButton';
 import { type ModelConfig, URDFSelector } from './URDFSelector';
-import { useSyncContext } from '../../contexts/SyncContext';
 
 interface Robot {
   id: number;
@@ -19,31 +19,31 @@ interface Server {
   robotIds: number[];
 }
 
-type Props = Partial<{
+interface Props {
   servers: Server[];
   robots: Robot[];
   jointManager: JointStateManager;
-  addServer: (name: string, connectedUrl: string, backendport: string | null) => void;
+  addServer: (name: string, connectedUrl: string, backendport: string | null) => number;
   removeServer: (id: number) => void;
-  addRobot: (name: string) => void;
+  addRobot: (name: string) => number;
   removeRobot: (id: number) => void;
   connectRobotToServer: (robotId: number, serverId: number) => void;
   disconnectRobot: (robotId: number) => void;
   onSelectURDF: (model: ModelConfig) => void;
-}>;
+}
 
 export default function RobotsServersManager(props: Props) {
   const {
-    servers = [],
-    robots = [],
+    servers,
+    robots,
     jointManager,
-    addServer = () => {},
-    removeServer = () => {},
-    addRobot = () => {},
-    removeRobot = () => {},
-    connectRobotToServer = () => {},
-    disconnectRobot = () => {},
-    onSelectURDF = () => {},
+    addServer,
+    removeServer,
+    addRobot,
+    removeRobot,
+    connectRobotToServer,
+    disconnectRobot,
+    onSelectURDF,
   } = props;
 
   const [serversOpen, setServersOpen] = useState(true);
@@ -60,10 +60,10 @@ export default function RobotsServersManager(props: Props) {
     const connectedRobots = robots.filter((r) => r.serverId === serverId);
     if (connectedRobots.length > 0) {
       setIsSyncActive(false);
-      sendMessage('cancel stream joint position');
-      sendMessage('cancel stream mode');
+      sendMessage('cancel stream joint position', { serverId });
+      sendMessage('cancel stream mode', { serverId });
     }
-    sendMessage('disconnect');
+    sendMessage('disconnect', { serverId });
     removeServer(serverId);
   }
 
@@ -125,7 +125,7 @@ export default function RobotsServersManager(props: Props) {
                   <header className="panel-header px-2 py-1">
                     <div className="text-xs font-semibold tracking-wider">{robot.name}</div>
                     <div className="flex items-center gap-2">
-                      <Synchronize_Button jointManager={jointManager} />
+                      <Synchronize_Button jointManager={jointManager} serverId={robot.serverId} />
                       <button
                         className={`button-ghost ${open ? 'active' : ''}`}
                         onClick={() => toggleRobotOpen(robot.id)}
@@ -165,7 +165,7 @@ export default function RobotsServersManager(props: Props) {
                         ))}
                       </select>
                     </li>
-                    {open && <Live_Status />}
+                    {open && <Live_Status serverId={robot.serverId} />}
                   </ul>
                 </section>
               );

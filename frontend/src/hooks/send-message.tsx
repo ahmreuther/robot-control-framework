@@ -1,32 +1,59 @@
-//used to send messages via websocket to backend
-import { useRef } from 'react';
-import type { WebSocketLike } from 'react-use-websocket/dist/lib/types';
-
 import { useLogContext } from '../contexts/LogContext';
-import { useUrlContext } from '../contexts/UrlContext';
+import { useServersContext } from '../contexts/ServersContext';
 import { useSocket } from './use-socket';
 
-export function useSendMessage() {
-  const socket: WebSocketLike = useSocket();
-  const { setLogs } = useLogContext();
-  const { url: contextUrl } = useUrlContext();
+export interface SendMessageOptions {
+  serverId?: number | null;
+  url?: string | null;
+  persistUrl?: boolean;
+}
 
-  function sendMessage(type: 'connect' | 'disconnect' | string, url = null) {
-    if (!contextUrl && !url) {
-      setLogs((prev) => prev + '❌ No OPC UA Server URL set.\n');
-      return;
+export function useSendMessage() {
+  const socket = useSocket();
+  const { appendLog } = useLogContext();
+  const {
+    activeRuntimeServerId,
+    activeASpaceServerId,
+    findServerById,
+    setActiveRuntimeServerId,
+    updateServerConnectedUrl,
+  } = useServersContext();
+
+  function sendMessage(type: string, options?: SendMessageOptions) {
+    const targetServerId = options?.serverId ?? activeRuntimeServerId ?? activeASpaceServerId;
+    const targetServer = findServerById(targetServerId ?? null);
+    const resolvedUrl = options?.url ?? targetServer?.connectedUrl ?? null;
+
+    if (!resolvedUrl) {
+      appendLog(`Error: No OPC UA Server URL set for command '${type}'.\n`, targetServerId);
+      return false;
     }
 
-    const msg = `${type}|${url ? url : contextUrl}`;
+    const msg = `${type}|${resolvedUrl}`;
 
     if (socket?.readyState === WebSocket.OPEN) {
       (socket as WebSocket).send(msg);
-      setLogs((prev) => prev + `Sent: ${msg}\n`);
-    } else {
-      setLogs((prev) => prev + `❌ WebSocket not ready (state ${socket?.readyState})\n`);
+      const serverInfo = targetServer ? ` [${targetServer.name}]` : '';
+      appendLog(`Sent${serverInfo}: ${msg}\n`, targetServerId);
+
+      if (type === 'connect' && targetServerId !== null && targetServerId !== undefined) {
+        setActiveRuntimeServerId(targetServerId);
+        updateServerConnectedUrl(targetServerId, resolvedUrl);
+      }
+
+      if (type === 'disconnect') {
+        setActiveRuntimeServerId(null);
+      }
+
+      if (options?.persistUrl ?? true) {
+        localStorage.setItem('lastOpcUaUrl', resolvedUrl);
+      }
+
+      return true;
     }
 
-    localStorage.setItem('lastOpcUaUrl', url ? url : contextUrl);
+    appendLog(`Error: WebSocket not ready (state ${socket?.readyState ?? 'unknown'}).\n`, targetServerId);
+    return false;
   }
 
   return {

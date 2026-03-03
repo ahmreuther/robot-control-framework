@@ -86,7 +86,7 @@ export function MobileLayout(props: MobileLayoutProps) {
             </header>
             <div className="flex flex-col gap-2 h-[80vh]">
               <div className="flex-1 min-h-0 ml-2">
-                <ASpaceWindow />
+                <ASpaceWindow key={props.activeASpaceServerId ?? 'none'} />
               </div>
               <div className="flex-1 min-h-0">
                 <MessageLog />

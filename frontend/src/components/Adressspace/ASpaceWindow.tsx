@@ -1,14 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Group, Panel } from 'react-resizable-panels';
 
 import { useUrlContext } from '../../contexts/UrlContext';
 import { useSocket } from '../../hooks/use-socket';
 import { ASpaceBody } from './ASpaceBody';
 import { useEventSubscriptions } from './hooks/useEventSubscriptions';
-import { EventSubscription } from './hooks/useEventSubscriptions';
 import { useMethodCall } from './hooks/useMethodCall';
 import { useSubscriptions } from './hooks/useSubscriptions';
-import { Subscription } from './hooks/useSubscriptions';
 import { ASpaceDetailsPanel } from './panels/ASpaceDetailsPanel';
 import { EventsPanel } from './panels/EventsPanel';
 import { MethodDialog } from './panels/MethodDialog';
@@ -16,19 +14,20 @@ import { VariablesPanel } from './panels/VariablesPanel';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import type { UaNode } from './types';
 
-const STORAGE_KEY_EXPANDED = 'addressSpace_expandedNodes';
-
 export function ASpaceWindow() {
   const { url: opcUaUrl } = useUrlContext();
   const socket = useSocket();
+  const ws = socket as WebSocket | null;
   const [selectedNode, setSelectedNode] = useState<UaNode | null>(null);
   const [bodyKey, setBodyKey] = useState(0);
   const { subscriptions, addSubscription, removeSubscription } = useSubscriptions(
     opcUaUrl,
-    socket as any,
+    ws,
   );
-  const { eventSubscriptions, addEventSubscription, removeEventSubscription } =
-    useEventSubscriptions(opcUaUrl, socket as any);
+  const { eventSubscriptions, addEventSubscription, removeEventSubscription } = useEventSubscriptions(
+    opcUaUrl,
+    ws,
+  );
 
   const {
     isOpen: methodDialogOpen,
@@ -41,7 +40,7 @@ export function ASpaceWindow() {
     closeMethodDialog,
     setInputValue,
     callMethod,
-  } = useMethodCall(opcUaUrl, socket as any);
+  } = useMethodCall(opcUaUrl, ws);
 
   const handleReload = () => {
     setBodyKey((prev) => prev + 1);
@@ -66,7 +65,7 @@ export function ASpaceWindow() {
                 <div className="panel h-full overflow-y-auto mr-2">
                   {opcUaUrl && !methodDialogOpen && (
                     <ASpaceBody
-                      key={bodyKey}
+                      key={`${opcUaUrl}-${bodyKey}`}
                       opcUaUrl={opcUaUrl}
                       addSubscription={addSubscription}
                       addEventSubscription={addEventSubscription}

@@ -70,7 +70,7 @@ export function DesktopLayout(props: WorkspaceLayoutProps) {
                 <div className="panel-body flex-1 overflow-auto">
                   <Group>
                     <Panel defaultSize={'70%'}>
-                      <ASpaceWindow />
+                      <ASpaceWindow key={props.activeASpaceServerId ?? 'none'} />
                     </Panel>
                     <Panel>
                       <MessageLog />

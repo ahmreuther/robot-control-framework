@@ -15,20 +15,27 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
   const { scene } = useThree();
   const robotRef = useRef<any | null>(null);
   const groupRef = useRef<THREE.Group | null>(null);
+  const onRobotReadyRef = useRef(onRobotReady);
 
   useEffect(() => {
-    // if (groupRef.current) {
-    //     scene.remove(groupRef.current);
-    //     groupRef.current = null;
-    // }
-    if (url === null) return;
-    if (robotRef.current) {
-      robotRef.current = null;
+    onRobotReadyRef.current = onRobotReady;
+  }, [onRobotReady]);
+
+  useEffect(() => {
+    if (!url) return;
+
+    // Remove previously loaded robot group before loading a new model.
+    if (groupRef.current) {
+      scene.remove(groupRef.current);
+      groupRef.current = null;
     }
+    robotRef.current = null;
 
     const manager = new THREE.LoadingManager();
     manager.onLoad = () => {
-      onRobotReady(robot, robotGroup);
+      if (robot && robotGroup) {
+        onRobotReadyRef.current?.(robot, robotGroup);
+      }
     };
     const loader = new URDFLoader(manager);
     loader.parseCollision = true;
@@ -46,8 +53,15 @@ const RobotLoader = ({ urdfPath, onRobotReady }: RobotLoaderProps) => {
       robotRef.current = robot;
       groupRef.current = robotGroup;
     });
-    return;
-  }, [url, scene, onRobotReady]);
+
+    return () => {
+      if (groupRef.current) {
+        scene.remove(groupRef.current);
+        groupRef.current = null;
+      }
+      robotRef.current = null;
+    };
+  }, [url, scene]);
 
   return null;
 };

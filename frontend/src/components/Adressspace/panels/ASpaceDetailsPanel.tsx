@@ -49,7 +49,7 @@ export const ASpaceDetailsPanel: React.FC<ASpaceDetailsPanelProps> = ({ node, op
 };
 
 const Properties: React.FC<{ details: NodeDetails | null }> = ({ details }) => {
-  const rows: [string, any][] = [
+  const rows: [string, unknown][] = [
     ['Node ID', details?.nodeId],
     ['Browse Name', details?.browseName],
     ['Display Name', details?.displayName],

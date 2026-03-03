@@ -9,16 +9,30 @@ interface QuickActionsPanelProps {
   openMethodDialog: (node: UaNode) => void;
 }
 
+// Session-level cache to survive component remounts when switching servers/views.
+const quickActionsMethodsCache: Record<string, UaNode[]> = {};
+const quickActionsFilterCache: Record<string, string> = {};
+
 export const QuickActionsPanel = ({ opcUaUrl, openMethodDialog }: QuickActionsPanelProps) => {
-  const [methods, setMethods] = useState<UaNode[]>([]);
-  const [filter, setFilter] = useState('');
+  const [methodsByUrl, setMethodsByUrl] =
+    useState<Record<string, UaNode[]>>(quickActionsMethodsCache);
+  const [filterByUrl, setFilterByUrl] = useState<Record<string, string>>(quickActionsFilterCache);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { executeWithLoading } = useLoading();
+  const urlKey = opcUaUrl ?? '__no_url__';
+  const methods = useMemo(() => methodsByUrl[urlKey] ?? [], [methodsByUrl, urlKey]);
+  const filter = filterByUrl[urlKey] ?? '';
+  const hasCachedMethods = urlKey in methodsByUrl || urlKey in quickActionsMethodsCache;
+
+  const setFilter = (value: string) => {
+    quickActionsFilterCache[urlKey] = value;
+    setFilterByUrl((prev) => ({ ...prev, [urlKey]: value }));
+  };
 
   const loadMethods = useCallback(async () => {
     if (!opcUaUrl) {
-      setMethods([]);
+      setError(null);
       return;
     }
 
@@ -33,18 +47,22 @@ export const QuickActionsPanel = ({ opcUaUrl, openMethodDialog }: QuickActionsPa
           errorMessage: `Failed to load methods from ${opcUaUrl}`,
         },
       );
-      setMethods(result ?? []);
-    } catch (err: any) {
-      setMethods([]);
-      setError(err?.message || 'Failed to load methods');
+      quickActionsMethodsCache[urlKey] = result ?? [];
+      setMethodsByUrl((prev) => ({ ...prev, [urlKey]: result ?? [] }));
+    } catch (err: unknown) {
+      quickActionsMethodsCache[urlKey] = [];
+      setMethodsByUrl((prev) => ({ ...prev, [urlKey]: [] }));
+      setError(err instanceof Error ? err.message : 'Failed to load methods');
     } finally {
       setIsLoading(false);
     }
-  }, [opcUaUrl, executeWithLoading]);
+  }, [opcUaUrl, executeWithLoading, urlKey]);
 
   useEffect(() => {
-    loadMethods();
-  }, [loadMethods]);
+    if (!opcUaUrl) return;
+    if (hasCachedMethods) return;
+    void loadMethods();
+  }, [opcUaUrl, hasCachedMethods, loadMethods]);
 
   const filteredMethods = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -62,7 +80,7 @@ export const QuickActionsPanel = ({ opcUaUrl, openMethodDialog }: QuickActionsPa
     <div className="panel">
       <header className="panel-header">
         <div className="panel-title flex">Quick Actions</div>
-        <button onClick={loadMethods} className="button-ghost">
+        <button onClick={() => void loadMethods()} className="button-ghost">
           ↻
         </button>
       </header>

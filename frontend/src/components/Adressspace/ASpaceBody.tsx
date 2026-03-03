@@ -26,7 +26,7 @@ interface ASpaceBodyProps {
   eventSubscriptions: Array<{ nodeId: string }>;
 }
 
-const STORAGE_KEY_EXPANDED = 'addressSpace_expandedNodes';
+const STORAGE_KEY_EXPANDED_PREFIX = 'addressSpace_expandedNodes:';
 
 export function buildTreeData(
   store: UaStore,
@@ -134,6 +134,8 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
   subscriptions,
   eventSubscriptions,
 }) => {
+  const expandedStorageKey = `${STORAGE_KEY_EXPANDED_PREFIX}${encodeURIComponent(opcUaUrl)}`;
+
   const makeStore = (root: UaNode | null): UaStore =>
     root
       ? {
@@ -152,7 +154,7 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
   const [store, setStore] = useState<UaStore>(() => makeStore(null));
 
   const [expandedKeys, setExpandedKeys] = useState<Key[]>(() => {
-    const saved = loadExpandedIds(STORAGE_KEY_EXPANDED);
+    const saved = loadExpandedIds(expandedStorageKey);
     return Array.from(saved);
   });
 
@@ -191,8 +193,9 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
     if (!opcUaUrl) return;
     let cancelled = false;
 
-    const saved = Array.from(loadExpandedIds(STORAGE_KEY_EXPANDED));
+    const saved = Array.from(loadExpandedIds(expandedStorageKey));
     setExpandedKeys(saved);
+    inflightRef.current.clear();
 
     (async () => {
       try {
@@ -210,13 +213,11 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [opcUaUrl]);
+  }, [opcUaUrl, expandedStorageKey]);
 
   useEffect(() => {
-    if (expandedKeys.length > 0) {
-      localStorage.setItem(STORAGE_KEY_EXPANDED, JSON.stringify(expandedKeys));
-    }
-  }, [expandedKeys]);
+    localStorage.setItem(expandedStorageKey, JSON.stringify(expandedKeys));
+  }, [expandedKeys, expandedStorageKey]);
 
   const onSelect: TreeProps['onSelect'] = useCallback(
     (keys: Key[]) => {
@@ -238,8 +239,8 @@ export const ASpaceBody: React.FC<ASpaceBodyProps> = ({
   const loadChildren = useCallback((nodeId: string) => fetchChildren(opcUaUrl, nodeId), [opcUaUrl]);
 
   const loadData: TreeProps['loadData'] = useCallback(
-    async (treeNode: any) => {
-      const id = treeNode.key as string;
+    async (treeNode: { key: Key }) => {
+      const id = String(treeNode.key);
       const st = store.stateById.get(id);
       if (st?.loaded) return;
       const existing = inflightRef.current.get(id);

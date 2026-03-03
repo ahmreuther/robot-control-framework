@@ -13,7 +13,10 @@ interface MessageControllerProps {
   jointManager: JointStateManager;
 }
 
-function MessageController({ pendingJoints, jointManager }: MessageControllerProps) {
+let lastGlobalGotoRequestKey: string | null = null;
+let lastGlobalGotoRequestAt = 0;
+
+function MessageController({ pendingJoints, setPendingJoints, jointManager }: MessageControllerProps) {
   const { url: opcUaUrl } = useUrlContext();
   const { isSyncActive } = useSyncContext();
   const { gotoMethodNodeId, opcuaJointLength } = useRobotInfoContext();
@@ -21,17 +24,35 @@ function MessageController({ pendingJoints, jointManager }: MessageControllerPro
   const methodCallStatus = useDirectMethodCallStatus();
   const [waitingForMethodResult, setWaitingForMethodResult] = useState(false);
   const lastRequestedJointsKeyRef = useRef<string | null>(null);
+  const prevSyncActiveRef = useRef(false);
+  const waitingSinceRef = useRef<number | null>(null);
 
   const { directCallMethod } = useMethodCall(opcUaUrl, socket as any);
 
   useEffect(() => {
     if (!isSyncActive) return;
-    if (waitingForMethodResult) return;
-    if (methodCallStatus.status !== 'Ready') return;
-    if (opcuaJointLength === null) return;
-    const mappedJoints = pendingJoints.slice(0, opcuaJointLength);
+    if (waitingForMethodResult) {
+      const now = Date.now();
+      if (waitingSinceRef.current && now - waitingSinceRef.current > 2000) {
+        setWaitingForMethodResult(false);
+        waitingSinceRef.current = null;
+      } else {
+        return;
+      }
+    }
+    if (!gotoMethodNodeId || !opcUaUrl) return;
+    const jointCount = opcuaJointLength ?? pendingJoints.length;
+    if (jointCount <= 0) return;
+    const mappedJoints = pendingJoints.slice(0, jointCount);
+    if (!mappedJoints.length) return;
     const jointsKey = JSON.stringify(mappedJoints);
     if (jointsKey === lastRequestedJointsKeyRef.current) return;
+
+    const requestKey = `${opcUaUrl}|${gotoMethodNodeId}|${jointsKey}`;
+    const now = Date.now();
+    if (requestKey === lastGlobalGotoRequestKey && now - lastGlobalGotoRequestAt < 1000) {
+      return;
+    }
 
     const tmpNode: UaNode = {
       nodeId: gotoMethodNodeId,
@@ -45,16 +66,21 @@ function MessageController({ pendingJoints, jointManager }: MessageControllerPro
     });
     jointManager.mountWriter(WRITER_ID.SYN, WRITER_PRIORITY.SYN);
     lastRequestedJointsKeyRef.current = jointsKey;
+    lastGlobalGotoRequestKey = requestKey;
+    lastGlobalGotoRequestAt = now;
+    setPendingJoints(null);
     setWaitingForMethodResult(true);
+    waitingSinceRef.current = now;
   }, [
     pendingJoints,
     isSyncActive,
     directCallMethod,
     waitingForMethodResult,
-    methodCallStatus.status,
     jointManager,
     opcuaJointLength,
     gotoMethodNodeId,
+    opcUaUrl,
+    setPendingJoints,
   ]);
 
   useEffect(() => {
@@ -64,10 +90,27 @@ function MessageController({ pendingJoints, jointManager }: MessageControllerPro
   }, [opcuaJointLength]);
 
   useEffect(() => {
+    if (isSyncActive && !prevSyncActiveRef.current) {
+      prevSyncActiveRef.current = true;
+      setPendingJoints(null);
+      lastRequestedJointsKeyRef.current = null;
+      waitingSinceRef.current = null;
+      return;
+    }
+
+    prevSyncActiveRef.current = isSyncActive;
+    lastRequestedJointsKeyRef.current = null;
+    lastGlobalGotoRequestKey = null;
+    setWaitingForMethodResult(false);
+    waitingSinceRef.current = null;
+  }, [isSyncActive, setPendingJoints]);
+
+  useEffect(() => {
     if (!waitingForMethodResult) return;
     if (methodCallStatus.status !== 'Ready') return;
     if (methodCallStatus.lastNodeId !== gotoMethodNodeId) return;
     setWaitingForMethodResult(false);
+    waitingSinceRef.current = null;
   }, [waitingForMethodResult, methodCallStatus.status, methodCallStatus.lastNodeId]);
 
   return <></>;

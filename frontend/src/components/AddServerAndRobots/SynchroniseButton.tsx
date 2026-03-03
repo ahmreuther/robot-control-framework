@@ -1,43 +1,44 @@
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 
 import { useLogContext } from '../../contexts/LogContext';
-import { RobotInfoContext } from '../../contexts/RobotInfoContext';
-import { useUrlContext } from '../../contexts/UrlContext';
+import { useServersContext } from '../../contexts/ServersContext';
 import { useSendMessage } from '../../hooks/send-message';
 import { type JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../../hooks/useJointState';
 import { useSyncContext } from '../../contexts/SyncContext';
 
 export interface SynchronizeButtonProps {
   jointManager: JointStateManager;
+  serverId: number | null;
 }
 
-export default function Synchronize_Button({ jointManager }: SynchronizeButtonProps) {
-  const { url: connectedUrl } = useUrlContext();
-  const { setLogs } = useLogContext();
+export default function Synchronize_Button({ jointManager, serverId }: SynchronizeButtonProps) {
+  const { appendLog } = useLogContext();
   const { isSyncActive, setIsSyncActive } = useSyncContext();
   const { sendMessage } = useSendMessage();
-
-  const axleValues = useContext(RobotInfoContext).axleValues;
+  const { findServerById } = useServersContext();
+  const targetServer = findServerById(serverId);
+  const connectedUrl = targetServer?.connectedUrl ?? null;
+  const isConnected = targetServer?.isConnected ?? false;
 
   const [switchState, setToggle] = useState(false);
 
   function synchronize(toggleState: boolean): boolean {
-    if (!connectedUrl) {
+    if (!connectedUrl || !isConnected) {
       console.log('No OPC UA client connected. Please connect first.');
-      setLogs((prev) => prev + 'No OPC UA client connected. Please connect first.\n');
+      appendLog('No OPC UA client connected. Please connect first.\n', serverId);
       return false;
     }
 
     if (toggleState) {
-      sendMessage('stream joint position');
-      sendMessage('stream mode');
-      setLogs((prev) => prev + 'Synchronization activated.\n');
+      sendMessage('stream joint position', { serverId });
+      sendMessage('stream mode', { serverId });
+      appendLog('Synchronization activated.\n', serverId);
 
       jointManager.mountWriter(WRITER_ID.SYN, WRITER_PRIORITY.SYN);
     } else {
-      sendMessage('cancel stream joint position');
-      sendMessage('cancel stream mode');
-      setLogs((prev) => prev + 'Synchronization deactivated.\n');
+      sendMessage('cancel stream joint position', { serverId });
+      sendMessage('cancel stream mode', { serverId });
+      appendLog('Synchronization deactivated.\n', serverId);
       jointManager.unmountWriter(WRITER_ID.SYN);
     }
     return true;

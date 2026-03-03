@@ -23,17 +23,18 @@ export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<U
   const data = await res.json();
   const children = (data?.children ?? []) as UaNode[];
 
-  // Normalize fields
-  return children.map((c) => ({
-    nodeId: c.nodeId,
-    displayName: c.displayName,
-    browseName: c.browseName,
-    nodeClass: c.nodeClass,
-    children: c.children,
+  const normalizeNode = (node: UaNode): UaNode => ({
+    nodeId: node.nodeId,
+    displayName: node.displayName,
+    nodeClass: node.nodeClass,
+    ...(typeof node.browseName === 'string' ? { browseName: node.browseName } : {}),
+    ...(Array.isArray(node.children) ? { children: node.children } : {}),
     loaded: false,
     expanded: false,
     loading: false,
-  }));
+  });
+
+  return children.map(normalizeNode);
 };
 
 export const fetchRootNode = async (opcUaUrl: string): Promise<UaNode> => {
@@ -49,8 +50,8 @@ export const fetchRootNode = async (opcUaUrl: string): Promise<UaNode> => {
   return {
     nodeId: data.nodeId,
     displayName: data.displayName,
-    browseName: data.browseName,
     nodeClass: data.nodeClass,
+    ...(typeof data.browseName === 'string' ? { browseName: data.browseName } : {}),
     children: [],
     loaded: true,
     expanded: true,
@@ -102,7 +103,10 @@ export const fetchAllMethods = async (
   return methods.sort((a, b) => a.displayName.localeCompare(b.displayName));
 };
 
-export const fetchNodeValue = async (opcUaUrl: string | null, nodeId: string): Promise<any> => {
+export const fetchNodeValue = async (
+  opcUaUrl: string | null,
+  nodeId: string,
+): Promise<unknown> => {
   const encodedUrl = encodeURIComponent(opcUaUrl ?? '');
   const encodedNodeId = encodeURIComponent(nodeId);
 
@@ -122,9 +126,9 @@ export interface NodeDetails {
   nodeClass: string;
   nodeClassValue: number;
   description?: string | null;
-  value?: any;
+  value?: unknown;
   dataType?: string | null;
-  accessLevel?: any;
+  accessLevel?: unknown;
   eventNotifier?: number | null;
 }
 
