@@ -1,11 +1,15 @@
-// Disclaimer:
-// This file was refactored to pass robot records into helpers so joint mapping works per robot.
-// Please keep new code following this per-robot pattern.
-// Utils: Extract URDF joints from viewer
-/*
-Per-robot joint helpers. Normalize URDF joints so mapping works the same across loaders.
-Keep new code per robot.
-*/
+/**
+ * Per-robot joint helpers. Normalize URDF joints so mapping works the same across loaders.
+ *
+ * Notes:
+ * - Refactored to pass robot records into helpers so joint mapping works per robot.
+ * - Keep new code following this per-robot pattern.
+ */
+/**
+ * Normalize map-like structures to plain objects.
+ * @param {Map|Object|null} mapLike - Map or object of joints.
+ * @returns {Object}
+ */
 function normalizeMapLike(mapLike) {
     const out = {};
     if (!mapLike) return out;
@@ -17,7 +21,11 @@ function normalizeMapLike(mapLike) {
     return out;
 }
 
-// Convert the URDF joint map into a simple array.
+/**
+ * Convert the URDF joint map into a normalized array.
+ * @param {Object} robotRecord - Robot record with manipulator.
+ * @returns {Array}
+ */
 function urdfJointsArray(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
@@ -38,19 +46,31 @@ function urdfJointsArray(robotRecord) {
     return arr;
 }
 
-// Check if a joint is revolute or continuous.
+/**
+ * Check if a joint type is revolute or continuous.
+ * @param {string} t - Joint type.
+ * @returns {boolean}
+ */
 function isRevoluteType(t) {
     t = String(t || '').toLowerCase();
     return t === 'revolute' || t === 'continuous';
 }
 
-// Check if a joint is prismatic.
+/**
+ * Check if a joint type is prismatic.
+ * @param {string} t - Joint type.
+ * @returns {boolean}
+ */
 export function isPrismaticType(t) {
     t = String(t || '').toLowerCase();
     return t === 'prismatic';
 }
 
-// Read joint limits safely across parser variants.
+/**
+ * Read joint limits safely across parser variants.
+ * @param {Object} j - Joint object.
+ * @returns {{lower: number, upper: number, effort?: number, velocity?: number}}
+ */
 export function getJointLimits(j) {
     // robustes Auslesen, je nach Parser
     const lim = j?.limit || j?._limit || j?._raw?.limit || {};
@@ -63,8 +83,11 @@ export function getJointLimits(j) {
     };
 }
 
-// Adjacency: parentLink -> [JointObjects]
-// Build a map of link → joints for traversal.
+/**
+ * Build a map of link → joints for traversal.
+ * @param {Array} jointsArr - Normalized joint array.
+ * @returns {Map}
+ */
 function buildAdjacency(jointsArr) {
     const adj = new Map();
     for (const j of jointsArr) {
@@ -76,9 +99,11 @@ function buildAdjacency(jointsArr) {
 }
 
 /**
- *Revolute order from base joint (BFS along the chain))
+ * Revolute order from base joint (BFS along the chain).
+ * @param {Object} robotRecord - Robot record with manipulator.
+ * @param {Object} baseJoint - Base joint object.
+ * @returns {string[]}
  */
-// BFS from the base joint to get a stable revolute order for this robot.
 export function orderedRevoluteFromBaseJoint(robotRecord, baseJoint) {
     const jointsArr = urdfJointsArray(robotRecord);
     const adj = buildAdjacency(jointsArr);
@@ -107,7 +132,11 @@ export function orderedRevoluteFromBaseJoint(robotRecord, baseJoint) {
     return order;
 }
 
-// Walk the URDF chain to collect revolute joints in order.
+/**
+ * Walk the URDF chain to collect revolute joints in order.
+ * @param {Object} robotRecord - Robot record with manipulator.
+ * @returns {Object[]}
+ */
 export function getOrderedRevoluteJoints(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
@@ -146,7 +175,11 @@ export function getOrderedRevoluteJoints(robotRecord) {
     return ordered;
 }
 
-// Same as above but return names only; used by OPC UA axis mapping.
+/**
+ * Same as above but return names only; used by OPC UA axis mapping.
+ * @param {Object} robotRecord - Robot record with manipulator.
+ * @returns {string[]}
+ */
 export function getOrderedRevoluteJointNames(robotRecord) {
     const manipulator = robotRecord.manipulator;
 

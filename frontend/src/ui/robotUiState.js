@@ -1,12 +1,16 @@
-/*
-UI state helpers remain per robot. Keep new code following this pattern.
-*/
+/**
+ * UI state helpers remain per robot. Keep new code following this pattern.
+ */
 import { getActiveRobot } from '../robot/robotManager.js';
 import { setInfoBoxState } from '../ui/layout.js';
 import { logMessageToBox } from '../ui/logging.js';
 
 
-// Format revolute joint angles for display/logging; respects the radians toggle.
+/**
+ * Format revolute joint angles for display/logging; respects the radians toggle.
+ * @param {Object} robotRecord - Robot record with manipulator and joints.
+ * @returns {string[]|undefined}
+ */
 export function getFormattedJointString(robotRecord) {
     const manipulator = robotRecord.manipulator;
     const r = manipulator.robot;
@@ -41,7 +45,10 @@ export function getFormattedJointString(robotRecord) {
     return jointValues;
 }
 
-// Update dashboard labels (joint + TCP) only if this robot is active.
+/**
+ * Update dashboard labels (joint + TCP) only if this robot is active.
+ * @param {Object} robotRecord - Robot record with manipulator state.
+ */
 export function updateRevoluteJointStatus(robotRecord) {
     
     // Only update UI if active
@@ -64,19 +71,31 @@ export function updateRevoluteJointStatus(robotRecord) {
         }
     }
 }
-// Helper methods for handleManipulateEnd.
+/**
+ * Helper method for handleManipulateEnd: normalize joint value.
+ * @param {Object} j - Joint object.
+ * @returns {number}
+ */
 
 function getVal(j) {
     return Array.isArray(j.jointValue) ? Number(j.jointValue[0]) : Number(j.angle || 0);
 }
 
-// Read limits safely for mimic/end effector checks.
+/**
+ * Read limits safely for mimic/end effector checks.
+ * @param {Object} j - Joint object.
+ * @returns {{lower: number, upper: number}}
+ */
 function getLimits(j) {
     const lim = j?.limit || j?._limit || j?._raw?.limit || {};
     const toNum = v => (v === undefined || v === null || v === '' ? NaN : Number(v));
     return { lower: toNum(lim.lower ?? lim.min), upper: toNum(lim.upper ?? lim.max) };
 }
-// Find prismatic masters for end effector toggling.
+/**
+ * Find prismatic masters for end effector toggling.
+ * @param {Object} robot - Robot instance with joints map.
+ * @returns {Object[]}
+ */
 function getEEFMasters(robot) {
     if (window.endEffectorMap?.byName) {
         return Object.keys(endEffectorMap.byName)
@@ -86,7 +105,10 @@ function getEEFMasters(robot) {
     return Object.values(robot.joints).filter(j => j.jointType === 'prismatic' && !j.mimic);
 }
 
-// After user moves the robot, decide whether to call OPC UA GoTo or toggle the end effector.
+/**
+ * After user moves the robot, decide whether to call OPC UA GoTo or toggle the end effector.
+ * @param {Object} robotRecord - Robot record with OPC UA state.
+ */
 export function handleManipulateEnd(robotRecord) {
     const { connectivity } = robotRecord.state;
     if (!connectivity.socket || 
@@ -138,7 +160,6 @@ export function handleManipulateEnd(robotRecord) {
         }
     }
     // Store latest end-effector positions.
-    // letzte EEF-Positionen merken
     eefMasters.forEach(j => { 
         if (!opcua.lastEEFPositions) {
             opcua.lastEEFPositions = {};
@@ -195,7 +216,10 @@ export function handleManipulateEnd(robotRecord) {
     }
 }
 
-// Reset robot pose to home for this manipulator.
+/**
+ * Reset robot pose to home for this manipulator.
+ * @param {Object} robotRecord - Robot record with manipulator.
+ */
 export function handleHomeClick(robotRecord) {
     const manipulator = robotRecord.manipulator;
     if (manipulator) {
@@ -203,7 +227,10 @@ export function handleHomeClick(robotRecord) {
     }
 }
 
-// Restore or clear UI panels when switching active robots.
+/**
+ * Restore or clear UI panels when switching active robots.
+ * @param {Object|null} robotRecord - Active robot record or null.
+ */
 export function updateRobotSpecificUI(robotRecord) {
     // clear tables first
     const subsTable = document.getElementById('subscriptions-table');
@@ -363,7 +390,10 @@ export function updateRobotSpecificUI(robotRecord) {
     updateRobotLockToggleVisibility(robotRecord);
 }
 
-// Show or hide the lock toggle based on robotics namespace support for the active robot.
+/**
+ * Show or hide the lock toggle based on robotics namespace support.
+ * @param {Object|null} robotRecord - Active robot record or null.
+ */
 export function updateRobotLockToggleVisibility(robotRecord) {
     const container = document.getElementById('robot-lock-toggle-container');
     if (!container) return;

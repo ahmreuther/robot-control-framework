@@ -1,11 +1,15 @@
-/*
-Per-robot address space helpers so tree/UI logic stays scoped.
-Keep new code on the robot record, not globals.
-*/
+/**
+ * Per-robot address space helpers so tree/UI logic stays scoped.
+ * Keep new code on the robot record, not globals.
+ */
 import { getActiveRobot } from '../robot/robotManager.js';
 import { logMessageToBox } from '../ui/logging.js';
 
-// Show the property table for the selected node of this robot.
+/**
+ * Show the property table for the selected node of this robot.
+ * @param {HTMLElement} element - Node element with dataset properties.
+ * @param {Object} robotRecord - Robot record to update.
+ */
 export function showNodeProperties(element, robotRecord) {
     // If no robotRecord provided, try to find active (backwards compat)
     if (!robotRecord) robotRecord = getActiveRobot();
@@ -45,7 +49,11 @@ export function showNodeProperties(element, robotRecord) {
     propertiesBox.style.display = "block";
 }
 
-// Store and render references; only update the screen for the active robot.
+/**
+ * Store and render references; only update the screen for the active robot.
+ * @param {Array} refs - Reference objects from backend.
+ * @param {Object} robotRecord - Robot record to update.
+ */
 function updateReferencesTable(refs, robotRecord) {
     // Update State
     if (robotRecord) {
@@ -86,7 +94,12 @@ function updateReferencesTable(refs, robotRecord) {
     }
 }
 
-// Handle OPC UA tree clicks; remember selection per robot and update details.
+/**
+ * Handle OPC UA tree clicks; remember selection per robot and update details.
+ * @param {Object} robotRecord - Robot record to update.
+ * @param {MouseEvent} event - Click event.
+ * @returns {boolean|void}
+ */
 export function handleOpcUaNodeSelection(robotRecord, event) {
     
 
@@ -123,7 +136,11 @@ export function handleOpcUaNodeSelection(robotRecord, event) {
         });
 }
 
-// Load child nodes on demand when a branch is opened.
+/**
+ * Load child nodes on demand when a branch is opened.
+ * @param {Object} robotRecord - Robot record to update.
+ * @param {MouseEvent} e - Click event.
+ */
 export async function handleSubtreeClick(robotRecord, e) {
     if (!(e.target.tagName === "SUMMARY" || e.target.tagName === "SPAN") || !e.target.dataset.nodeId) {
         return;
@@ -163,7 +180,10 @@ export async function handleSubtreeClick(robotRecord, e) {
     showNodeProperties(summary, robotRecord);
 }
 
-// Reload a node (and children if needed) to refresh this robot's view.
+/**
+ * Reload a node (and children if needed) to refresh this robot's view.
+ * @param {Object} robotRecord - Robot record to update.
+ */
 export function refreshSelectedNode(robotRecord) {
     if(!robotRecord) return;
     const { ui, connectivity } = robotRecord.state;

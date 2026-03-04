@@ -1,10 +1,14 @@
-/*
-Per-robot context menu helpers so clicks act on the selected robot.
-Keep new code on the robot record, not globals.
-*/
+/**
+ * Per-robot context menu helpers so clicks act on the selected robot.
+ * Keep new code on the robot record, not globals.
+ */
 import { showNodeProperties, refreshSelectedNode } from '../opcua/addressSpace';
 
-// Open or close the custom context menu for this robot's selected node.
+/**
+ * Open or close the custom context menu for this robot's selected node.
+ * @param {Object} robotRecord - Robot record with UI state.
+ * @param {MouseEvent} e - Context menu event.
+ */
 export function handleContextMenu(robotRecord, e) {
     if(!robotRecord) return;
   const target = e.target;
@@ -24,7 +28,11 @@ export function handleContextMenu(robotRecord, e) {
         ui.selectedNodeElement = null;
     }
 }
-// Track clicked nodes per robot and refresh properties if needed.
+/**
+ * Track clicked nodes per robot and refresh properties if needed.
+ * @param {Object} robotRecord - Robot record with UI state.
+ * @param {MouseEvent} e - Click event.
+ */
 export function handleNodeClick(robotRecord, e) {
     if(!robotRecord) return;
     const { ui } = robotRecord.state;
@@ -44,7 +52,11 @@ export function handleNodeClick(robotRecord, e) {
     }
 }
 
-/* Small helper: show a modal for method parameters before calling the OPC UA method. */
+/**
+ * Show a modal for method parameters before calling the OPC UA method.
+ * @param {string} rawHtml - Raw HTML for parameters list.
+ * @param {Function} callback - Callback with collected inputs.
+ */
 function showInputParameterPopup(rawHtml, callback) {
     let htmlToParse = rawHtml.trim();
     if (!/^<ul[\s>]/i.test(htmlToParse)) {
@@ -123,7 +135,10 @@ function showInputParameterPopup(rawHtml, callback) {
         callback(data);
     });
 }
-// Call an OPC UA method on the selected node for this robot, showing inputs if needed.
+/**
+ * Call an OPC UA method on the selected node for this robot, showing inputs if needed.
+ * @param {Object} robotRecord - Robot record with UI state.
+ */
 export function handleContextCallMethod(robotRecord) {
     if(!robotRecord) return;
     const menu = document.getElementById("custom-context-menu");
@@ -177,7 +192,10 @@ export function handleContextCallMethod(robotRecord) {
         connectivity.socket.send(`call|${JSON.stringify(payload)}`);
     }
 }
-// Subscribe to data on the selected variable node for this robot.
+/**
+ * Subscribe to data on the selected variable node for this robot.
+ * @param {Object} robotRecord - Robot record with UI state.
+ */
 export function handleContextSubscribe(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -203,7 +221,10 @@ export function handleContextSubscribe(robotRecord) {
         ui.showSubscriptionsTabOnNextCustom = true;
     }
 }
-// Unsubscribe from data on the selected variable node for this robot.
+/**
+ * Unsubscribe from data on the selected variable node for this robot.
+ * @param {Object} robotRecord - Robot record with UI state.
+ */
 export function handleContextUnsubscribe(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -226,7 +247,10 @@ export function handleContextUnsubscribe(robotRecord) {
         connectivity.socket.send("unsubscribe|" + JSON.stringify(payload));
     }
 }
-// Subscribe to events on the selected object node for this robot.
+/**
+ * Subscribe to events on the selected object node for this robot.
+ * @param {Object} robotRecord - Robot record with UI state.
+ */
 export function handleContextSubscribeEvent(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -250,7 +274,10 @@ export function handleContextSubscribeEvent(robotRecord) {
         ui.showSubscriptionsTabOnNextCustom = true;
     }
 }
-// Unsubscribe from events on the selected object node for this robot.
+/**
+ * Unsubscribe from events on the selected object node for this robot.
+ * @param {Object} robotRecord - Robot record with UI state.
+ */
 export function handleContextUnsubscribeEvent(robotRecord) {
     if(!robotRecord) return;
     document.getElementById("custom-context-menu").style.display = "none";
@@ -274,7 +301,10 @@ export function handleContextUnsubscribeEvent(robotRecord) {
     }
 }
 
-// Hide the context menu when clicking outside.
+/**
+ * Hide the context menu when clicking outside.
+ * @param {MouseEvent} e - Mouse down event.
+ */
 export function handleGlobalMouseDown(e) {
     const menu = document.getElementById('custom-context-menu');
     if (menu.style.display === 'block' && !menu.contains(e.target)) {

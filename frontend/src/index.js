@@ -23,10 +23,22 @@ import { toggleOpcUaSection,toggleRobotDashboardSection, switchTab, syncWidth, i
 import { logMessageToBox, clearLog } from './ui/logging.js';
 import { updateRevoluteJointStatus, handleManipulateEnd, handleHomeClick, updateRobotSpecificUI } from './ui/robotUiState.js';
 
-// Register the viewer once for all robots.
+/**
+Future development notes:
+- `switchRobot` only rebuilds sliders when the active robot changes to avoid resetting inputs.
+- Active robot toggling is centralized via `setActiveState` so only one IK gizmo is live.
+- If you add new per-robot UI, hook it in `switchRobot` and `addRobotByModel`.
+*/
+
+/**
+ * Register the custom element once for all robots.
+ */
 customElements.define('urdf-viewer', URDFIKManipulator);
 
-// Send keyboard input to the active robot only.
+/**
+ * Send keyboard input to the active robot only.
+ * @param {KeyboardEvent} e - Keyboard event.
+ */
 window.addEventListener('keydown', (e) => {
     const activeRecord = getActiveRobot();
     if (activeRecord && activeRecord.manipulator && typeof activeRecord.manipulator.handleKey === 'function') {
@@ -34,13 +46,18 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// Use one viewer instance (legacy bundling).
+/**
+ * Use a single viewer instance to keep legacy bundling behavior.
+ */
 const viewer = document.querySelector('urdf-viewer');
 viewer.ignoreKeys = true;
 
 setupMiniStats(viewer);
 
-// Build manipulators that reuse the viewer's resources.
+/**
+ * Build manipulators that reuse the viewer's shared resources.
+ * @returns {URDFIKManipulator|null}
+ */
 setManipulatorFactory(() => {
     if (!viewer) return null;
     const manipulator = new URDFIKManipulator({
@@ -61,7 +78,9 @@ setManipulatorFactory(() => {
     return manipulator;
 });
 
-// Cache shared UI elements.
+/**
+ * Cache shared UI elements.
+ */
 const limitsToggle = document.getElementById('ignore-joint-limits');
 const collisionToggle = document.getElementById('collision-toggle');
 const radiansToggle = document.getElementById('radians-toggle');
@@ -76,7 +95,9 @@ const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 1 / DEG2RAD;
 let controlSliders = {};
 
-// Multi-robot controls
+/**
+ * Multi-robot controls.
+ */
 const multiRobotModelSelect = document.getElementById('multi-robot-model');
 const addRobotBtn = document.getElementById('add-robot-btn');
 const activeRobotSelect = document.getElementById('active-robot-select');
@@ -86,9 +107,14 @@ const robotCountValue = document.getElementById('robot-count-value');
 let originalNoAutoRecenter = null;
 let lastFocusedRobotId = null;
 
+/**
+ * One WebSocket shared across robots.
+ */
 let globalSocket = null;
 
-// One WebSocket shared across robots.
+/**
+ * Initialize a single shared OPC UA WebSocket for all robots.
+ */
 function initGlobalSocket() {
     globalSocket = new WebSocket("ws://127.0.0.1:8000/ws");
     setGlobalSocket(globalSocket);
@@ -111,7 +137,10 @@ function initGlobalSocket() {
 }
 initGlobalSocket();
 
-// Small FPS widget.
+/**
+ * Attach a compact FPS stats widget to the page.
+ * @param {HTMLElement} viewerEl - Viewer element to align the stats UI with.
+ */
 function setupMiniStats(viewerEl) {
     const container = document.getElementById('stats-output');
     if (!container) return;
@@ -123,6 +152,9 @@ function setupMiniStats(viewerEl) {
     container.appendChild(stats.dom);
     stats.showPanel(0);
     stats.dom.title = 'Klicken: FPS → MS → RAM';
+    /**
+     * Animation loop to update FPS stats.
+     */
     (function loop() {
         stats.update();
         requestAnimationFrame(loop);
@@ -160,6 +192,11 @@ robotModels.forEach(r => {
     multiRobotModelSelect.appendChild(option);
 });
 
+/**
+ * Append a robot entry to the active-robot dropdown.
+ * @param {string} id - Robot id.
+ * @param {string} name - Robot model name.
+ */
 function addRobotOption(id, name) {
     const opt = document.createElement('option');
     opt.value = id;
@@ -167,6 +204,10 @@ function addRobotOption(id, name) {
     activeRobotSelect.appendChild(opt);
 }
 
+/**
+ * Animate the camera to frame the currently active robot.
+ * @param {number} padding - Fit padding multiplier for the bounding sphere.
+ */
 function focusCameraOnActiveRobot(padding = 1.35) {
     const record = getActiveRobot();
     if (!record || !record.sceneNode || !viewer || !viewer.camera || !viewer.controls) return;
@@ -196,6 +237,9 @@ function focusCameraOnActiveRobot(padding = 1.35) {
     const duration = 350;
     const startTime = performance.now();
 
+    /**
+     * Ease camera and controls toward the target framing.
+     */
     function animate() {
         const elapsed = performance.now() - startTime;
         const t = Math.min(elapsed / duration, 1);
@@ -215,6 +259,9 @@ function focusCameraOnActiveRobot(padding = 1.35) {
     animate();
 }
 
+/**
+ * Focus the camera only when the active robot changes.
+ */
 function focusActiveRobotIfChanged() {
     const record = getActiveRobot();
     const id = record?.id;
@@ -223,14 +270,22 @@ function focusActiveRobotIfChanged() {
     lastFocusedRobotId = id;
 }
 
-// Switch active robot and refresh UI.
+/**
+ * Switch the active robot and refresh per-robot UI state.
+ * @param {string|null} robotId - Robot id to activate.
+ */
 function switchRobot(robotId) {
     const prev = getActiveRobot();
     const prevId = prev?.id || null;
     setActiveRobot(robotId);
     const record = getActiveRobot();
     activeRobotSelect.value = robotId;
-    ControlCenterSliders();
+
+    if (prevId === robotId) {
+        return;
+    }
+
+    controlCenterSliders();
     updateRobotSpecificUI(record);
 
     if (prevId !== robotId) {
@@ -244,7 +299,10 @@ function switchRobot(robotId) {
     }
 }
 
-// Build a robot in the next free slot.
+/**
+ * Spawn a robot from a model entry and wire its manipulator/UI.
+ * @param {Object} model - Robot model metadata (name, urdf, color).
+ */
 async function addRobotByModel(model) {
     const slotIndex = getNextSlotIndex();
     const record = await addRobot({
@@ -274,7 +332,7 @@ async function addRobotByModel(model) {
     // Build sliders after URDF is ready and recenter the view.
     manipulator.addEventListener('urdf-processed', () => {
         viewer.camera.position.set(-0.5, 1.1, 0.8);
-        ControlCenterSliders();
+        controlCenterSliders();
         updateRevoluteJointStatus(record);
 
     });
@@ -340,7 +398,9 @@ async function addRobotByModel(model) {
 // disposeRobotNode handled by `services/sceneManager.js`
 
 
-// Spawn a new robot from the selected template.
+/**
+ * Spawn a new robot from the selected template.
+ */
 addRobotBtn.addEventListener('click', async () => {
     try {
         const selectedName = addRobotSelect.value;
@@ -356,7 +416,9 @@ addRobotBtn.addEventListener('click', async () => {
     }
 });
 
-// Remove the current robot unless it is still connected to OPC UA.
+/**
+ * Remove the current robot unless it is still connected to OPC UA.
+ */
 deleteRobotBtn.addEventListener('click', async () => {
     const record = getActiveRobot();
 
@@ -374,7 +436,7 @@ deleteRobotBtn.addEventListener('click', async () => {
     }
 
     await removeRobot(record.id);
-    ControlCenterSliders();
+    controlCenterSliders();
 
     // Remove from dropdown.
     const option = activeRobotSelect.querySelector(`option[value="${record.id}"]`);
@@ -391,13 +453,18 @@ deleteRobotBtn.addEventListener('click', async () => {
     robotCountValue.textContent = listRobots().length;
 });
 
-// Switching the dropdown just changes focus.
+/**
+ * Switching the dropdown just changes focus.
+ */
 activeRobotSelect.addEventListener('change', () => {
     switchRobot(activeRobotSelect.value);
     focusActiveRobotIfChanged();
 });
 
-// Global helpers
+/**
+ * Update page background and viewer highlight color.
+ * @param {string} color - CSS color string.
+ */
 const setColor = color => {
 
     document.body.style.backgroundColor = color;
@@ -406,13 +473,17 @@ const setColor = color => {
 };
 
 
-// Toggle joint limits.
+/**
+ * Toggle joint limits globally.
+ */
 limitsToggle.addEventListener('click', () => {
     limitsToggle.classList.toggle('checked');
     viewer.ignoreLimits = limitsToggle.classList.contains('checked');
 });
 
-// Switch radians/deg display (internal stays radians).
+/**
+ * Switch radians/deg display (internal stays radians).
+ */
 radiansToggle.addEventListener('click', () => {
     radiansToggle.classList.toggle('checked');
     Object
@@ -420,21 +491,27 @@ radiansToggle.addEventListener('click', () => {
         .forEach(sl => sl.update());
 });
 
-// Toggle collision meshes.
+/**
+ * Toggle collision meshes visibility.
+ */
 collisionToggle.addEventListener('click', () => {
     collisionToggle.classList.toggle('checked');
     viewer.showCollision = collisionToggle.classList.contains('checked');
     viewer.redraw();
 });
 
-// Toggle auto recentering.
+/**
+ * Toggle auto-recentering on camera updates.
+ */
 autocenterToggle.addEventListener('click', () => {
     autocenterToggle.classList.toggle('checked');
 
     viewer.noAutoRecenter = !autocenterToggle.classList.contains('checked');
 });
 
-// Hide fixed joints in the UI.
+/**
+ * Toggle fixed joints visibility in the UI.
+ */
 hideFixedToggle.addEventListener('click', () => {
     hideFixedToggle.classList.toggle('checked');
 
@@ -444,19 +521,27 @@ hideFixedToggle.addEventListener('click', () => {
 
 });
 
-// Swap world up axis.
+/**
+ * Swap the viewer up axis.
+ */
 upSelect.addEventListener('change', () => viewer.up = upSelect.value);
 
-// Collapse/expand the control panel.
+/**
+ * Collapse or expand the control panel.
+ */
 controlsToggle.addEventListener('click', () => controlsel.classList.toggle('hidden'));
 
-// Keep sliders in sync when limits change globally.
+/**
+ * Keep sliders in sync when limits change globally.
+ */
 viewer.addEventListener('ignore-limits-change', () => {
     Object.values(controlSliders).forEach(sl => sl.update());
 });
 
 
-// After components are ready, register mesh loaders and spawn the initial EVA.
+/**
+ * Register mesh loaders and spawn the initial robot after components are ready.
+ */
 document.addEventListener('WebComponentsReady', () => {
 
     viewer.loadMeshFunc = (path, manager, done) => {
@@ -527,7 +612,9 @@ document.addEventListener('WebComponentsReady', () => {
 });
 
 
-// Second hook: camera pose + recenter defaults after viewer bootstraps.
+/**
+ * Apply camera pose + recenter defaults after viewer bootstraps.
+ */
 document.addEventListener('WebComponentsReady', () => {
 
     //viewer.camera.position.set(-1.5, 3.5, 5.5);
@@ -537,8 +624,10 @@ document.addEventListener('WebComponentsReady', () => {
 });
 
 
-// Regenerate slider UI for the currently active robot; keeps ordering stable and syncs with manipulator events.
-function ControlCenterSliders() {
+/**
+ * Rebuild sliders for the active robot and wire joint update handlers.
+ */
+function controlCenterSliders() {
     // Clear existing sliders
     Object.values(controlSliders).forEach(li => li.remove());
     controlSliders = {};
@@ -626,17 +715,26 @@ function ControlCenterSliders() {
                     input.remove();
                     slider.remove();
             }
-            // Helpers
+            /**
+             * Mark the current robot as being manipulated.
+             */
             const startManipulating = () => {
                 record.state.interaction.isManipulating = true;
             };
 
+            /**
+             * Clear manipulation state and refresh slider display.
+             */
             const stopManipulating = () => {
                 record.state.interaction.isManipulating = false;
                 handleManipulateEnd(record);
                 li.update();
             };
 
+            /**
+             * Apply a joint value through the manipulator and refresh UI.
+             * @param {number} value - Joint value in radians.
+             */
             const applyJointValue = (value) => {
                 if (manipulator?.setJointValue) {
                     manipulator.setJointValue(jointName, value);
@@ -682,37 +780,57 @@ function ControlCenterSliders() {
     }
 }
 
-// Wire high-level UI toggles to the currently active robot so dashboard and OPC UA panels stay coherent.
+/**
+ * Wire high-level UI toggles to the active robot so panels stay coherent.
+ */
 toggleRobotDashboardSection();
 toggleOpcUaSection();
+/**
+ * Connect the active robot to OPC UA.
+ */
 document.getElementById('connect-opc-ua').addEventListener('click', () => {
     connectOpcUa(getActiveRobot());
 });
 
+/**
+ * Disconnect the active robot from OPC UA.
+ */
 document.getElementById('disconnect-opc-ua').addEventListener('click', () => {
     disconnectOpcUa(getActiveRobot());
 });
+/**
+ * Toggle OPC UA sync for the active robot.
+ */
 const opcUaSyncToggle = document.getElementById('opc-ua-sync-toggle');
 opcUaSyncToggle.addEventListener('change', (e) => {
     handleOpcUaSyncToggle(getActiveRobot(), e);
 });
 
+/**
+ * Prevent OPC UA sync toggle clicks from bubbling.
+ */
 const opcUaSyncToggleContainer = document.getElementById('opc-ua-sync-toggle-container');
 opcUaSyncToggleContainer.addEventListener('click', (e) => {
     e.stopPropagation();
 }, true);
 
-// Primary selection handler for OPC UA tree clicks.
+/**
+ * Primary selection handler for OPC UA tree clicks.
+ */
 document.addEventListener("click", (e) => {
     handleOpcUaNodeSelection(getActiveRobot(), e);
 });
 
-// Detect subtree toggles separately so expand/collapse logic stays isolated.
+/**
+ * Detect subtree toggles separately so expand/collapse logic stays isolated.
+ */
 document.addEventListener("click", async (e) => {
         handleSubtreeClick(getActiveRobot(), e);
 });
 
-// Tab navigation for multi-panel UI (robots, OPC UA, logs, etc.).
+/**
+ * Tab navigation for multi-panel UI (robots, OPC UA, logs, etc.).
+ */
 document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
         const tabName = btn.getAttribute("data-tab");
@@ -720,22 +838,30 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     });
 });
 
-// Manual clear to keep log view readable during long sessions.
+/**
+ * Manual clear to keep log view readable during long sessions.
+ */
 document.getElementById('clear-log-btn').addEventListener('click', () => {
     clearLog();
 });
 
-// Intercept context menu events to attach OPC UA actions to selected node.
+/**
+ * Intercept context menu events to attach OPC UA actions to selected node.
+ */
 document.addEventListener("contextmenu", (e) => {
     handleContextMenu(getActiveRobot(), e);
 });
 
-// Also close context menus when clicking elsewhere.
+/**
+ * Close context menus when clicking elsewhere.
+ */
 document.addEventListener("click", (e) => {
     handleNodeClick(getActiveRobot(), e);
 });
 
-// Context menu actions use the active robot, so keep listeners centralized here.
+/**
+ * Context menu actions use the active robot, so keep listeners centralized here.
+ */
 document.getElementById('context-call-method').addEventListener('click', () => {
     handleContextCallMethod(getActiveRobot());
 });
@@ -755,24 +881,32 @@ document.getElementById('context-unsubscribe_event').addEventListener('click', (
     handleContextUnsubscribeEvent(getActiveRobot());
 });
 
-// Detect outside clicks for context menu dismissal.
+/**
+ * Detect outside clicks for context menu dismissal.
+ */
 window.addEventListener('mousedown', (e) => {
     handleGlobalMouseDown(e);
 });
 
-// DOM Elements
+/**
+ * DOM elements for the info/properties panes.
+ */
 const infoBox = document.getElementById("info-box");
 const propertiesBox = document.getElementById("properties-box");
 const toggleBtn = document.getElementById("info-toggle-btn");
-//already defined
+// already defined
 
-// Internal State
+/**
+ * Internal state for the info/properties toggle.
+ */
 syncWidth(infoBox, propertiesBox);
 initWidthObserver(infoBox, propertiesBox);
 
 let infoBoxExpanded = true;
 
-// Toggle info/properties panes in tandem so widths stay aligned.
+/**
+ * Toggle info/properties panes in tandem so widths stay aligned.
+ */
 toggleBtn?.addEventListener("click", () => {
     const { width, label } = getToggleDimensions(infoBoxExpanded);
     
@@ -786,29 +920,39 @@ toggleBtn?.addEventListener("click", () => {
 });
 
 
-// Keep revolute joint labels consistent after toggling rad/deg display.
+/**
+ * Keep revolute joint labels consistent after toggling rad/deg display.
+ */
 window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('radians-toggle')?.addEventListener('click', () => {
         setTimeout(() => { updateRevoluteJointStatus(robot); }, 0);
     });
 });
-// Refresh properties for the currently selected OPC UA node.
+/**
+ * Refresh properties for the currently selected OPC UA node.
+ */
 document.getElementById('refresh-info-box').addEventListener('click', () =>{
     refreshSelectedNode();
 });
 
-// Shortcut to reset robot pose to home.
+/**
+ * Shortcut to reset robot pose to home.
+ */
 document.getElementById('home-icon').addEventListener('click', () => {
     handleHomeClick(getActiveRobot());
 });
 
-// Toggle backend MCP integration on demand.
+/**
+ * Toggle backend MCP integration on demand.
+ */
 document.getElementById('mcp-integration-toggle').addEventListener('click', (e) => {
     toggleMcpIntegration(getActiveRobot(), e);
 });
 
 
-// Default to hiding fixed joints on first load to reduce noise for users.
+/**
+ * Default to hiding fixed joints on first load to reduce noise for users.
+ */
 window.addEventListener('load', () => {
     // Enable Hide Fixed Joints when loading
     const hideFixedToggle = document.getElementById('hide-fixed');

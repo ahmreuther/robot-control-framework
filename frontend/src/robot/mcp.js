@@ -1,11 +1,14 @@
-/*
-Per-robot MCP helpers so sockets stay scoped to each robot.
-Keep new code per robot.
-*/
+/**
+ * Per-robot MCP helpers so sockets stay scoped to each robot.
+ * Keep new code per robot.
+ */
 import { Vector3 } from "three";
 import { getFormattedJointString } from "../ui/robotUiState";
 
-// Open an MCP socket for this robot to send/receive TCP pose and joint angles.
+/**
+ * Open an MCP socket for this robot to send/receive TCP pose and joint angles.
+ * @param {Object} robotRecord - Robot record with connectivity state.
+ */
 function setup_mcp_socket(robotRecord) {
     if (!robotRecord) return;
     const { connectivity } = robotRecord.state;
@@ -80,7 +83,10 @@ function setup_mcp_socket(robotRecord) {
     };
 }
 
-// Close the MCP socket for this robot only.
+/**
+ * Close the MCP socket for this robot only.
+ * @param {Object} robotRecord - Robot record with connectivity state.
+ */
 function disconnect_mcp_socket(robotRecord) {
     if (!robotRecord) return;
 
@@ -95,7 +101,11 @@ function disconnect_mcp_socket(robotRecord) {
     }
 }
 
-// Turn MCP integration on/off for this robot based on the checkbox.
+/**
+ * Turn MCP integration on/off for this robot based on the checkbox.
+ * @param {Object} robotRecord - Robot record with connectivity state.
+ * @param {Event} event - Checkbox event.
+ */
 export function toggleMcpIntegration(robotRecord, event) {
     if (!robotRecord) return;
     if (event.target.checked) {
@@ -107,7 +117,10 @@ export function toggleMcpIntegration(robotRecord, event) {
     }
 }
 
-// Send current TCP pose and joint string to the MCP backend for this robot.
+/**
+ * Send current TCP pose and joint string to the MCP backend for this robot.
+ * @param {Object} robotRecord - Robot record with manipulator state.
+ */
 export function sendMcpRobotStateUpdate(robotRecord) {
     const manipulator = robotRecord.manipulator;
     const { connectivity } = robotRecord.state;
