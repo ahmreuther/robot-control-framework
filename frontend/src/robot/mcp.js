@@ -13,7 +13,7 @@ function setup_mcp_socket(robotRecord) {
     if (!robotRecord) return;
     const { connectivity } = robotRecord.state;
     if (connectivity.socketMcp) {
-        console.warn("MCP socket already open for this robot.");
+        console.warn(`[${robotRecord.id}] MCP socket already open for this robot.`);
         return;
     }
 
@@ -21,14 +21,14 @@ function setup_mcp_socket(robotRecord) {
     connectivity.status = 'connecting';
 
     connectivity.socketMcp.onopen = () => {
-        console.log("MCP WebSocket connection established.");
+        console.log(`[${robotRecord.id}] MCP WebSocket connection established.`);
         connectivity.status = 'connected';
         connectivity.socketMcp.send("status");
     };
 
     connectivity.socketMcp.onmessage = (event) => {
         const data = event.data;
-        console.log("MCP Message from server:", data);
+        console.log(`[${robotRecord.id}] MCP Message from server:`, data);
 
         const manipulator = robotRecord.manipulator;
         if (!manipulator) return;
@@ -72,12 +72,12 @@ function setup_mcp_socket(robotRecord) {
     };
 
     connectivity.socketMcp.onerror = (error) => {
-        console.error("MCP WebSocket error:", error);
+        console.error(`[${robotRecord.id}] MCP WebSocket error:`, error);
         connectivity.status = 'error';
     };
 
     connectivity.socketMcp.onclose = () => {
-        console.log("MCP WebSocket connection closed.");
+        console.log(`[${robotRecord.id}] MCP WebSocket connection closed.`);
         connectivity.status = 'disconnected';
         connectivity.socketMcp = null;
     };

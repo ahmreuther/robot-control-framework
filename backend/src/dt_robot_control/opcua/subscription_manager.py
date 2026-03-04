@@ -16,7 +16,7 @@ class SubscriptionManager:
 
         Args:
             opcua_client: OPCUAClient wrapper instance.
-            name (str): Friendly client name.
+            name (str): Client name.
             websocket (WebSocket | None): Optional websocket to stream updates to.
         """
 
@@ -49,12 +49,12 @@ class SubscriptionManager:
         """
         device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not device_set:
-            print(f"[{self.name}] ⚠️ No ‘DeviceSet’ node found.")
+            print(f"[{self.url}] ⚠️ No ‘DeviceSet’ node found.")
             return
 
         axes_node = await self.node_manager.find_descendant_by_name(device_set, "Axes")
         if not axes_node:
-            print(f"[{self.name}] ⚠️ No ‘Axes’ node found.")
+            print(f"[{self.url}] ⚠️ No ‘Axes’ node found.")
             return
 
         axis_nodes = []
@@ -65,25 +65,25 @@ class SubscriptionManager:
                 axis_nodes.append(child)
         if not axis_nodes:
             axis_nodes = await axes_node.get_children()  
-        print(f"[{self.name}] {len(axis_nodes)} Axles found.")
+        print(f"[{self.url}] {len(axis_nodes)} Axles found.")
 
         actual_position_nodes = []
         for axis in axis_nodes:
             try:
                 paramset = await self.node_manager.find_descendant_by_name(axis, "ParameterSet")
                 if not paramset:
-                    print(f"[{self.name}] ⚠️ No parameter set under {axis}")
+                    print(f"[{self.url}] ⚠️ No parameter set under {axis}")
                     continue
                 actual_pos = await self.node_manager.find_descendant_by_name(paramset, "ActualPosition")
                 if actual_pos:
                     actual_position_nodes.append(actual_pos)
                 else:
-                    print(f"[{self.name}] ⚠️ No ActualPosition under {axis}")
+                    print(f"[{self.url}] ⚠️ No ActualPosition under {axis}")
             except Exception as e:
-                print(f"[{self.name}] ⚠️ Error for {axis}: {e}")
+                print(f"[{self.url}] ⚠️ Error for {axis}: {e}")
 
         if not actual_position_nodes:
-            print(f"[{self.name}] ⚠️ No ActualPosition-Nodes found.")
+            print(f"[{self.url}] ⚠️ No ActualPosition-Nodes found.")
             return
 
         self.expected_axes_count = len(actual_position_nodes)
@@ -93,7 +93,7 @@ class SubscriptionManager:
             self.subscription = await self.client.create_subscription(50, self.sub_handler)
 
         await self.subscription.subscribe_data_change(actual_position_nodes)
-        print(f"[{self.name}] ✅ {len(actual_position_nodes)} ActualPosition values subscribed.")
+        print(f"[{self.url}] ✅ {len(actual_position_nodes)} ActualPosition values subscribed.")
 
 
     async def stop_axes_subscription(self):
@@ -105,9 +105,9 @@ class SubscriptionManager:
         if self.subscription:
             try:
                 await self.subscription.delete()
-                print(f"[{self.name}] Joint position stream cancelled.")
+                print(f"[{self.url}] Joint position stream cancelled.")
             except Exception as e:
-                print(f"[{self.name}] ⚠️ Error deleting subscription: {e}")
+                print(f"[{self.url}] ⚠️ Error deleting subscription: {e}")
         self.subscription = None
         self.sub_handler.reset()
 
@@ -120,12 +120,12 @@ class SubscriptionManager:
         try:
             device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
-                print(f"[{self.name}] ⚠️ No ‘DeviceSet’ node found.")
+                print(f"[{self.url}] ⚠️ No ‘DeviceSet’ node found.")
                 return
 
             controller = await self.node_manager.find_descendant_by_name(device_set, "RobotState")
             if not controller:
-                print(f"[{self.name}] ⚠️ No ‘RobotState’ node found.")
+                print(f"[{self.url}] ⚠️ No ‘RobotState’ node found.")
                 return
 
             self.mode_node = controller
@@ -135,10 +135,10 @@ class SubscriptionManager:
                 self.mode_subscription = await self.client.create_subscription(50, self.mode_sub_handler)
 
             await self.mode_subscription.subscribe_data_change(controller)
-            print(f"[{self.name}] ✅ Mode-Node subscribed: {controller}")
+            print(f"[{self.url}] ✅ Mode-Node subscribed: {controller}")
 
         except Exception as e:
-            print(f"[{self.name}] ❌ Error subscribing to Mode: {e}")
+            print(f"[{self.url}] ❌ Error subscribing to Mode: {e}")
 
 
     async def stop_mode_subscription(self):
@@ -150,9 +150,9 @@ class SubscriptionManager:
         try:
             if self.mode_subscription:
                 await self.mode_subscription.delete()
-                print(f"[{self.name}] ❌ Mode-Subscription stopped.")
+                print(f"[{self.url}] ❌ Mode-Subscription stopped.")
         except Exception as e:
-            print(f"[{self.name}] ⚠️ Error deleting fashion subscription: {e}")
+            print(f"[{self.url}] ⚠️ Error deleting fashion subscription: {e}")
         self.mode_subscription = None
         self.mode_node = None
         if self.mode_sub_handler:
@@ -191,13 +191,13 @@ class SubscriptionManager:
                 subscription = self.custom_subscriptions[node_id]
                 await subscription.delete()
                 del self.custom_subscriptions[node_id]
-                print(f"[{self.name}] ✅ Custom subscription removed for NodeId {node_id}")
+                print(f"[{self.url}] ✅ Custom subscription removed for NodeId {node_id}")
                 return True
             else:
-                print(f"[{self.name}] ⚠️ No custom subscription found for NodeId {node_id}")
+                print(f"[{self.url}] ⚠️ No custom subscription found for NodeId {node_id}")
                 return False
         except Exception as e:
-            print(f"[{self.name}] ❌ Error removing custom subscription for NodeId {node_id}: {e}")
+            print(f"[{self.url}] ❌ Error removing custom subscription for NodeId {node_id}: {e}")
             return False
         
 
@@ -220,10 +220,10 @@ class SubscriptionManager:
             self.event_subscription = subscription
             self.event_handle = handle
 
-            print(f"[{self.name}] ✅ Event subscription on node {node_id} active.")
+            print(f"[{self.url}] ✅ Event subscription on node {node_id} active.")
             return True
         except Exception as e:
-            print(f"[{self.name}] ❌ Error subscribing to events on node {node_id}: {e}")
+            print(f"[{self.url}] ❌ Error subscribing to events on node {node_id}: {e}")
             return False
 
     async def unsubscribe_events(self):
@@ -236,11 +236,11 @@ class SubscriptionManager:
             if self.event_subscription and self.event_handle:
                 await self.event_subscription.unsubscribe(self.event_handle)
                 await self.event_subscription.delete()
-                print(f"[{self.name}] ✅ Event subscription removed.")
+                print(f"[{self.url}] ✅ Event subscription removed.")
                 self.event_subscription = None
                 self.event_handle = None
                 return True
             return False
         except Exception as e:
-            print(f"[{self.name}] ❌ Error removing event subscription: {e}")
+            print(f"[{self.url}] ❌ Error removing event subscription: {e}")
             return False

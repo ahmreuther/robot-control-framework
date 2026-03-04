@@ -141,7 +141,7 @@ export function getOrderedRevoluteJoints(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
     if (!manipulator || !manipulator.robot || !manipulator.robot.joints) {
-        console.warn("⚠️ manipulator.robot.joints missing.");
+        console.warn(`[${robotRecord.id}] ⚠️ manipulator.robot.joints missing.`);
         return [];
     }
 
@@ -151,7 +151,7 @@ export function getOrderedRevoluteJoints(robotRecord) {
     // Find base = joint whose parent is directly manipulator.robot
     const baseCandidates = allJoints.filter(j => j.parent === manipulator.robot);
     if (baseCandidates.length === 0) {
-        console.warn("⚠️ No Base-Joint found.");
+        console.warn(`[${robotRecord.id}] ⚠️ No Base-Joint found.`);
         return [];
     }
     const base = baseCandidates[0]; // if there are several -> take the first one
@@ -184,7 +184,7 @@ export function getOrderedRevoluteJointNames(robotRecord) {
     const manipulator = robotRecord.manipulator;
 
     if (!manipulator || !manipulator.robot || !manipulator.robot.joints) {
-        console.warn("⚠️ manipulator.robot.joints missing.");
+        console.warn(`[${robotRecord.id}] ⚠️ manipulator.robot.joints missing.`);
         return [];
     }
 

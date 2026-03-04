@@ -51,7 +51,7 @@ async def get_device_set(request: Request, url: str = Query(...)):
         detailed = await collect_node_details(root)
         return templates.TemplateResponse("device_set.html", {"request": request, "items": detailed})
     except Exception as e:
-        print("Error while reading DeviceSet:", e)
+        print(f"[{url}] Error while reading DeviceSet: {e}")
         return templates.TemplateResponse(
             "device_set.html",
             {"request": request, "items": [], "error": str(e)}

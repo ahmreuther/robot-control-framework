@@ -78,9 +78,9 @@ class OPCUAClient:
         # which is a constant with int value 2255.
         nsarr_node: Node = self.client.get_node(ua.ObjectIds.Server_NamespaceArray)
         self.namespaces: list[str] = await nsarr_node.read_value()
-        print(f"[{self.name}] Namespaces: {self.namespaces}")
+        print(f"[{self.url}] Namespaces: {self.namespaces}")
 
-        print(f"[{self.name}] Connected to {self.url}")
+        print(f"[{self.url}] Connected to {self.url}")
         # Getting child of root-node with browse name `Objects` and namespace index `0`.
         # Node `objects_node` is the standard OPC UA folder also called "RootFolder" / "Objects".
         objects_node:Node = await self.client.nodes.root.get_child(["0:Objects"])
@@ -95,11 +95,11 @@ class OPCUAClient:
             try:
                 await self.resolve_goto_method()
             except Exception as e:
-                print(f"[{self.name}] ERROR: resolve_goto_method failed: {e}")
+                print(f"[{self.url}] ERROR: resolve_goto_method failed: {e}")
             try:
                 await self.resolve_toggle_endeff_method()
             except Exception as e:
-                print(f"[{self.name}] ERROR: resolve_toggle_endeff_method failed: {e}")
+                print(f"[{self.url}] ERROR: resolve_toggle_endeff_method failed: {e}")
             await self.send_robot_info_to_frontend()
         asyncio.create_task(self.run_loop())    
 
@@ -123,7 +123,7 @@ class OPCUAClient:
         if self.subscription_manager.subscription:
             await self.subscription_manager.subscription.delete()
         await self.client.disconnect()
-        print(f"[{self.name}] Connection lost.")
+        print(f"[{self.url}] Connection lost.")
 
     async def call_method(self, node_id: str, inputs: dict[str, str]):
         """Dynamic method call via NodeId and input values.
@@ -217,12 +217,12 @@ class OPCUAClient:
                     from asyncua.common.ua_utils import val_to_string
                     result_dict["output_arguments"] = [val_to_string(arg) for arg in output_args]
             except Exception as e:
-                print(f"[CALL] Error reading OutputArguments: {e}")
+                print(f"[{self.url}] [CALL] Error reading OutputArguments: {e}")
 
             return result
 
         except Exception as e:
-            print(f"[CALL] ❌ Error: {e}")
+            print(f"[{self.url}] [CALL] ❌ Error: {e}")
             return {"status": None, "output_arguments": [], "error": f"Error when calling method: {e}"}
 
     # previously: check_robotics_support
@@ -238,7 +238,7 @@ class OPCUAClient:
             self.is_robotics_server = "http://opcfoundation.org/UA/Robotics/" in values
             return self.is_robotics_server
         except Exception as e:
-            print(f"[has_robotics_namespace] Error: {e}")
+            print(f"[{self.url}] [has_robotics_namespace] Error: {e}")
             self.is_robotics_server = False
             return False
 
@@ -264,10 +264,10 @@ class OPCUAClient:
 
             if self.websocket and self.websocket.client_state == WebSocketState.CONNECTED:
                 await self.websocket.send_text(f"{self.url}|x|robotinfo:{msg}")
-            print(f"[{self.name}] ✅ Robot info sent: {msg}")
+            print(f"[{self.url}] ✅ Robot info sent: {msg}")
 
         except Exception as e:
-            print(f"[{self.name}] ❌ Error sending robot info: {e}")
+            print(f"[{self.url}] ❌ Error sending robot info: {e}")
 
     async def read_model(self) -> str:
         """Read the model node robustly.

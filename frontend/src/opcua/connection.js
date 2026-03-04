@@ -242,7 +242,7 @@ export function connectOpcUa(robotRecord) {
     const infoToggleBtn = document.getElementById("info-toggle-btn");
     infoToggleBtn.style.display = "none";
     
-    if (!robotRecord) return console.warn("No active robot.");
+    if (!robotRecord) return console.warn("[Global] No active robot.");
     const urlInput = document.getElementById('opc-ua-url');
     const url = urlInput.value.trim();
 
@@ -253,7 +253,7 @@ export function connectOpcUa(robotRecord) {
 
     const message = `connect|${url}`;
 
-    console.log("Sending:", message);
+    console.log(`[${robotRecord.id}] Sending:`, message);
     infoToggleBtn.style.display = "block";
 
     const { connectivity } = robotRecord.state;
@@ -272,7 +272,7 @@ export function connectOpcUa(robotRecord) {
  * @param {Object} robotRecord - Robot record to disconnect.
  */
 export function disconnectOpcUa(robotRecord) {
-    if (!robotRecord) return console.warn("No active robot.");
+    if (!robotRecord) return console.warn("[Global] No active robot.");
     const { connectivity } = robotRecord.state;
 
     if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
@@ -302,7 +302,7 @@ export function handleSocketMessage(event) {
     if (sepIndex === -1) {
         // Handle unprefixed system-wide notifications
         if (rawData.includes("Disconnected") || rawData === "Global|🔌 Disconnected") {
-             console.log("System Status:", rawData);
+            console.log("[Global] System Status:", rawData);
         }
         return;
     }
@@ -340,6 +340,7 @@ export function handleSocketMessage(event) {
 function handleProtocolMessage(robotRecord, data) {
     const manipulator = robotRecord.manipulator;
     const { ui, opcua, connectivity, interaction } = robotRecord.state;
+    const robotTag = `[${robotRecord.id}]`;
 
     // subscriptions
     if (data.startsWith("x|custom:")) {
@@ -355,7 +356,7 @@ function handleProtocolMessage(robotRecord, data) {
                 }
             }
         } catch (e) {
-            console.warn("Custom subscription parse error", e);
+            console.warn(`${robotTag} Custom subscription parse error`, e);
         }
     }
 
@@ -394,14 +395,14 @@ function handleProtocolMessage(robotRecord, data) {
                 }
             }
         } catch (e) {
-            console.warn("Event parse error", e);
+            console.warn(`${robotTag} Event parse error`, e);
         }
     }
     // robot info
     if (data.startsWith("x|robotinfo:")) {
         try {
             const payload = JSON.parse(data.slice("x|robotinfo:".length));
-            console.log("Robot Info:", payload);
+            console.log(`${robotTag} Robot Info:`, payload);
 
             if (payload.manufacturer) {
                 robotRecord.state.robotInfo.manufacturer = payload.manufacturer;
@@ -429,7 +430,7 @@ function handleProtocolMessage(robotRecord, data) {
                 }
             }
         } catch (e) {
-            console.warn("RobotInfo parse error", e);
+            console.warn(`${robotTag} RobotInfo parse error`, e);
         }
     }
 
@@ -452,11 +453,11 @@ function handleProtocolMessage(robotRecord, data) {
         try {
             anglesMsg = JSON.parse(dictStr);
             if (!anglesMsg || typeof anglesMsg !== "object" || !anglesMsg.angles) {
-                console.warn("❌ Parsed value is not a valid angles message:", anglesMsg);
+                console.warn(`${robotTag} ❌ Parsed value is not a valid angles message:`, anglesMsg);
                 return;
             }
         } catch (e) {
-            console.warn("❌ Error parsing axis data:", dictStr, e);
+            console.warn(`${robotTag} ❌ Error parsing axis data:`, dictStr, e);
             return;
         }
         opcua.lastAngles = anglesMsg.angles;
@@ -469,13 +470,13 @@ function handleProtocolMessage(robotRecord, data) {
         }
 
         if (!manipulator || !manipulator.robot || !manipulator.robot.joints) {
-            console.warn("⚠️ URDF Manipulator or Robot Joints not available.");
+            console.warn(`${robotTag} ⚠️ URDF Manipulator or Robot Joints not available.`);
             return;
         }
 
         try {
             buildAxisToJointMap(robotRecord, anglesMsg);
-            console.log(buildAxisToJointMap(robotRecord, anglesMsg));
+            console.log(`${robotTag} Axis→Joint map:`, buildAxisToJointMap(robotRecord, anglesMsg));
             const valuesAreRadians = isRadiansUnit(anglesMsg.unit);
             const jointValuesRad = {};
 
@@ -493,16 +494,16 @@ function handleProtocolMessage(robotRecord, data) {
 
             const success = manipulator.setJointValues(jointValuesRad);
             if (success) {
-                console.log("✅ Angle of joints updated:", jointValuesRad);
+                console.log(`${robotTag} ✅ Angle of joints updated:`, jointValuesRad);
 
                 if (robotRecord === getActiveRobot()) {
                     updateRevoluteJointStatus(robotRecord);
                 }
             } else {
-                console.warn("⚠️ manipulator.setJointValues() did not cause any change.");
+                console.warn(`${robotTag} ⚠️ manipulator.setJointValues() did not cause any change.`);
             }
         } catch (e) {
-            console.warn("❌ Could not create axis→joint mapping:", e);
+            console.warn(`${robotTag} ❌ Could not create axis→joint mapping:`, e);
             return;
         }
     }
