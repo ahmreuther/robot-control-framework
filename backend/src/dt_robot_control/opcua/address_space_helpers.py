@@ -1,8 +1,7 @@
 """
-Helpers to read/browse OPC UA nodes for rendering.
+Helpers for reading OPC UA node attributes, types, and selective tree traversal.
 
-Pulled out from the legacy GetAddressSpace/opcua modules so templating/REST rendering does not mix
-with client transport code. Provides reusable utilities for both REST fragments and websocket flows.
+Refactored from the legacy GetAddressSpace/opcua modules to not mix responsibilities transport code. 
 """
 
 from asyncua import ua
