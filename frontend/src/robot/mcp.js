@@ -62,13 +62,7 @@ function setup_mcp_socket(robotRecord) {
             }
 
             manipulator.setJointValues(jointValuesRad);
-        } /*else if (event.data.startsWith("JOINT|")) {
-            let joint_raw_data = event.data.replace("JOINT|", "").split("|");
-            let joint_index = joint_raw_data[0];
-            let joint_angle = joint_raw_data[1];
-        } else if (event.data.startsWith("OPCUA-NODE|")) {
-
-        }*/ // code is useless right? delete?
+        }
     };
 
     connectivity.socketMcp.onerror = (error) => {

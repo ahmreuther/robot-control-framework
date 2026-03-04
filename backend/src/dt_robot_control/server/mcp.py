@@ -125,13 +125,9 @@ async def set_joint_angles(joint_angles: List, ctx: Context) -> str:
         Status string.
     """
     socket: WebSocket
-    # print("STATE")
-    # print(ctx.get_http_request().app.state.mcp_sockets)
-    # print(ctx.get_http_request().app.parent_state)
-    # print("STATE ENDE")
-    # print(ctx.get_http_request().app.)
+
     for socket in websockets:
-        # print(f"TCP_POS|{x},{y},{z}")
+
         joint_angle_str = ", ".join(map(str, joint_angles))
         print(joint_angle_str)
         await socket.send_text(f"JOINTS|{joint_angle_str}")

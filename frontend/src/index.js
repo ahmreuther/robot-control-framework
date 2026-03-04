@@ -602,13 +602,6 @@ document.addEventListener('WebComponentsReady', () => {
     if (/javascript\/example\/bundle/i.test(window.location)) {
         viewer.package = '../../../urdf';
     }
-    /* // currently not working because it would need to be per robot and use the robotmanager. TODO
-    registerDragEvents(viewer, () => {
-        setColor('#263238');
-        animToggle.classList.remove('checked');
-        updateList();
-    });
-    */
 });
 
 

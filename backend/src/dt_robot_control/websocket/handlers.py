@@ -92,11 +92,6 @@ async def handle_call(websocket: WebSocket, data: str) -> None:
         else:
             await websocket.send_text(f"{url}|❌ No OPC UA client found for method call.")
     except Exception as e:
-        # If we can't parse the payload, we might not have the URL. 
-        # But usually the client sends valid JSON with URL.
-        # Fallback to broad error broadcasting if URL is unknown is risky but acceptable for debug.
-        # Or try to extract URL directly from string if JSON fails?
-        # For now, just send error. If we don't know URL, frontend global handler might catch it or it will be ignored.
         await websocket.send_text(f"Global|❌ Error parsing call payload: {e}")
 
 async def handle_subscribe(websocket: WebSocket, data: str) -> None:
@@ -352,11 +347,6 @@ async def handle_status(websocket: WebSocket) -> None:
             sn_text = await try_read_serialnumber(client)
             await websocket.send_text(f"{url}|✅ Connected to {url}")
             await websocket.send_text(f"{url}|Model: {model_text}\nSerial Number: {sn_text}")
-            # break # FIXME: Should we iterate all or break? Original code broke after first.
-            # If we support multi, we should probably send statuses for all.
-            # But "status" command implies "Are you alive?". 
-            # If frontend handles multiple messages, better to remove break? 
-            # I'll stick to prefixing for now.
              
         except Exception as e:
             await websocket.send_text(f"{url}|❌ Status check failed: {str(e)}")
