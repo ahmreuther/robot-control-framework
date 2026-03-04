@@ -36,14 +36,12 @@ flowchart TD
     A[Frontend: Web UI, IK/FK] <-->|HTTP/WebSocket| C[Backend: Python, OPC UA Client]
 ```
 
-
 ## Main Goals  
 
 - Support multiple robots in one scene without opening multiple socket connections.  
 - Keep IK/FK calculations stable even when robots are placed at different positions.  
 - Have one clear place where robot state is stored (per robot in the frontend, per URL in the backend).  
 - Keep transport logic, OPC UA logic, and UI logic separated.
-
 
 
 ## Frontend workflow:
@@ -62,24 +60,6 @@ Some important design choices we did:
 
 ---
 
-### Frontend Interfaces in Detail:
-
-- `frontend/src/robot/robotManager.js`:  
-  Manages the per-robot state (which used to be global), such as connection status, UI state, and OPC UA information. It keeps track of the active robot and makes sure shared resources like the WebSocket are reused instead of recreated.
-
-- `frontend/src/scene/sceneManager.js`:  
-  Loads a URDF into a rig and adds it to the scene. Each robot gets its own rig (`THREE.Group`) which handles the world position (slot offset). The robot itself stays at `(0,0,0)` locally. This keeps IK/FK calculations easy and avoids problems with the offset.  
-
-- `frontend/src/URDFIKManipulator.js`:  
-  Acts as the IK/FK controller for one robot. This means each robot has one URDFIKManipulator instance. The gizmo is attached to the rig so slot offsets do not break IK. Drag controls are created per robot, so selecting and moving joints only affects the correct robot.
-
-- `frontend/src/opcua/connection.js` (with `addressSpace.js` and `contextMenu.js`):  
-  Uses one shared WebSocket connection to the backend. Messages include the robot URL so the frontend knows which robot the update belongs to. Joint mappings, sync toggles, subscriptions, and status updates are handled per robot and applied only to the active one.
-
-- `frontend/src/ui/*`:  
-  Helper modules for layout, logging, and switching the interface to match the active robot. The UI states (address space HTML etc.) for each robot is stored inside the `robotManager`.
-
-
 ## Backend workflow:
 
 When the frontend sends a connect request, the WebSocket router forwards it to the `OPCUAClient`.  
@@ -95,31 +75,6 @@ Important design choices:
 - A `ClientRegistry` keeps track of which URL is connected to which OPC UA client.
 - OPC UA logic is split into smaller modules (client, subscriptions, browsing, transport) to keep responsibilities clear and testing easier.
 
-### Backend Components in Detail:
-
-- `backend/main.py`:  
-  FastAPI entry point. It connects REST routes, WebSocket routing, and the MCP sub-application into one service.
-
-- `backend/src/dt_robot_control/opcua/opcua_client.py`:  
-  Wraps `asyncua.Client`. Handles connect/disconnect logic and OPC UA method calls.
-
-- `backend/src/dt_robot_control/opcua/subscription_manager.py`:  
-  Finds axis, mode, and other relevant nodes and manages subscriptions.
-
-- `backend/src/dt_robot_control/opcua/node_manager.py`:  
-  Provides browsing and search utilities for the OPC UA address space.
-
-- `backend/src/dt_robot_control/opcua/endpoints.py`:  
-  REST endpoints for listing and browsing OPC UA nodes.
-
-- `backend/src/dt_robot_control/websocket/`:  
-  WebSocket routing and handlers used by the frontend.
-
-- `backend/src/dt_robot_control/server/mcp.py`:  
-  MCP tool server and WebSocket bridge.Forwards pose, quaternion, and joint data from the browser and sends MCP commands back.
-
----
----
 ## Prerequisites
 For development, you will need:
 - **Git**
