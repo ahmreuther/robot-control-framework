@@ -13,11 +13,10 @@ class SubHandler:
     """
         Handler for OPC UA DataChange events, supports various modes (“axes,” “mode,” “custom”).
 
-        Extracted from the legacy opcua websocket handler so asyncua callbacks stay decoupled from
-        transport and can be reused by WebSocket or future transports without duplicating logic.
+        Refactored from the legacy opcua websocket handler. Done to decouple responsibilities.
+        It can now be reused by WebSocket or future transports without duplicating logic.
 
-        Emits URL-prefixed websocket payloads (`url|x|angles:{...}`, `url|x|event:{...}`) so the
-         frontend can route multi-robot streams over one socket without collisions.
+        Sends URL-prefixed messages/payload (`url|x|angles:{...}`, `url|x|event:{...}`) for multi-robot websocket routing
      """
     def __init__(self, name="Client", url=None, websocket: WebSocket = None, get_expected_count=None, mode="custom", node_manager=None):
         self.name = name
