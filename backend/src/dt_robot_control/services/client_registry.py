@@ -2,7 +2,6 @@
 Client Registry Service
 
 Centralized management of OPC UA client connections.
-Replaces duplicate clients dict in opcua.py and handlers.py.
 """
 
 from typing import Dict, Optional

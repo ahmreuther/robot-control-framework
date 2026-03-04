@@ -1,9 +1,10 @@
-/**
- * Per-robot MCP helpers so sockets stay scoped to each robot.
- * Keep new code per robot.
- */
 import { Vector3 } from "three";
 import { getFormattedJointString } from "../ui/robotUiState";
+
+/**
+ * Per-robot MCP helpers for sending and receiving TCP pose and joint data.
+ * Each robot has its own WebSocket to the MCP backend, keeping sockets scoped.
+ */
 
 /**
  * Open an MCP socket for this robot to send/receive TCP pose and joint angles.

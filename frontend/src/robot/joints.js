@@ -1,10 +1,7 @@
 /**
- * Per-robot joint helpers. Normalize URDF joints so mapping works the same across loaders.
- *
- * Notes:
- * - Refactored to pass robot records into helpers so joint mapping works per robot.
- * - Keep new code following this per-robot pattern.
+ * Per-robot joint helpers. Normalize and process URDF joints so they work consistently across loaders.
  */
+
 /**
  * Normalize map-like structures to plain objects.
  * @param {Map|Object|null} mapLike - Map or object of joints.

@@ -1,6 +1,7 @@
 /**
- * Multi-robot registry. Keeps per-robot state, assigns scene slots, reuses one OPC UA socket,
- * and builds manipulators via a factory. Keep new code per robot.
+ * Manages the per-robot state (which used to be global), such as connection status, UI state, and OPC UA information. 
+ * It keeps track of the active robot and makes sure shared resources like the WebSocket are reused instead of recreated.
+ * It also builds manipulators per robot via a factory (defined in index.js).
  */
 class RobotManager {
     /**

@@ -1,7 +1,7 @@
 """
 REST API endpoints for OPC UA node browsing and rendering.
 
-Extracted from opcua.py to separate API routing from OPC UA business logic.
+Extracted from opcua.py to separate API routing from OPC UA logic.
 """
 
 from fastapi import Request, Query, APIRouter

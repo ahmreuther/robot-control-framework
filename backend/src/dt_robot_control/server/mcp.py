@@ -1,7 +1,6 @@
 """
 Thin MCP server that exposes robot state (TCP pose, rotation, joints) and forwards MCP tool calls to
-connected browser clients via WebSocket. The browser is the source of truth; this layer just relays
-latest values and pushes commands back to every connected viewer.
+connected browser clients via WebSocket.
 """
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect

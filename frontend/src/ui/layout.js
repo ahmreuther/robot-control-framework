@@ -1,5 +1,11 @@
 /**
- * Layout helpers stay per robot. Keep new code following the same per-robot pattern.
+ * UI layout and panel helpers for the robot dashboard.
+ * Handles per-robot layout, toggling panels, tab switching, and syncing element widths.
+ */
+
+/**
+ * Resize the info box and properties panel, and update the toggle button label.
+ * @param {boolean} expanded - Whether the info box should be expanded or collapsed.
  */
 export function setInfoBoxState(expanded) {
     // --- DOM Elements ---

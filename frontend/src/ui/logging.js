@@ -1,6 +1,8 @@
 /**
- * Logging helpers. Newest entries go on top. Keep additions per robot when needed.
+ * Simple UI logging helpers.
+ * Provides functions to append messages to the log panel and clear the log.
  */
+
 /**
  * Append a log message to the UI.
  * @param {string} msg - Log message to display.
