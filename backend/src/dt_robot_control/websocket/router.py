@@ -1,13 +1,9 @@
 """
-WebSocket router for OPC UA.
+WebSocket router for OPC UA.  
 
-Accepts websocket connections and forwards messages to handlers.
-Was separated from the old opcua websocket code so routing/dispatch stays thin and reusable while
-handlers focus on parsing + OPC UA calls. Prefer JSON messages: {"action":"...","payload":...}.
-
-Protocol (multi-robot): payloads are prefixed with the OPC UA URL, e.g.
-`opc.tcp://127.0.0.1:4840|x|angles:{...}`. The URL acts as the routing key so one WebSocket
-connection can multiplex multiple robots without mixing messages.
+Accepts connections and forwards messages to handlers.  
+Handlers focus on parsing and OPC UA calls, keeping routing simple.  
+For multiple robots, messages are prefixed with the robot URL so one WebSocket can handle all robots safely.
 """
 
 from fastapi import APIRouter, WebSocket

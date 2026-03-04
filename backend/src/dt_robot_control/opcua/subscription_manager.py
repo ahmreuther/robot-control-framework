@@ -5,10 +5,10 @@ from dt_robot_control.opcua.subhandler import SubHandler
 from dt_robot_control.opcua.node_manager import NodeManager
 
 class SubscriptionManager:
-    """Manages OPC UA subscriptions for the client.
-
-    Split out from the earlier OPC UA WebSocket handler so streaming (axes, mode, events) is
-    isolated from transport code and can be reused/tested independently.
+    """Manages OPC UA subscriptions for the client. It finds axis, mode, and other relevant nodes and manages subscriptions.
+ 
+    Refactored out from the earlier OPC UA WebSocket handler so streaming (axes, mode, events) is
+    isolated and can be reused/tested independently.
     """
 
     def __init__(self, opcua_client, name: str = "Client", websocket: WebSocket = None):

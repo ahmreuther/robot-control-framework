@@ -1,8 +1,8 @@
 """
-FastAPI entrypoint that stitches together the OPC UA routes, WebSocket router, and the MCP tool server.
+FastAPI entry point. It connects REST routes, WebSocket routing, and the MCP sub-application into one service.
 
 - Shares a lifespan with the MCP app so both start/stop together and so socket state can be shared.
-- Restricts CORS to the frontend dev origin.
+
 """
 
 import uvicorn

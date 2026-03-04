@@ -1,6 +1,7 @@
 /**
  * Per-robot address space helpers so tree/UI logic stays scoped.
- * Keep new code on the robot record, not globals.
+ * Handles node selection, property display, reference loading,
+ * subtree expansion, and node refresh per robot.
  */
 import { getActiveRobot } from '../robot/robotManager.js';
 import { logMessageToBox } from '../ui/logging.js';

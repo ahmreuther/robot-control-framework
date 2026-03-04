@@ -17,20 +17,13 @@ def clear_terminal():
 
 class OPCUAClient:
     """
-        Application-level wrapper around `asyncua.Client`.
+        Wrapper around `asyncua.Client` for robotics.
 
-        Split out from the former single `opcua.py` that mixed WebSockets, browsing, and calls. The
-        managers below keep streaming and traversal concerns separate from the transport layer.
-
-        Responsibilities:
-            - Manage connection lifecycle (connect/disconnect) and basic session state.
-            - Cache server metadata (NamespaceArray) and detect OPC UA Robotics support.
-            - Provide robotics-specific helpers (read manufacturer/model/serial, discover method NodeIds).
-            - Offer a dynamic method-call helper that converts string inputs to OPC UA argument types.
-            - Compose and expose helper managers (extracted from the old monolith):
-                    - SubscriptionManager: subscription lifecycle + streaming setup
-                    - NodeManager: address-space navigation helpers (previously GetAddressSpace helpers)
-            - Optionally push selected information to a FastAPI WebSocket using the app's message format.
+        Handles connection setup, session state, and caches server info.  
+        Provides helpers for reading robot metadata and discovering method NodeIds.  
+        Includes:
+            - SubscriptionManager: manage subscriptions and streaming
+            - NodeManager: navigate the address space
     """
 
     def __init__(

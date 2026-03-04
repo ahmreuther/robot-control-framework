@@ -1,9 +1,13 @@
-/**
- * UI state helpers remain per robot. Keep new code following this pattern.
- */
 import { getActiveRobot } from '../robot/robotManager.js';
 import { setInfoBoxState } from '../ui/layout.js';
 import { logMessageToBox } from '../ui/logging.js';
+
+/**
+ * Per-robot UI helpers for the dashboard and OPC UA.
+ * Handles joint/TCP updates, manipulations, resetting pose,
+ * updating panels, and showing/hiding features per active robot.
+ * Follows a per-robot pattern to avoid global state conflicts.
+ */
 
 
 /**

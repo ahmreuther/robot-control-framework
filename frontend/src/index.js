@@ -24,13 +24,6 @@ import { logMessageToBox, clearLog } from './ui/logging.js';
 import { updateRevoluteJointStatus, handleManipulateEnd, handleHomeClick, updateRobotSpecificUI } from './ui/robotUiState.js';
 
 /**
-Future development notes:
-- `switchRobot` only rebuilds sliders when the active robot changes to avoid resetting inputs.
-- Active robot toggling is centralized via `setActiveState` so only one IK gizmo is live.
-- If you add new per-robot UI, hook it in `switchRobot` and `addRobotByModel`.
-*/
-
-/**
  * Register the custom element once for all robots.
  */
 customElements.define('urdf-viewer', URDFIKManipulator);
@@ -50,6 +43,10 @@ window.addEventListener('keydown', (e) => {
  * Use a single viewer instance to keep legacy bundling behavior.
  */
 const viewer = document.querySelector('urdf-viewer');
+
+/**
+ * Needed so the viewer (also a URDFIKManipulator instance) doesn't have it's own controls and changes things when pressing a key
+ */
 viewer.ignoreKeys = true;
 
 setupMiniStats(viewer);

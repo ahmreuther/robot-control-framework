@@ -1,7 +1,6 @@
 /**
- * Per-robot OPC UA helpers. One shared WebSocket is routed by URL to the right robot.
- * Keeps axis→joint maps, feeds the correct manipulator, and only updates UI for the active robot.
- * Keep new code per robot, not globals.
+ * Per-robot OPC UA helpers.
+ * Handles connection, messages, angles, events, subscriptions, and axis to joint mapping for each robot.
  */
 import { getActiveRobot, listRobots } from "../robot/robotManager.js";
 import { isPrismaticType, getJointLimits, getOrderedRevoluteJointNames } from "../robot/joints.js";

@@ -1,12 +1,8 @@
 """
-WebSocket message handlers for OPC UA actions (connect, subscribe, call, stream).
-
-Split out from the earlier monolithic opcua websocket module so transport dispatching lives here
-and OPC UA concerns stay in `opcua_client` + managers. Keeps message parsing/testability isolated
-from client logic and reuses the shared SubscriptionManager/NodeManager instead of ad-hoc calls.
-
-Protocol note: messages and responses are prefixed with the OPC UA URL (`url|...`) so a single
-WebSocket can multiplex multiple robots without mixing data.
+Handles WebSocket messages for OPC UA actions (connect, subscribe, call, stream).  
+Separated from `opcua_client` so message parsing and dispatching are easier to test and maintain.  
+Uses the shared SubscriptionManager/NodeManager for all robots.  
+Messages are prefixed with the robot URL so one WebSocket can handle multiple robots safely.
 """
 
 import json

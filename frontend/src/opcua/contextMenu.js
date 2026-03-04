@@ -1,6 +1,5 @@
 /**
  * Per-robot context menu helpers so clicks act on the selected robot.
- * Keep new code on the robot record, not globals.
  */
 import { showNodeProperties, refreshSelectedNode } from '../opcua/addressSpace';
 
