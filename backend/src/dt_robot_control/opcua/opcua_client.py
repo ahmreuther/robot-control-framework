@@ -1,4 +1,4 @@
-# opcua_client.py
+"""OPC UA client wrapper and robotics helpers."""
 
 import asyncio
 import os
@@ -12,6 +12,7 @@ from dt_robot_control.opcua.node_manager import NodeManager
 
 
 def clear_terminal():
+    """Clear the current terminal screen."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
 class OPCUAClient:
@@ -104,10 +105,20 @@ class OPCUAClient:
 
 
     async def run_loop(self):
+        """Keep the client alive while running is True.
+
+        Returns:
+            None
+        """
         while self.running:
             await asyncio.sleep(1)
 
     async def disconnect(self):
+        """Disconnect the client and clean up subscriptions.
+
+        Returns:
+            None
+        """
         self.running = False
         if self.subscription_manager.subscription:
             await self.subscription_manager.subscription.delete()
@@ -115,7 +126,15 @@ class OPCUAClient:
         print(f"[{self.name}] Connection lost.")
 
     async def call_method(self, node_id: str, inputs: dict[str, str]):
-        """Dynamic method call via NodeId and input values."""
+        """Dynamic method call via NodeId and input values.
+
+        Args:
+            node_id (str): Target method NodeId string.
+            inputs (dict[str, str]): Mapping of input argument names to string values.
+
+        Returns:
+            object: Method call result or a dict with error details.
+        """
         try:
             method_node = self.client.get_node(node_id)
             parent_node = await method_node.get_parent()
@@ -186,7 +205,7 @@ class OPCUAClient:
                 result_dict["error"] = f"Error when calling method:{e}"
                 return result_dict
 
-            # Status zurückgeben
+            # Return status
             try:
                 status = getattr(result, "StatusCode", None)
                 if status is not None:
@@ -203,12 +222,16 @@ class OPCUAClient:
             return result
 
         except Exception as e:
-            print(f"[CALL] ❌ Fehler: {e}")
+            print(f"[CALL] ❌ Error: {e}")
             return {"status": None, "output_arguments": [], "error": f"Error when calling method: {e}"}
 
     # previously: check_robotics_support
     async def has_robotics_namespace(self) -> bool:
-        """Checks whether ‘http://opcfoundation.org/UA/Robotics/’ is contained in the NamespaceArray."""
+        """Check whether the Robotics namespace is present in the NamespaceArray.
+
+        Returns:
+            bool: True if robotics namespace is present, else False.
+        """
         try:
             server_array_node = self.client.get_node("i=2255")  # NamespaceArray
             values = await server_array_node.read_value()
@@ -222,6 +245,9 @@ class OPCUAClient:
     async def send_robot_info_to_frontend(self):
         """
         Reads Manufacturer, Model, and SerialNumber from the server and sends them to the frontend.
+
+        Returns:
+            None
         """
         try:
             man_val = await self.read_manufacturer()
@@ -244,7 +270,11 @@ class OPCUAClient:
             print(f"[{self.name}] ❌ Error sending robot info: {e}")
 
     async def read_model(self) -> str:
-        """Reads the model node robustly."""
+        """Read the model node robustly.
+
+        Returns:
+            str: Model string or an error message.
+        """
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
@@ -261,7 +291,11 @@ class OPCUAClient:
             return f"❌ Model read error: {e}"
 
     async def read_serial_number(self) -> str:
-        """Reads the serial number reliably."""
+        """Read the serial number reliably.
+
+        Returns:
+            str: Serial number string or an error message.
+        """
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
@@ -277,7 +311,11 @@ class OPCUAClient:
             return f"❌ SerialNumber read error: {e}"
 
     async def read_manufacturer(self) -> str:
-        """Reads the manufacturer node reliably."""
+        """Read the manufacturer node reliably.
+
+        Returns:
+            str: Manufacturer string or an error message.
+        """
         if not self.is_robotics_server:
             return "Not a robotics server"
         try:
@@ -296,6 +334,9 @@ class OPCUAClient:
         """
         Searches for a method node whose name looks like ‘Go To’ (GoTo/Go_To etc.).
         Prefer a method with a joint array as input argument.
+
+        Returns:
+            str | None: NodeId string for the toggle end-effector method or None.
         """
         names = ["EndEffSkill","toggleEndEff", "toggle_end_eff", "toggleEndEffector", "toggleendeffector"]
         best_node = await self.node_manager.find_method_by_names(names)
@@ -309,6 +350,9 @@ class OPCUAClient:
         """
         Searches for a method node whose name looks like ‘Go To’ (GoTo/Go_To etc.).
         Prefer a method with a joint array as input argument.
+
+        Returns:
+            str | None: NodeId string for the GoTo method or None.
         """
 
         names = ["JointPTPMoveSkill","go to", "goto", "go_to", "go-to", "Go To"]

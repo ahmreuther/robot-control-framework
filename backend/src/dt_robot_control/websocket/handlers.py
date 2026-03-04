@@ -22,14 +22,28 @@ from dt_robot_control.opcua.subscription_manager import SubscriptionManager
 
 
 def get_client(url: str) -> OPCUAClient | None:
-    """Get a client for the given URL or None."""
+    """Get a client for the given URL or None.
+
+    Args:
+        url (str): OPC UA server URL.
+
+    Returns:
+        OPCUAClient | None: Client instance or None.
+    """
     return client_registry.get(url)
 
 
 # --- Helper Functions for Client Info ---
 
 async def try_read_model(client: OPCUAClient):
-    """Reads the model if available."""
+    """Read the model if available.
+
+    Args:
+        client (OPCUAClient): OPCUAClient instance.
+
+    Returns:
+        str | None: Model string or None.
+    """
     if not client.is_robotics_server:
         return
     try:
@@ -38,7 +52,14 @@ async def try_read_model(client: OPCUAClient):
         return f"❌ Model read error: {e}"
 
 async def try_read_serialnumber(client: OPCUAClient):
-    """Reads the serial number if available."""
+    """Read the serial number if available.
+
+    Args:
+        client (OPCUAClient): OPCUAClient instance.
+
+    Returns:
+        str | None: Serial number string or None.
+    """
     if not client.is_robotics_server:
         return
     try:
@@ -53,11 +74,11 @@ async def handle_call(websocket: WebSocket, data: str) -> None:
     """Handle OPC UA method call requests from frontend.
 
     Args:
-        websocket: Active WebSocket connection to send responses.
-        data: Raw message string in format "call|{json}".
+        websocket (WebSocket): Active WebSocket connection to send responses.
+        data (str): Raw message string in format "call|{json}".
 
     Returns:
-        None. Sends result via websocket.
+        None
     """
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
@@ -82,11 +103,11 @@ async def handle_subscribe(websocket: WebSocket, data: str) -> None:
     """Subscribe to variable changes on a specific node.
 
     Args:
-        websocket: Active WebSocket connection.
-        data: Message format "subscribe|{json}" with url and nodeId.
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "subscribe|{json}" with url and nodeId.
 
     Returns:
-        None. Sends subscription confirmation or error via websocket.
+        None
     """
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
@@ -116,11 +137,11 @@ async def handle_subscribe_event(websocket: WebSocket, data: str) -> None:
     """Subscribe to events on a specific node.
 
     Args:
-        websocket: Active WebSocket connection.
-        data: Message format "subscribeEvent|{json}" with url and nodeId.
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "subscribeEvent|{json}" with url and nodeId.
 
     Returns:
-        None. Sends subscription confirmation or error via websocket.
+        None
     """
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
@@ -143,7 +164,15 @@ async def handle_subscribe_event(websocket: WebSocket, data: str) -> None:
         await websocket.send_text(f"Global|❌ Event subscription error: {e}")
 
 async def handle_unsubscribe_event(websocket: WebSocket, data: str) -> None:
-    """Unsubscribes from event notifications on a node."""
+    """Unsubscribe from event notifications on a node.
+
+    Args:
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "unsubscribeEvent|{json}".
+
+    Returns:
+        None
+    """
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
         url = payload.get("url")
@@ -164,7 +193,15 @@ async def handle_unsubscribe_event(websocket: WebSocket, data: str) -> None:
         await websocket.send_text(f"Global|❌ Unsubscribe event error: {e}")
 
 async def handle_unsubscribe(websocket: WebSocket, data: str) -> None:
-    """Ends a custom subscription."""
+    """End a custom subscription.
+
+    Args:
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "unsubscribe|{json}".
+
+    Returns:
+        None
+    """
     try:
         payload = json.loads(data.split("|", 1)[1].strip())
         url, node_id = payload.get("url"), payload.get("nodeId")
@@ -186,7 +223,15 @@ async def handle_unsubscribe(websocket: WebSocket, data: str) -> None:
         await websocket.send_text(f"Global|❌ unsubscribe error: {e}")
 
 async def handle_connect(websocket: WebSocket, data: str) -> None:
-    """Connects to an OPC UA server."""
+    """Connect to an OPC UA server.
+
+    Args:
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "connect|url".
+
+    Returns:
+        None
+    """
     url = data.split("|", 1)[1].strip()
     if client_registry.has(url):
         await websocket.send_text(f"{url}|⚠️ Already connected to {url}")
@@ -212,11 +257,11 @@ async def handle_stream_joint_position(websocket: WebSocket, data: str) -> None:
     """Start streaming joint angle positions continuously.
 
     Args:
-        websocket: Active WebSocket connection.
-        data: Message format "stream joint position|url".
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "stream joint position|url".
 
     Returns:
-        None. Sends streaming confirmation or error, then continuous angle updates.
+        None
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
@@ -232,11 +277,11 @@ async def handle_cancel_stream_joint_position(websocket: WebSocket, data: str) -
     """Stop streaming joint angle positions.
 
     Args:
-        websocket: Active WebSocket connection.
-        data: Message format "cancel stream joint position|url".
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "cancel stream joint position|url".
 
     Returns:
-        None. Sends cancellation confirmation or error via websocket.
+        None
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
@@ -252,11 +297,11 @@ async def handle_stream_mode(websocket: WebSocket, data: str) -> None:
     """Start streaming robot operation mode continuously.
 
     Args:
-        websocket: Active WebSocket connection.
-        data: Message format "stream mode|url".
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "stream mode|url".
 
     Returns:
-        None. Sends streaming confirmation or error, then continuous mode updates.
+        None
     """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
@@ -269,7 +314,15 @@ async def handle_stream_mode(websocket: WebSocket, data: str) -> None:
         await websocket.send_text(f"{url}|❌ No OPC UA client found for {url}")
 
 async def handle_cancel_stream_mode(websocket: WebSocket, data: str) -> None:
-    """Stops streaming the operation mode."""
+    """Stop streaming the operation mode.
+
+    Args:
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "cancel stream mode|url".
+
+    Returns:
+        None
+    """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
 
@@ -281,7 +334,14 @@ async def handle_cancel_stream_mode(websocket: WebSocket, data: str) -> None:
         await websocket.send_text(f"{url}|❌ No OPC UA client found for {url}")
 
 async def handle_status(websocket: WebSocket) -> None:
-    """Returns connection status and device information."""
+    """Return connection status and device information.
+
+    Args:
+        websocket (WebSocket): Active WebSocket connection.
+
+    Returns:
+        None
+    """
     all_clients = client_registry.all()
     if not all_clients:
         await websocket.send_text("Global|System Ready")
@@ -302,7 +362,15 @@ async def handle_status(websocket: WebSocket) -> None:
             await websocket.send_text(f"{url}|❌ Status check failed: {str(e)}")
 
 async def handle_disconnect(websocket: WebSocket, data: str) -> None:
-    """Disconnect from the OPC UA server and clean up subscriptions."""
+    """Disconnect from the OPC UA server and clean up subscriptions.
+
+    Args:
+        websocket (WebSocket): Active WebSocket connection.
+        data (str): Message format "disconnect|url".
+
+    Returns:
+        None
+    """
     url = data.split("|", 1)[1].strip()
     client = get_client(url)
 

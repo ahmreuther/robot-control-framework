@@ -36,7 +36,14 @@ MESSAGE_HANDLERS = {
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """Handle websocket connection and dispatch incoming messages."""
+    """Handle websocket connection and dispatch incoming messages.
+
+    Args:
+        websocket: FastAPI WebSocket connection.
+
+    Returns:
+        None
+    """
     await websocket.accept()
     print("WebSocket connected.")
     

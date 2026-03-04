@@ -1,3 +1,5 @@
+"""OPC UA subscription handler for data change and event callbacks."""
+
 import asyncio
 import os
 import json
@@ -31,6 +33,14 @@ class SubHandler:
 
     @staticmethod
     def encode_eu_to_jsonable(unit):
+        """Convert EngineeringUnits or related values into a JSON-safe payload.
+
+        Args:
+            unit: Engineering unit value or plain value.
+
+        Returns:
+            JSON-serializable value.
+        """
         try:
             from asyncua import ua
             if isinstance(unit, ua.EUInformation):
@@ -49,15 +59,29 @@ class SubHandler:
         return str(unit)
     
     def reset(self):
+        """Reset cached values and unit metadata for a new stream cycle."""
         self.latest_values.clear()
         self.last_sent_values = None
         self.unit_type = None
 
     def datachange_notification(self, node, val, data):
+        """asyncua callback: schedule async processing of the data change.
+
+        Args:
+            node (object): UA node that changed.
+            val (object): New value.
+            data (object): UA data change metadata.
+        """
         if self.websocket:
             asyncio.create_task(self._process_datachange(node, val))
 
     async def _process_datachange(self, node, val):
+        """Process data change events and emit websocket messages by mode.
+
+        Args:
+            node (object): UA node that changed.
+            val (object): New value.
+        """
         try:
             if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
                 return
@@ -104,9 +128,19 @@ class SubHandler:
 
 
     def status_change_notification(self, status):
+        """asyncua callback: log status changes.
+
+        Args:
+            status (object): Subscription status change info.
+        """
         print(f"[{self.url}] Status changed: {status}")
 
     def event_notification(self, event):
+        """asyncua callback: serialize event data and send it via websocket.
+
+        Args:
+            event (object): UA event object.
+        """
         try:
             event_dict = {}
             for field in dir(event):
