@@ -393,10 +393,6 @@ async function addRobotByModel(model) {
 
     robotCountValue.textContent = listRobots().length;
 }
-// spawnRobot handled by `services/sceneManager.js`
-
-// disposeRobotNode handled by `services/sceneManager.js`
-
 
 /**
  * Spawn a new robot from the selected template.

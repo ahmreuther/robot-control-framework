@@ -378,10 +378,6 @@ export function updateRobotSpecificUI(robotRecord) {
     if (syncToggle) {
         syncToggle.checked = !!opcua.syncEnabled;
     }
-    // not sure if we even need this
-    /*if (infoToggleBtn) {
-        infoToggleBtn.style.display = connectivity.connectedUrl ? "block" : "none";
-    }*/
 
     // update Joint/TCP values immediately
     updateRevoluteJointStatus(robotRecord);

@@ -140,7 +140,7 @@ function buildEndEffectorMap(robotRecord) {
 
     opcua.endEffectorMap = { byIndex, byName, byParent };
 
-    // Debug-Log im gleichen Stil wie Axis→URDF
+    // Debug-Log
     console.group("Endeffektor → Prismatic Mapping");
     Object.keys(byIndex).forEach(k => {
         const e = byIndex[k];
