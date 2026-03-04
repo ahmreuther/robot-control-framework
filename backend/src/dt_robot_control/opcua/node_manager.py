@@ -23,6 +23,8 @@ class NodeManager:
         self.client = opcua_client.client      # asyncua.Client
 
         self.name = opcua_client.name
+        self.url = opcua_client.url
+
 
     # utilities
     def _norm(self, s: str | None) -> str:
@@ -67,14 +69,14 @@ class NodeManager:
                 visited.add(nid)
 
             except Exception as e:
-                print(f"[{self.name}] ❌ NodeId error: {e}")
+                print(f"[{self.url}] ❌ NodeId error: {e}")
                 continue
 
             yield node
             try:
                 children = await node.get_children()
             except Exception as e:
-                print(f"[{self.name}] ❌ Cannot browse children of {node}: {e}")
+                print(f"[{self.url}] ❌ Cannot browse children of {node}: {e}")
                 continue
 
             for child in children:
@@ -177,7 +179,7 @@ class NodeManager:
                 if bn.NamespaceIndex < len(self.opcua_client.namespaces):
                     uri = self.opcua_client.namespaces[bn.NamespaceIndex]
 
-                print(f"[{self.name}] ✅ Found: {bn_name} (Namespace: {uri})")
+                print(f"[{self.url}] ✅ Found: {bn_name} (Namespace: {uri})")
                 return node
             
         return None
@@ -203,7 +205,7 @@ class NodeManager:
             start_node = await self.client.nodes.root.get_child(start_path)
             return await self._find_by_browse_name(start_node, name)
         except Exception as e:
-            print(f"[{self.name}] ❌ Error in find_child_by_name: {e}")
+            print(f"[{self.url}] ❌ Error in find_child_by_name: {e}")
             return None
     
 
@@ -290,11 +292,11 @@ class NodeManager:
             None
         """
 
-        print(f"[{self.name}] Browsing node: {node}")
+        print(f"[{self.url}] Browsing node: {node}")
         for child in await node.get_children():
             try:
                 display_name = await child.read_display_name()
-                print(f"  Child: {child}, DisplayName: {display_name.Text}")
+                print(f"[{self.url}]  Child: {child}, DisplayName: {display_name.Text}")
             except Exception:
                 continue        
  

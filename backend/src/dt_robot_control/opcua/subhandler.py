@@ -93,7 +93,7 @@ class SubHandler:
 
             if self.mode == "mode":
                 dn = await node.read_display_name()
-                print(f"[Mode-Sub] DataChange: {getattr(dn, 'Text', str(dn))} = {val}")
+                print(f"[{self.url}] Mode-Sub DataChange: {getattr(dn, 'Text', str(dn))} = {val}")
                 await self.websocket.send_text(f"{self.url}|x|Mode:{val}")
                 return
 

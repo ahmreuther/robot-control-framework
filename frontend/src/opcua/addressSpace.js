@@ -117,7 +117,7 @@ export function handleOpcUaNodeSelection(robotRecord, event) {
     ui.selectedNodeId = event.target.dataset.nodeId;
     ui.selectedNodeElement = event.target;
 
-    console.log("Selected Node ID:", ui.selectedNodeId);
+    console.log(`[${robotRecord.id}] Selected Node ID:`, ui.selectedNodeId);
     showNodeProperties(event.target, robotRecord);
 
     if (!connectivity.connectedUrl) return;

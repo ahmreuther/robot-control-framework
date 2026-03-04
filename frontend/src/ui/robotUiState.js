@@ -149,7 +149,7 @@ export function handleManipulateEnd(robotRecord) {
                 }
 
                 const payload = { nodeId, url: connectivity.connectedUrl };
-                console.log("Send end effector after limit reached:", payload);
+                console.log(`[${robotRecord.id}] Send end effector after limit reached:`, payload);
 
                 if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
                     connectivity.socket.send(`call|${JSON.stringify(payload)}`);
@@ -210,7 +210,7 @@ export function handleManipulateEnd(robotRecord) {
         url: connectivity.connectedUrl
     };
 
-    console.log("Send Go To after drag end:", payload);
+    console.log(`[${robotRecord.id}] Send Go To after drag end:`, payload);
     if (connectivity.socket && connectivity.socket.readyState === WebSocket.OPEN) {
         connectivity.socket.send(`call|${JSON.stringify(payload)}`);
     }

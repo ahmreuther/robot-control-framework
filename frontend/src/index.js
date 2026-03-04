@@ -120,7 +120,7 @@ function initGlobalSocket() {
     setGlobalSocket(globalSocket);
 
     globalSocket.onopen = () => {
-        console.log("WebSocket connection established.");
+        console.log("[Global] WebSocket connection established.");
         globalSocket.send("status");
     };
     globalSocket.onmessage = (event) => {
@@ -128,11 +128,11 @@ function initGlobalSocket() {
     }
 
     globalSocket.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        console.error("[Global] WebSocket error:", error);
     };
 
     globalSocket.onclose = () => {
-        console.log("WebSocket connection closed.");
+        console.log("[Global] WebSocket connection closed.");
     };
 }
 initGlobalSocket();
