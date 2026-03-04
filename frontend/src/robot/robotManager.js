@@ -174,6 +174,7 @@ class RobotManager {
                     syncEnabled: false,
                     streamActive: false,
                     lastAngles: null,
+                    lastAnglesUnit: null,
                     lastEEFPositions: null,
                     axisToJointMap: null,
                     endEffectorMap: null,

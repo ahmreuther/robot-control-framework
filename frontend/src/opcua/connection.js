@@ -10,6 +10,43 @@ import { logMessageToBox } from '../ui/logging.js';
 import { updateRevoluteJointStatus, updateRobotLockToggleVisibility } from "../ui/robotUiState.js";
 
 /**
+ * Normalize OPC UA EngineeringUnits payload into a lowercase identifier string.
+ * Accepts legacy string values (e.g. "C81") and structured objects from backend.
+ * @param {string|Object|null|undefined} unit - Unit payload from angles message.
+ * @returns {string}
+ */
+function normalizeUnitToken(unit) {
+    if (unit === null || unit === undefined) return "";
+    if (typeof unit === "string" || typeof unit === "number") {
+        return String(unit).trim().toLowerCase();
+    }
+    if (typeof unit === "object") {
+        const display = String(unit.displayName ?? "").trim().toLowerCase();
+        const description = String(unit.description ?? "").trim().toLowerCase();
+        const unitId = String(unit.unitId ?? "").trim().toLowerCase();
+        const namespaceUri = String(unit.namespaceUri ?? "").trim().toLowerCase();
+        return [display, description, unitId, namespaceUri].join("|");
+    }
+    return "";
+}
+
+/**
+ * Decide whether incoming axis values are radians.
+ * Defaults to radians when unit is missing (legacy behavior).
+ * @param {string|Object|null|undefined} unit - Unit payload from angles message.
+ * @returns {boolean}
+ */
+function isRadiansUnit(unit) {
+    const token = normalizeUnitToken(unit);
+    if (!token) return true;
+
+    return token.includes("c81")
+        || token.includes("rad")
+        || token.includes("radian")
+        || token.includes("4408652");
+}
+
+/**
  * Map OPC UA axes to URDF joints for this robot; cache the mapping.
  * @param {Object} robotRecord - Robot record with OPC UA state.
  * @param {Object} anglesMsg - Parsed angles message.
@@ -423,6 +460,7 @@ function handleProtocolMessage(robotRecord, data) {
             return;
         }
         opcua.lastAngles = anglesMsg.angles;
+        opcua.lastAnglesUnit = anglesMsg.unit;
 
         if (interaction.isManipulating) {
 
@@ -438,7 +476,7 @@ function handleProtocolMessage(robotRecord, data) {
         try {
             buildAxisToJointMap(robotRecord, anglesMsg);
             console.log(buildAxisToJointMap(robotRecord, anglesMsg));
-            const unit = anglesMsg.unit;
+            const valuesAreRadians = isRadiansUnit(anglesMsg.unit);
             const jointValuesRad = {};
 
             for (const axisName in anglesMsg.angles) {
@@ -446,11 +484,10 @@ function handleProtocolMessage(robotRecord, data) {
                 if (!jointName) continue;
 
                 let value = Number(anglesMsg.angles[axisName]) || 0;
-                if (unit && unit !== "C81") {
+                if (!valuesAreRadians) {
                     // OPC delivers degree → convert to radiant
                     value = value * Math.PI / 180;
                 }
-                // Radiant (C81 or null) → use directly
                 jointValuesRad[jointName] = value;
             }
 
@@ -542,6 +579,7 @@ function handleStatusMessage(robotRecord, data, originUrl) {
         opcua.syncEnabled = false;
         opcua.streamActive = false;
         opcua.lastAngles = null;
+        opcua.lastAnglesUnit = null;
         opcua.lastEEFPositions = null;
         opcua.axisToJointMap = null;
         opcua.endEffectorMap = null;
@@ -637,10 +675,11 @@ export function handleOpcUaSyncToggle(robotRecord, event) {
                 return;
             }
 
+            const valuesAreRadians = isRadiansUnit(opcua.lastAnglesUnit);
             const jointValuesRad = {};
             for (const axisName in lastAngles) {
-                const deg = Number(lastAngles[axisName]) || 0;
-                const rad = deg * Math.PI / 180;
+                const value = Number(lastAngles[axisName]) || 0;
+                const rad = valuesAreRadians ? value : (value * Math.PI / 180);
 
                 const jointName = opcua.axisToJointMap[axisName];
                 if (jointName) {
