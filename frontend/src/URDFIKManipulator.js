@@ -495,7 +495,8 @@ export default class URDFIKManipulator extends URDFManipulator {
         if (this.ignoreKeys) return;
         
         if (!this.transformControls) return;
-        switch (key) {
+        const normalizedKey = typeof key === 'string' ? key.toLowerCase() : key;
+        switch (normalizedKey) {
             case 'w':
                 this.transformControls.setMode('translate');
                 break;
