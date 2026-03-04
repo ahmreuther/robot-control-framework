@@ -84,6 +84,7 @@ const deleteRobotBtn = document.getElementById('delete-robot-btn');
 const robotCountValue = document.getElementById('robot-count-value');
 
 let originalNoAutoRecenter = null;
+let lastFocusedRobotId = null;
 
 let globalSocket = null;
 
@@ -165,13 +166,82 @@ function addRobotOption(id, name) {
     opt.textContent = `${name} (${id})`;
     activeRobotSelect.appendChild(opt);
 }
+
+function focusCameraOnActiveRobot(padding = 1.35) {
+    const record = getActiveRobot();
+    if (!record || !record.sceneNode || !viewer || !viewer.camera || !viewer.controls) return;
+
+    const rig = record.sceneNode;
+    const box = new THREE.Box3().setFromObject(rig);
+    if (box.isEmpty()) return;
+
+    const center = new THREE.Vector3();
+    const sphere = new THREE.Sphere();
+    box.getCenter(center);
+    box.getBoundingSphere(sphere);
+
+    const fov = viewer.camera.fov * (Math.PI / 180);
+    const fitDistance = (sphere.radius / Math.sin(fov / 2)) * padding;
+
+    const startPos = viewer.camera.position.clone();
+    const startTarget = viewer.controls.target.clone();
+
+    const viewOffset = startPos.clone().sub(startTarget);
+    const viewDir = viewOffset.clone().normalize();
+    const currentDistance = viewOffset.length();
+    const targetDistance = Math.max(currentDistance, fitDistance);
+
+    const cameraPosition = center.clone().add(viewDir.multiplyScalar(targetDistance));
+
+    const duration = 350;
+    const startTime = performance.now();
+
+    function animate() {
+        const elapsed = performance.now() - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+        viewer.camera.position.lerpVectors(startPos, cameraPosition, eased);
+        viewer.controls.target.lerpVectors(startTarget, center, eased);
+        viewer.controls.update();
+
+        if (t < 1) {
+            requestAnimationFrame(animate);
+        }
+
+        if (viewer.redraw) viewer.redraw();
+    }
+
+    animate();
+}
+
+function focusActiveRobotIfChanged() {
+    const record = getActiveRobot();
+    const id = record?.id;
+    if (!id || id === lastFocusedRobotId) return;
+    focusCameraOnActiveRobot();
+    lastFocusedRobotId = id;
+}
+
 // Switch active robot and refresh UI.
-function switchRobot(robotId){
+function switchRobot(robotId) {
+    const prev = getActiveRobot();
+    const prevId = prev?.id || null;
     setActiveRobot(robotId);
     const record = getActiveRobot();
-    activeRobotSelect.value = robotId; 
-    ControlCenterSliders(); 
+    activeRobotSelect.value = robotId;
+    ControlCenterSliders();
     updateRobotSpecificUI(record);
+
+    if (prevId !== robotId) {
+        listRobots().forEach(r => {
+            r.manipulator?.setActiveState?.(r.id === robotId);
+        });
+    }
+
+    if (!robotId) {
+        lastFocusedRobotId = null;
+    }
 }
 
 // Build a robot in the next free slot.
@@ -224,6 +294,7 @@ async function addRobotByModel(model) {
     // Focus the robot when a joint is grabbed.
     manipulator.addEventListener('manipulate-start', (e) => {
         switchRobot(record.id);
+        focusActiveRobotIfChanged();
         
         const j = document.querySelector(`li[joint-name="${e.detail}"]`);
         if (j) {
@@ -260,6 +331,7 @@ async function addRobotByModel(model) {
     });
     addRobotOption(record.id, model.name);
     switchRobot(record.id);
+    focusActiveRobotIfChanged();
 
     robotCountValue.textContent = listRobots().length;
 }
@@ -311,6 +383,7 @@ deleteRobotBtn.addEventListener('click', async () => {
     // Select another robot if available.
     if (activeRobotSelect.options.length > 0) {
         switchRobot(activeRobotSelect.options[0].value);
+        focusActiveRobotIfChanged();
     } else {
         switchRobot(null);
     }
@@ -321,6 +394,7 @@ deleteRobotBtn.addEventListener('click', async () => {
 // Switching the dropdown just changes focus.
 activeRobotSelect.addEventListener('change', () => {
     switchRobot(activeRobotSelect.value);
+    focusActiveRobotIfChanged();
 });
 
 // Global helpers
