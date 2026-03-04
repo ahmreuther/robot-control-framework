@@ -478,6 +478,28 @@ export default class URDFIKManipulator extends URDFManipulator {
         }
 
     }
+
+    setActiveState(isActive) {
+        if (!this.transformControls) return;
+
+        if (this.controls) {
+            this.controls.enabled = true;
+        }
+
+        if (isActive) {
+            if (!this.transformControls.object && this.targetObject) {
+                this.transformControls.attach(this.targetObject);
+                this.scene.add(this.transformControls.getHelper());
+            }
+            this._disableDragControls();
+        } else {
+            if (this.transformControls.object) {
+                this.transformControls.detach();
+                this.scene.remove(this.transformControls.getHelper());
+            }
+            this._enableDragControls();
+        }
+    }
     remove() {
         // Dispose per-robot controls and gizmo so rigs can be removed without leaking DOM/Three objects.
         this._disableDragControls();
