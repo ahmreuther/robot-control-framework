@@ -41,7 +41,7 @@ export function MessageLog() {
   const [filter, setFilter] = useState('');
 
   function addManual() {
-    appendLog(`new log line ${new Date().toLocaleTimeString()}\n`);
+    appendLog(`${new Date().toLocaleTimeString()}\n`);
   }
 
   function clearLog() {
@@ -64,7 +64,7 @@ export function MessageLog() {
         <div className="panel-title">Message Log</div>
         <div className="flex items-center gap-2">
           <button onClick={addManual} className="button-ghost ">
-            Test Log
+            Add timestamp
           </button>
           <button onClick={clearLog} className="button-ghost ">
             Clear
