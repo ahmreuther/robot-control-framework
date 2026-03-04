@@ -27,6 +27,7 @@ def mock_opcua_client():
     client.client = MagicMock()  # asyncua.Client
     client.client.create_subscription = AsyncMock()
     client.client.get_node = MagicMock()
+    client.url = "opc.tcp://test"  # used for URL-prefixed websocket messages
     return client
 
 
@@ -125,15 +126,31 @@ async def test_subscribe_axes_no_device_set(subscription_manager):
 
 
 @pytest.mark.asyncio
-async def test_subscribe_axes_no_axes_node(subscription_manager):
-    """Test axes subscription when Axes node is not found."""
+@pytest.mark.parametrize(
+    "axes_node,descendant_side_effect,expected_axes",
+    [
+        (None, None, 0),
+        (FakeNode("ns=2;i=2", "Axes", children=[FakeNode("ns=2;i=3", "Other")]), [None, None], 0),
+        (FakeNode("ns=2;i=2", "Axes", children=[FakeNode("ns=2;i=3", "Axis1")]), [None, None], 0),
+        (FakeNode("ns=2;i=2", "Axes", children=[FakeNode("ns=2;i=3", "Axis1")]), [FakeNode("ns=2;i=4", "ParameterSet"), None], 0),
+        (FakeNode("ns=2;i=2", "Axes", children=[FakeNode("ns=2;i=3", "Axis1")]), [RuntimeError("boom")], 0),
+    ],
+)
+async def test_subscribe_axes_edge_cases(subscription_manager, axes_node, descendant_side_effect, expected_axes):
     device_set = FakeNode("ns=2;i=1", "DeviceSet")
     subscription_manager.node_manager.find_child_by_name = AsyncMock(return_value=device_set)
-    subscription_manager.node_manager.find_descendant_by_name = AsyncMock(return_value=None)
-    
+
+    if axes_node is None:
+        subscription_manager.node_manager.find_descendant_by_name = AsyncMock(return_value=None)
+    else:
+        side_effect = [axes_node]
+        if descendant_side_effect:
+            side_effect.extend(descendant_side_effect)
+        subscription_manager.node_manager.find_descendant_by_name = AsyncMock(side_effect=side_effect)
+
     await subscription_manager.subscribe_axes_actual_positions()
-    
     assert subscription_manager.subscription is None
+    assert subscription_manager.expected_axes_count == expected_axes
 
 
 @pytest.mark.asyncio
@@ -210,6 +227,18 @@ async def test_subscribe_mode_no_robot_state(subscription_manager):
 
 
 @pytest.mark.asyncio
+async def test_subscribe_mode_error(subscription_manager, mock_opcua_client):
+    device_set = FakeNode("ns=2;i=1", "DeviceSet")
+    robot_state = FakeNode("ns=2;i=100", "RobotState")
+    subscription_manager.node_manager.find_child_by_name = AsyncMock(return_value=device_set)
+    subscription_manager.node_manager.find_descendant_by_name = AsyncMock(return_value=robot_state)
+    mock_opcua_client.client.create_subscription = AsyncMock(side_effect=Exception("fail"))
+
+    await subscription_manager.subscribe_mode()
+    assert subscription_manager.mode_subscription is None
+
+
+@pytest.mark.asyncio
 async def test_stop_mode_subscription(subscription_manager):
     """Test stopping mode subscription."""
     mock_subscription = MagicMock()
@@ -225,6 +254,19 @@ async def test_stop_mode_subscription(subscription_manager):
     assert subscription_manager.mode_subscription is None
     assert subscription_manager.mode_node is None
     subscription_manager.mode_sub_handler.reset.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_stop_mode_subscription_error(subscription_manager):
+    mock_subscription = MagicMock()
+    mock_subscription.delete = AsyncMock(side_effect=Exception("fail"))
+    subscription_manager.mode_subscription = mock_subscription
+    subscription_manager.mode_node = "some_node"
+
+    await subscription_manager.stop_mode_subscription()
+
+    assert subscription_manager.mode_subscription is None
+    assert subscription_manager.mode_node is None
 
 
 # --- Custom Subscription Tests ---
@@ -360,3 +402,11 @@ async def test_unsubscribe_events_with_error(subscription_manager):
     result = await subscription_manager.unsubscribe_events()
     
     assert result is False
+
+
+@pytest.mark.asyncio
+async def test_unsubscribe_events_no_handle(subscription_manager):
+    subscription_manager.event_subscription = MagicMock()
+    subscription_manager.event_handle = None
+    res = await subscription_manager.unsubscribe_events()
+    assert res is False

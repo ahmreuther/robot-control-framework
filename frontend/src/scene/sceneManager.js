@@ -1,7 +1,13 @@
 import URDFLoader from 'urdf-loader/src/URDFLoader.js';
 import {Group} from 'three';
 
-//needed to render the robot correctly when adding it
+/*
+Loads each URDF into its own rig so multiple robots fit in one scene.
+The rig holds the slot offset; the robot stays at origin so IK/FK math stays stable and manipulators can park gizmos on the rig (their baseGroup) without double-transforming.
+We render a few frames after adding a rig so controls and materials settle before use.
+*/
+
+// Render a few frames so new rigs settle before interaction.
 const renderForAFewFrames = (viewer, frames = 6) => new Promise(resolve => {
   let count = 0;
   const tick = () => {
@@ -17,6 +23,7 @@ const renderForAFewFrames = (viewer, frames = 6) => new Promise(resolve => {
   requestAnimationFrame(tick);
 });
 
+// Load a URDF, put it in a slot rig, and add it to the scene for multi-robot layouts.
 export async function spawnRobot(viewer, { urdfPath, offsetX = 1.5, slotIndex = null, getNextSlotIndex = null } = {}) {
   if (!urdfPath || !viewer) return null;
 
@@ -30,16 +37,16 @@ export async function spawnRobot(viewer, { urdfPath, offsetX = 1.5, slotIndex = 
 
   const slot = Number.isFinite(slotIndex) ? slotIndex : (typeof getNextSlotIndex === 'function' ? getNextSlotIndex() : 0);
 
-  // create a *rig* (the robot's local coordinate system)
+  // Create a rig that carries the offset for this robot.
   const rig = new Group();
-  rig.name = `rig_${robot.name || 'robot'}_${slot}`;    // TODO wth are these ` <---
-  rig.position.x = offsetX * slot;
+  rig.name = `rig_${robot.name || 'robot'}_${slot}`;    // Name carries slot info to debug multi-robot layouts.
+  rig.position.x = offsetX * slot;                      // Offset per slot keeps robots from overlapping.
 
-  // robot stays at local origin inside the rig
-  robot.position.set(0, 0, 0);                          // This might not work
+  // Keep robot at local origin; rig owns the world offset.
+  robot.position.set(0, 0, 0);
   robot.quaternion.identity();
   
-  // Needed to render robot correctly
+  // Disable culling so no links disappear when off-screen.
   robot.traverse(node => {
     if (node && node.isObject3D) node.frustumCulled = false;
   });
@@ -47,17 +54,18 @@ export async function spawnRobot(viewer, { urdfPath, offsetX = 1.5, slotIndex = 
   rig.add(robot);
   rig.updateMatrixWorld(true);
 
-  // Add rig to scene (NOT robot)
+  // Add the rig (not the raw robot) to the scene.
   viewer.world.add(rig);
   viewer.world.updateMatrixWorld(true);
 
   await renderForAFewFrames(viewer);
   if (typeof viewer.redraw === 'function') viewer.redraw();
 
-  // Return both so callers can store rig, but still access robot for IK
+  // Return rig and robot so callers can keep both references.
   return {rig, robot};
 }
 
+// Dispose geometries/materials for a removed rig to avoid GPU leaks.
 export function disposeRobotNode(node) {
   if (!node) return;
   node.traverse(child => {

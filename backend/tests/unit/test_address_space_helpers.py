@@ -201,6 +201,70 @@ async def test_read_all_attributes_without_datatype():
     pass
 
 
+@pytest.mark.asyncio
+async def test_collect_node_details_children_only_and_depth():
+    child = FakeNode("ns=2;i=2", children=[])
+    root = FakeNode("ns=2;i=1", children=[child])
+    res_children_only = await collect_node_details(root, children_only=True)
+    assert isinstance(res_children_only, list)
+    assert res_children_only[0]['Name'] == child._display_name
+    assert res_children_only[0]['HasChildren'] is False
+
+    res_with_depth = await collect_node_details(root, children_depth=1)
+    assert res_with_depth['Children'] is not None
+    assert isinstance(res_with_depth['Children'][0], dict)
+
+    res_no_children = await collect_node_details(root, children_depth=0)
+    assert res_no_children['Children'] is None
+
+
+@pytest.mark.asyncio
+async def test_collect_node_details_input_arguments_error():
+    class BadInputNode(FakeNode):
+        async def read_value(self):
+            raise Exception("bad")
+
+    node = BadInputNode("ns=2;i=10", display_name="InputArguments")
+    res = await collect_node_details(node, children_depth=0)
+    assert res["Name"] == "InputArguments"
+
+
+@pytest.mark.asyncio
+async def test_collect_node_details_children_only_error():
+    class BadChild(FakeNode):
+        async def read_attributes(self, attr_ids):
+            raise Exception("boom")
+
+    bad = BadChild("ns=2;i=3", display_name="BadChild")
+    root = FakeNode("ns=2;i=1", children=[bad])
+    res = await collect_node_details(root, children_only=True)
+    assert res == []
+
+
+@pytest.mark.asyncio
+async def test_collect_node_details_children_depth_error():
+    class BadChild(FakeNode):
+        async def read_attributes(self, attr_ids):
+            raise Exception("boom")
+
+    bad = BadChild("ns=2;i=3", display_name="BadChild")
+    root = FakeNode("ns=2;i=1", children=[bad])
+    res = await collect_node_details(root, children_depth=1)
+    assert res["Children"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("children_only,depth", [(True, 0), (False, 1)])
+async def test_collect_node_details_param(children_only, depth):
+    child = FakeNode("ns=2;i=2", children=[])
+    root = FakeNode("ns=2;i=1", children=[child])
+    res = await collect_node_details(root, children_only=children_only, children_depth=depth)
+    if children_only:
+        assert isinstance(res, list)
+    else:
+        assert res['Children'] is not None
+
+
 # --- Tests for collect_node_details ---
 
 @pytest.mark.asyncio

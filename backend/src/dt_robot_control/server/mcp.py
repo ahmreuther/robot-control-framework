@@ -1,3 +1,9 @@
+"""
+Thin MCP server that exposes robot state (TCP pose, rotation, joints) and forwards MCP tool calls to
+connected browser clients via WebSocket. The browser is the source of truth; this layer just relays
+latest values and pushes commands back to every connected viewer.
+"""
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastmcp import FastMCP, Context
 from typing import List
@@ -7,6 +13,7 @@ mcp = FastMCP("Robotics MCP Server")
 
 router = APIRouter()
 
+# Latest values received from the browser stream; kept simple for now.
 angles = []
 tool_center_point = []
 tool_center_point_rot = []
@@ -18,6 +25,7 @@ websockets = set()
 # --- WebSocket server ---
 @router.websocket("/ws_mcp")
 async def websocket_endpoint(websocket: WebSocket):
+    """Accepts browser telemetry (TCP pose/quaternion, joint angles) and stores latest values."""
     await websocket.accept()
     websockets.add(websocket)
     try:
@@ -62,6 +70,14 @@ async def websocket_endpoint(websocket: WebSocket):
     description="Get the current tcp position of the roboter tool center point based on the fixed coordinate system",
 )
 def get_tcp(ctx: Context) -> str:
+    """Return the latest TCP position as a formatted string.
+
+    Args:
+        ctx: MCP context object.
+
+    Returns:
+        Formatted TCP position string.
+    """
     print(tool_center_point)
     return f"X={tool_center_point[0]}m, Y={tool_center_point[1]}m, Z={tool_center_point[2]}m"
 
@@ -71,6 +87,11 @@ def get_tcp(ctx: Context) -> str:
     description="Get the current tcp rotation of the roboter tool center point in quarternions",
 )
 def get_tcp_rotation() -> str:
+    """Return the latest TCP rotation quaternion as a formatted string.
+
+    Returns:
+        Formatted TCP rotation string.
+    """
     print(tool_center_point_rot)
     return f"{tool_center_point_rot[0]}, {tool_center_point_rot[1]}, {tool_center_point_rot[2]}, {tool_center_point_rot[3]}"
 
@@ -79,6 +100,11 @@ def get_tcp_rotation() -> str:
     name="get joint angles", description="Returns the current joint angles of the robot"
 )
 def get_joint_angles() -> str:
+    """Return the latest joint angles as a formatted string.
+
+    Returns:
+        Formatted joint angles string.
+    """
     angles_str = ""
     for i, a in enumerate(angles):
         angles_str += f"Joint {i + 1}={a}"
@@ -89,6 +115,15 @@ def get_joint_angles() -> str:
     name="set joint angles", description="Sets the current joint angles of the robot"
 )
 async def set_joint_angles(joint_angles: List, ctx: Context) -> str:
+    """Broadcast joint angles to all connected MCP sockets.
+
+    Args:
+        joint_angles: Iterable of joint angle values.
+        ctx: MCP context object.
+
+    Returns:
+        Status string.
+    """
     socket: WebSocket
     # print("STATE")
     # print(ctx.get_http_request().app.state.mcp_sockets)
@@ -108,6 +143,17 @@ async def set_joint_angles(joint_angles: List, ctx: Context) -> str:
     description="Sets the tcp position to the parameters based on the fixed coordinate system",
 )
 async def set_tcp_pos(x, y, z, ctx: Context) -> str:
+    """Broadcast a TCP position to all connected MCP sockets.
+
+    Args:
+        x: X coordinate.
+        y: Y coordinate.
+        z: Z coordinate.
+        ctx: MCP context object.
+
+    Returns:
+        Status string.
+    """
     print(x, y, z)
     for socket in websockets:
         print(f"TCP_POS|{x},{y},{z}")

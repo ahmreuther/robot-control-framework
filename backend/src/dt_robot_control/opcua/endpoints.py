@@ -18,13 +18,28 @@ templates = Jinja2Templates(directory="templates")
 
 
 def get_client(url: str) -> OPCUAClient | None:
-    """Get a client for the given URL or None."""
+    """Get a client for the given URL or None.
+
+    Args:
+        url (str): OPC UA server URL.
+
+    Returns:
+        OPCUAClient | None: Client instance or None if not registered.
+    """
     return client_registry.get(url)
 
 
 @router.get("/device_set_rendered")
 async def get_device_set(request: Request, url: str = Query(...)):
-    """Shows the complete DeviceSet tree."""
+    """Show the complete DeviceSet tree.
+
+    Args:
+        request (Request): FastAPI request object.
+        url (str): OPC UA server URL.
+
+    Returns:
+        TemplateResponse: Rendered device set page.
+    """
     client = get_client(url)
     if not client:
         return templates.TemplateResponse(
@@ -45,7 +60,16 @@ async def get_device_set(request: Request, url: str = Query(...)):
 
 @router.get("/subtree_children")
 async def subtree_children(request: Request, url: str = Query(...), nodeid: str = Query(...)):
-    """Shows the children of a node."""
+    """Show the children of a node.
+
+    Args:
+        request (Request): FastAPI request object.
+        url (str): OPC UA server URL.
+        nodeid (str): NodeId string.
+
+    Returns:
+        TemplateResponse: Rendered children fragment.
+    """
     client = get_client(url)
     if not client:
         return "No OPC UA client connected"
@@ -56,7 +80,16 @@ async def subtree_children(request: Request, url: str = Query(...), nodeid: str 
 
 @router.get("/node_rendered")
 async def node_rendered(request: Request, url: str = Query(...), nodeid: str = Query(...)):
-    """Shows details of a single node."""
+    """Show details of a single node.
+
+    Args:
+        request (Request): FastAPI request object.
+        url (str): OPC UA server URL.
+        nodeid (str): NodeId string.
+
+    Returns:
+        TemplateResponse: Rendered node fragment.
+    """
     client = get_client(url)
     if not client:
         return "No OPC UA client for this URL"
@@ -67,7 +100,15 @@ async def node_rendered(request: Request, url: str = Query(...), nodeid: str = Q
 
 @router.get("/references")
 async def get_references(url: str = Query(...), nodeid: str = Query(...)):
-    """Shows references of a node."""
+    """Show references of a node.
+
+    Args:
+        url (str): OPC UA server URL.
+        nodeid (str): NodeId string.
+
+    Returns:
+        list | dict: List of reference dicts or error payload.
+    """
     client = get_client(url)
     if not client:
         return {"error": f"No OPC UA client connected for {url}"}

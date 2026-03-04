@@ -31,6 +31,50 @@ flowchart TD
     A[Frontend: Web UI, IK/FK] <-->|HTTP/WebSocket| C[Backend: Python, OPC UA Client]
 ```
 
+### Architecture goals
+- **Multi‑robot in one scene** without duplicated sockets or conflicting UI state.
+- **Stable IK/FK math** regardless of world offsets (slot placement).
+- **Single source of truth** for robot state (per‑robot records in the frontend, per‑URL clients in the backend).
+- **Clear separation of concerns** between transport, OPC UA logic, and UI/UX.
+
+### Frontend Interfaces (multi-robot)
+- `frontend/src/robot/robotManager.js`: Registry for all robots. Keeps per-robot state (connectivity, UI, OPC UA info), hands out the active robot, assigns slot indices so rigs do not overlap, and shares one OPC UA socket instead of reconnecting per robot.
+- `frontend/src/scene/sceneManager.js`: Loads a URDF into a rig and offsets it by slot. The rig carries the world transform so the robot itself can stay at origin for IK/FK stability; `disposeRobotNode` frees GPU resources when a robot is removed.
+- `frontend/src/URDFIKManipulator.js`: Per-robot IK/FK controller. Gizmo/target live on the rig so slot offsets don’t break IK; drag controls are rebuilt per robot to scope raycasting/highlighting. Emits `angle-change`, `manipulate-start/end`; press `t` to toggle IK gizmo vs FK joint dragging.
+- `frontend/src/opcua/connection.js` (plus `addressSpace.js`, `contextMenu.js`): Uses one shared backend WebSocket and demuxes messages by URL to the right robot. Maintains per-robot axis→joint maps, sync toggles, subscriptions, and status UI only for the active robot.
+- `frontend/src/ui/*`: UI helpers (layout, logging, robot UI state) that read/write the per-robot state exposed by `robotManager`.
+
+**Rig + baseGroup:** Each robot is loaded into its own rig (`THREE.Group`) that carries the slot/world offset. The robot stays at local origin so IK/FK math remains stable. Manipulators attach their gizmo to that rig via `baseGroup` so the offset is applied once, not twice. Removing a robot also removes its rig and frees GPU resources.
+
+### Frontend data flow (high level)
+1. **Add robot** → `robotManager` creates a record → `sceneManager` spawns a rig → `URDFIKManipulator` binds to the robot.
+2. **User interaction** → IK gizmo or FK dragging updates joints → `angle-change` events update sliders and MCP stream.
+3. **OPC UA sync** (optional) → backend streams joint/mode updates → frontend demuxes by URL and updates the active robot UI.
+
+### Frontend design decisions
+- **Single viewer instance**: reduces GPU overhead and keeps controls consistent; per‑robot manipulators reuse scene resources.
+- **Per‑robot drag controls**: raycasting is scoped to the active robot to prevent cross‑robot selection.
+- **Active robot focus**: only the focused robot has IK gizmos enabled; inactive robots stay in FK mode.
+
+### Backend Service (FastAPI + OPC UA)
+- `backend/main.py`: FastAPI entrypoint that wires OPC UA routes, the WebSocket router, and the MCP sub-app into one server with a shared lifespan and CORS restricted to `http://localhost:1234`.
+- `backend/src/dt_robot_control/opcua/opcua_client.py`: Wrapper around `asyncua.Client` (connect/disconnect, robotics helpers, dynamic method calls, optional WebSocket pushes to the frontend).
+- `backend/src/dt_robot_control/opcua/subscription_manager.py`: Discovers axes/mode/custom nodes and manages data/event subscriptions.
+- `backend/src/dt_robot_control/opcua/node_manager.py`: Browsing/search utilities (BFS, DisplayName/BrowseName matching) used by the client and subscription handlers.
+- `backend/src/dt_robot_control/opcua/endpoints.py`: REST endpoints to list/browse OPC UA nodes.
+- `backend/src/dt_robot_control/websocket/`: WebSocket endpoints consumed by the frontend for OPC UA messaging and slot routing.
+- `backend/src/dt_robot_control/server/mcp.py`: MCP tool server and WebSocket bridge; mirrors TCP pose/quaternion/joints from the browser and relays MCP tool commands back.
+
+### Backend data flow (high level)
+1. **Connect request** → `websocket/router.py` → `handlers.py` → `OPCUAClient.connect()`.
+2. **Subscriptions** → `SubscriptionManager` discovers nodes → `SubHandler` streams `x|angles`, `x|Mode`, `x|event` payloads.
+3. **REST rendering** → `endpoints.py` + `address_space_helpers.py` produce HTML fragments for the address space UI.
+
+### Backend design decisions
+- **One shared WebSocket**: frontend sends `url|...` prefixed messages so multiple robots multiplex over a single socket.
+- **Client registry**: `ClientRegistry` is the single source of truth for URL→client mapping.
+- **Modular OPC UA logic**: traversal (`NodeManager`), subscriptions (`SubscriptionManager`), and transport are decoupled.
+
 ---
 ## Prerequisites
 For development, you will need:

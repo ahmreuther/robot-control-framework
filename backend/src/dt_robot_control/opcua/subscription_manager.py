@@ -1,11 +1,24 @@
+"""Subscription manager for OPC UA streams and custom subscriptions."""
+
 from fastapi import WebSocket
 from dt_robot_control.opcua.subhandler import SubHandler
 from dt_robot_control.opcua.node_manager import NodeManager
 
 class SubscriptionManager:
-    """Manages OPC UA subscriptions for the client."""
+    """Manages OPC UA subscriptions for the client.
+
+    Split out from the earlier OPC UA WebSocket handler so streaming (axes, mode, events) is
+    isolated from transport code and can be reused/tested independently.
+    """
 
     def __init__(self, opcua_client, name: str = "Client", websocket: WebSocket = None):
+        """Initialize the subscription manager.
+
+        Args:
+            opcua_client: OPCUAClient wrapper instance.
+            name (str): Friendly client name.
+            websocket (WebSocket | None): Optional websocket to stream updates to.
+        """
 
         self.opcua_client = opcua_client
         self.client = opcua_client.client   # asyncua.Client
@@ -29,7 +42,11 @@ class SubscriptionManager:
         self.event_handle = None
 
     async def subscribe_axes_actual_positions(self):
-        """Search for all axes under DeviceSet → Axes and subscribe to their ActualPosition (robust)."""
+        """Search for all axes under DeviceSet → Axes and subscribe to ActualPosition values.
+
+        Returns:
+            None
+        """
         device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
         if not device_set:
             print(f"[{self.name}] ⚠️ No ‘DeviceSet’ node found.")
@@ -61,9 +78,9 @@ class SubscriptionManager:
                 if actual_pos:
                     actual_position_nodes.append(actual_pos)
                 else:
-                    print(f"[{self.name}] ⚠️ No ActualPosition unter {axis}")
+                    print(f"[{self.name}] ⚠️ No ActualPosition under {axis}")
             except Exception as e:
-                print(f"[{self.name}] ⚠️ Fehler bei {axis}: {e}")
+                print(f"[{self.name}] ⚠️ Error for {axis}: {e}")
 
         if not actual_position_nodes:
             print(f"[{self.name}] ⚠️ No ActualPosition-Nodes found.")
@@ -80,7 +97,11 @@ class SubscriptionManager:
 
 
     async def stop_axes_subscription(self):
-        """Ends the axis position subscription."""
+        """End the axis position subscription.
+
+        Returns:
+            None
+        """
         if self.subscription:
             try:
                 await self.subscription.delete()
@@ -91,6 +112,11 @@ class SubscriptionManager:
         self.sub_handler.reset()
 
     async def subscribe_mode(self):
+        """Subscribe to the RobotState mode node and stream updates.
+
+        Returns:
+            None
+        """
         try:
             device_set = await self.node_manager.find_child_by_name(["0:Objects"], "DeviceSet")
             if not device_set:
@@ -116,7 +142,11 @@ class SubscriptionManager:
 
 
     async def stop_mode_subscription(self):
-        """Explicitly terminates the mode subscription."""
+        """Explicitly terminate the mode subscription.
+
+        Returns:
+            None
+        """
         try:
             if self.mode_subscription:
                 await self.mode_subscription.delete()
@@ -131,6 +161,13 @@ class SubscriptionManager:
     async def subscribe_custom(self, node_id, websocket):
         """
         Creates a subscription to any NodeId.
+
+        Args:
+            node_id (str): NodeId string.
+            websocket (WebSocket): WebSocket to send updates to.
+
+        Returns:
+            object: Created subscription instance.
         """
         node = self.client.get_node(node_id)
         handler = SubHandler(self.name, self.url, websocket, mode="custom", node_manager = self.node_manager)
@@ -142,6 +179,12 @@ class SubscriptionManager:
     async def unsubscribe_custom(self, node_id: str):
         """
         Removes (deletes) a custom subscription for a specific NodeId.
+
+        Args:
+            node_id (str): NodeId string.
+
+        Returns:
+            bool: True if removed, False otherwise.
         """
         try:
             if node_id in self.custom_subscriptions:
@@ -161,6 +204,12 @@ class SubscriptionManager:
     async def subscribe_events_on_node(self, node_id: str):
         """
         Subscribe to events on a specific node.
+
+        Args:
+            node_id (str): NodeId string.
+
+        Returns:
+            bool: True if subscription was created, else False.
         """
         try:
             node = self.client.get_node(node_id)
@@ -178,6 +227,11 @@ class SubscriptionManager:
             return False
 
     async def unsubscribe_events(self):
+        """Unsubscribe from the active events subscription, if any.
+
+        Returns:
+            bool: True if removed, False otherwise.
+        """
         try:
             if self.event_subscription and self.event_handle:
                 await self.event_subscription.unsubscribe(self.event_handle)

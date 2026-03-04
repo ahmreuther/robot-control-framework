@@ -24,8 +24,8 @@ class ClientRegistry:
         """Add a client to the registry.
         
         Args:
-            url: The OPC UA server URL (used as key).
-            client: The OPCUAClient instance.
+            url (str): OPC UA server URL (used as key).
+            client (OPCUAClient): OPCUAClient instance.
         """
         self._clients[url] = client
     
@@ -33,10 +33,10 @@ class ClientRegistry:
         """Get a client by URL.
         
         Args:
-            url: The OPC UA server URL.
+            url (str): OPC UA server URL.
             
         Returns:
-            The OPCUAClient instance or None if not found.
+            OPCUAClient | None: Client instance or None if not found.
         """
         return self._clients.get(url)
     
@@ -44,10 +44,10 @@ class ClientRegistry:
         """Remove a client from the registry.
         
         Args:
-            url: The OPC UA server URL.
+            url (str): OPC UA server URL.
             
         Returns:
-            True if client was removed, False if not found.
+            bool: True if client was removed, False if not found.
         """
         if url in self._clients:
             del self._clients[url]
@@ -58,10 +58,10 @@ class ClientRegistry:
         """Check if a client exists in the registry.
         
         Args:
-            url: The OPC UA server URL.
+            url (str): OPC UA server URL.
             
         Returns:
-            True if client exists, False otherwise.
+            bool: True if client exists, False otherwise.
         """
         return url in self._clients
     
@@ -69,7 +69,7 @@ class ClientRegistry:
         """Get all registered clients.
         
         Returns:
-            Dictionary of all clients (url -> client).
+            Dict[str, OPCUAClient]: Dictionary of all clients.
         """
         return self._clients.copy()
     

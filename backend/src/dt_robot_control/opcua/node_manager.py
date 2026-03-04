@@ -5,6 +5,9 @@ from asyncua import ua
 class NodeManager:
     """
     Provides utilities for browsing and searching nodes in an OPC UA address space.
+
+    Extracted from the older GetAddressSpace helpers so traversal/search is decoupled from
+    transports and can be reused by both REST rendering and WebSocket streaming.
     """
 
     def __init__(self, opcua_client):
@@ -50,10 +53,7 @@ class NodeManager:
             start_node: The node from which the BFS traversal begins.
 
         Yields:
-            Nodes in BFS order starting from start_node. They are yielded one by one as they are discovered.
-        
-        Raises:
-            Exception: If a node properties or the children can't be read, then the error is logged, the node skipped and we continue the traversal.
+            object: Nodes in BFS order starting from start_node.
         """
         queue = deque([start_node])
         visited = set()
@@ -134,7 +134,7 @@ class NodeManager:
             target_name (str): The name to search for. It is case-insensitive.
 
         Returns:
-            The first matching descendant node if found, else None.
+            object | None: The first matching descendant node if found, else None.
         """
 
         target = self._norm(target_name)
@@ -161,7 +161,7 @@ class NodeManager:
             target_name (str): The name to search for. It is case-insensitive.
 
         Returns:
-            The first matching node if found, else None.
+            object | None: The first matching node if found, else None.
         """
 
         target = self._norm(target_name)
@@ -196,7 +196,7 @@ class NodeManager:
             name (str): The name of the wanted child node.
 
         Returns:
-            The first matching child node if found, else None.
+            object | None: The first matching child node if found, else None.
         """
 
         try:
@@ -222,7 +222,7 @@ class NodeManager:
             return_score (bool): Whether to return the score along with the node.
         
         Returns:
-            The highest scoring Method node if found, else None. If return_score is True, returns a tuple of the node and its score.
+            object | tuple: Best method node, or (node, score) if return_score is True.
         """
 
         wanted = {self._norm(n) for n in name_variants}

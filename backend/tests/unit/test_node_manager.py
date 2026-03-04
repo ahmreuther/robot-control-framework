@@ -110,6 +110,10 @@ async def test_find_by_browse_name(node_manager):
     result = await node_manager._find_by_browse_name(root, "Nope")
     assert result is None
 
+    # Empty target short-circuits
+    result = await node_manager._find_by_browse_name(root, "   ")
+    assert result is None
+
 
 @pytest.mark.asyncio
 async def test_find_child_by_name(node_manager):
@@ -169,6 +173,21 @@ async def test_find_method_by_names(node_manager):
     assert node is None
     assert score == -1
 
+    # return_score=False path
+    node_only = await node_manager.find_method_by_names(["MethodJoint"], return_score=False)
+    assert node_only == method3
+
+
+@pytest.mark.asyncio
+async def test_find_method_by_names_missing_input_args(node_manager):
+    method = _make_method("ErrMethod", input_args=None)
+    deviceset = FakeNode("DeviceSet", children=[method])
+    node_manager.client.nodes.root.get_child = AsyncMock(return_value=deviceset)
+
+    node, score = await node_manager.find_method_by_names(["ErrMethod"], return_score=True)
+    assert node == method
+    assert score == 1
+
 @pytest.mark.asyncio
 async def test_browse_objects_print(node_manager):
     child1 = FakeNode("c1", display_name="Child1")
@@ -184,3 +203,109 @@ async def test_browse_objects_print(node_manager):
     dn2 = await child2.read_display_name()
     assert dn1.Text == "Child1"
     assert dn2.Text == "Child2"
+
+
+@pytest.mark.asyncio
+async def test_find_child_by_name_error(node_manager):
+    node_manager.client.nodes.root.get_child = AsyncMock(side_effect=Exception("err"))
+    result = await node_manager.find_child_by_name(["0:Objects"], "X")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_find_descendant_by_name_empty_target(node_manager):
+    root = FakeNode("root")
+    result = await node_manager.find_descendant_by_name(root, "")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_bfs_handles_nodeid_and_children_errors(node_manager):
+    class BadNode:
+        def __init__(self):
+            self.nodeid = MagicMock()
+            self.nodeid.to_string.side_effect = Exception("badid")
+        async def get_children(self):
+            return []
+
+    class BadChildNode(FakeNode):
+        async def get_children(self):
+            raise Exception("kids")
+
+    bad = BadNode()
+    child_err = BadChildNode("child")
+    root = FakeNode("root", children=[bad, child_err])
+
+    nodes = []
+    async for node in node_manager._bfs(root):
+        nodes.append(node)
+    # bad node skipped, child_err yielded
+    assert child_err in nodes
+
+
+@pytest.mark.asyncio
+async def test_safe_read_helpers_error_returns_empty(node_manager):
+    class Bad:
+        async def read_display_name(self):
+            raise Exception("x")
+        async def read_browse_name(self):
+            raise Exception("y")
+
+    dn, dn_txt = await node_manager._safe_read_display_name(Bad())
+    bn, bn_txt = await node_manager._safe_read_browse_name(Bad())
+    assert dn is None and dn_txt == ""
+    assert bn is None and bn_txt == ""
+
+
+@pytest.mark.asyncio
+async def test_find_method_by_names_exception_path(node_manager):
+    async def bad_bfs(_):
+        class BadNode:
+            async def read_display_name(self):
+                raise Exception("dn")
+            async def read_browse_name(self):
+                raise Exception("bn")
+        yield BadNode()
+
+    with patch.object(node_manager, "_bfs", bad_bfs):
+        node, score = await node_manager.find_method_by_names(["x"], return_score=True)
+    assert node is None and score == -1
+
+
+@pytest.mark.asyncio
+async def test_find_method_by_names_exception_continue(node_manager):
+    async def bad_bfs(_):
+        class Bad(FakeNode):
+            def __init__(self):
+                super().__init__("bad", browse_name="hit")
+            async def read_display_name(self):
+                raise Exception("dn")
+            async def read_browse_name(self):
+                raise Exception("bn")
+        yield Bad()
+
+    with patch.object(node_manager, "_bfs", bad_bfs):
+        node, score = await node_manager.find_method_by_names(["hit"], return_score=True)
+    assert node is None and score == -1
+
+
+@pytest.mark.asyncio
+async def test_find_method_by_names_outer_exception(node_manager):
+    async def one_node(_):
+        yield FakeNode("n", browse_name="hit", node_class=ua.NodeClass.Method)
+
+    with patch.object(node_manager, "_bfs", one_node):
+        with patch.object(node_manager, "_safe_read_display_name", AsyncMock(side_effect=Exception("fail"))):
+            node, score = await node_manager.find_method_by_names(["hit"], return_score=True)
+
+    assert node is None and score == -1
+
+
+@pytest.mark.asyncio
+async def test_browse_objects_handles_read_errors(node_manager):
+    class BadChild(FakeNode):
+        async def read_display_name(self):
+            raise Exception("fail")
+
+    parent = FakeNode("p", children=[BadChild("c")])
+    await node_manager.browse_objects(parent)  # should not raise

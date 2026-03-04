@@ -1,3 +1,13 @@
+/**
+Per-robot IK/FK wrapper. Reuses the viewer scene/camera/renderer, parks gizmos on each robot rig so slot offsets keep IK stable,
+and rebuilds drag controls so hovering/picking stay on the active robot only.
+
+Future development notes:
+- Active robot uses IK gizmo; inactive robots default to FK dragging via `setActiveState`.
+- `setActiveState` always re-enables gizmo controls to prevent camera lockups after robot switches.
+- Sliders are now rebuilt only when the active robot changes (see `index.js`).
+- Each robot is wrapped in a rig (a Three.js `Group`) that carries world/slot offsets; the robot itself stays at the local origin.
+*/
 import URDFManipulator from 'urdf-loader/src/urdf-manipulator-element.js';
 import {
     Goal,
@@ -23,7 +33,10 @@ import {
 } from 'three';
 import { PointerURDFDragControls } from 'urdf-loader/src/URDFDragControls.js';
 
-// Shared helper to set a sensible starting pose per robot name
+/**
+ * Apply a stable default pose based on the URDF name to avoid singularities.
+ * @param {Object} robot - URDF robot instance with joints map.
+ */
 export const applyDefaultPose = (robot) => {
     if (!robot || !robot.joints) return;
 
@@ -69,12 +82,17 @@ export const applyDefaultPose = (robot) => {
     }
 };
 
+/**
+ * IK/FK manipulator wrapper that scopes controls to a single robot.
+ */
 export default class URDFIKManipulator extends URDFManipulator {
+    /**
+     * Create a per-robot manipulator that can share viewer resources.
+     * @param {Object} context - Optional shared scene/camera/renderer/controls.
+     */
     constructor(context = {}) {
-        // context is optional; when provided, it lets us share an existing scene/camera/renderer
         super();
 
-        // Save the joint highlighting logic from the parent class
         this._parentHighlightingLogic = null;
         if (this.dragControls) {
             this._parentHighlightingLogic = {
@@ -83,14 +101,14 @@ export default class URDFIKManipulator extends URDFManipulator {
             };
         }
 
-        // Dispose of the parent class controls for dragging because they attach to the global scene vs a specific robot
-        // This also fixed the controls being attached to the viewer in index.js
+        // Drop inherited global drag controls; we will create per-robot controls.
         if (this.dragControls) {
             this.dragControls.dispose();
             this.dragControls = null;
         }
 
-        this.robotId = null; // set by robotManager
+        /** @type {string|null} */
+        this.robotId = null;
         this.requestRender = context.requestRender || null;
 
         this.scene = context.scene || this.scene;
@@ -99,8 +117,7 @@ export default class URDFIKManipulator extends URDFManipulator {
         this.renderer = context.renderer || this.renderer;
         this.controls = context.controls || this.controls;
 
-
-        // Transform controls
+        // TransformControls drive IK; FK dragging is handled by separate drag controls.
         this.transformControls = new TransformControls(this.camera, this.renderer?.domElement);
         this.transformControls.setSpace('local');
         this.transformControls.addEventListener('change', () => this.redraw());
@@ -112,11 +129,12 @@ export default class URDFIKManipulator extends URDFManipulator {
         this.targetObject = new Group();
         this.targetObject.add(sphere);
 
+        // IK state containers (created in init).
         this.ikRoot = null;
         this.goal = null;
         this.solver = null;
 
-        // TransformControls events
+        // Disable gizmo controls while dragging the IK gizmo.
         this.transformControls.addEventListener('dragging-changed', e => this.controls.enabled = !e.value);
         this.transformControls.addEventListener('mouseDown', () => this.onDragStart());
         this.transformControls.addEventListener('change', () => {
@@ -125,6 +143,7 @@ export default class URDFIKManipulator extends URDFManipulator {
         });
         this.transformControls.addEventListener('mouseUp', () => this.onDragEnd());
 
+        // Keep IK state aligned with URDF load/reset flows.
         this.addEventListener('urdf-processed', () => this.init());
         this.addEventListener('reset-angles', () => {
             const robot = this.robot;
@@ -132,16 +151,15 @@ export default class URDFIKManipulator extends URDFManipulator {
 
             applyDefaultPose(robot);
 
-            // Apply pose and synchronize IK/Goal
+            // Apply pose and synchronize IK/Goal.
             robot.updateMatrixWorld(true);
-            this.dispatchEvent(new Event('angle-change')); // triggers setIKFromUrdf + resetGoal()
+            this.dispatchEvent(new Event('angle-change'));
         });
         this.addEventListener('angle-change', () => {
             setIKFromUrdf(this.ikRoot, this.robot);
             this.resetGoal();
         });
 
-        // sprite label
         const canvas = document.createElement('canvas');
         canvas.width = 356;
         canvas.height = 94;
@@ -162,19 +180,23 @@ export default class URDFIKManipulator extends URDFManipulator {
     }
 
     /**
-     * Attach an externally provided URDF robot to this manipulator and re-init IK/gizmo state.
+     * Attach a URDF robot, bind it to this manipulator, and initialize IK/gizmo state.
+     * The rig (baseGroup) holds world/slot offsets so IK math stays in robot-local space.
+     * @param {Object} robot - URDF robot instance.
+     * @param {string|null} robotId - Optional id for multi-robot management.
+     * @param {Object|null} baseGroup - Optional rig group carrying world offset.
      */
     setRobot(robot, robotId = null, baseGroup = null){
         if (!robot) return;
 
-        // IMPORTANT: rig becomes the manipulators base group (so gizmo inherits the offset correctly)
+        // Rig becomes the manipulator base so the gizmo inherits the offset.
+        // We keep IK math in robot-local space and let the rig carry any world/slot offset.
         this.setBaseGroup(baseGroup);
 
         this.robot = robot;
         this.robotId = robotId || this.robotId;
 
-        // DEFAULT STATE: Drag controls DISABLED. Gizmo ENABLED.
-        // User must use 't' to toggle between Gizmo (IK) and Joint Drags (FK) to avoid conflicts.
+        // Default: IK gizmo on, FK dragging off (use 't' to toggle).
         this._disableDragControls();
 
         if (this.targetObject && this.transformControls) {
@@ -182,11 +204,16 @@ export default class URDFIKManipulator extends URDFManipulator {
             this.transformControls.attach(this.targetObject);
             this.scene.add(this.transformControls.getHelper());
         }
-        // Re-init IK/gizmo state (in robot-local space)
+        // Re-init IK/gizmo state (in robot-local space).
         this.dispatchEvent(new Event('urdf-processed'));
         this.resetGoal();
     }
 
+    /**
+     * Set or update the rig group that carries world offset for the robot.
+     * The gizmo is attached to this rig so slot offsets do not corrupt IK/FK math.
+     * @param {Object} group - Three.js group to attach gizmos to.
+     */
     setBaseGroup(group) {
         const next = group || this.world;
         if (!next || !this.targetObject) return;
@@ -198,14 +225,16 @@ export default class URDFIKManipulator extends URDFManipulator {
 
         this.baseGroup = next;
     }
-    // new drag controls which uses the same joint highlighting logic as the parent class
+    /**
+     * Enable FK drag controls scoped to the current robot only.
+     */
     _enableDragControls() {
-        // Safe to call even if already enabled, will reset
+        // Safe to call even if already enabled; will reset.
         if (this.dragControls) this.dragControls.dispose();
 
         if (!this.renderer || !this.renderer.domElement) return;
 
-        // Pass this.robot to restrict raycasting to this robot only
+        // Restrict raycasting to this robot only.
         this.dragControls = new PointerURDFDragControls(this.robot, this.camera, this.renderer.domElement);
          
         this.dragControls.onDragStart = j => {
@@ -224,8 +253,7 @@ export default class URDFIKManipulator extends URDFManipulator {
 
         this.dragControls.updateJoint = (j, angle) => this.setJointValue(j.name, angle);
         
-        // 3. Reuse Captured Logic:
-        // Wire the saved highlighting logic into the new controls so visual feedback works.
+        // Reuse hover highlighting so FK feedback matches the parent behavior.
         if (this._parentHighlightingLogic) {
             this.dragControls.onHover = j => {
                 this._parentHighlightingLogic.onHover(j);
@@ -238,9 +266,12 @@ export default class URDFIKManipulator extends URDFManipulator {
         }
     }
 
+    /**
+     * Disable FK drag controls and clear hover state.
+     */
     _disableDragControls() {
         if (this.dragControls) {
-            // If something is currently highlighted, un-highlight it before destroying controls
+            // If something is highlighted, un-highlight before destroying controls.
             if (this.dragControls.hovered) {
                 this.dragControls.onUnhover(this.dragControls.hovered);
             }
@@ -249,8 +280,11 @@ export default class URDFIKManipulator extends URDFManipulator {
         }
     }
 
+    /**
+     * Build IK tree, seed pose, create solver and goal, then reset goal.
+     * Note: the robot stays at local origin; the rig (baseGroup) carries world transforms.
+     */
     init() {
-        //https://gkjohnson.github.io/closed-chain-ik-js/
         const robot = this.robot;
         robot.updateMatrixWorld(true);
 
@@ -277,8 +311,10 @@ export default class URDFIKManipulator extends URDFManipulator {
         this.resetGoal();
     }
 
+    /**
+     * Reset IK goal and target gizmo to the current tool point pose.
+     */
     resetGoal() {
-        // Reset the goal to the tool_point of the current robot
         const ik = this.ikRoot;
         const goal = this.goal;
         const tool_point = ik.find(c => c.name === 'tool_point');
@@ -293,7 +329,9 @@ export default class URDFIKManipulator extends URDFManipulator {
     }
 
     /**
-     * Set a joint value on this manipulator's robot
+     * Set a joint value on the robot and sync IK/goal state.
+     * @param {string} jointName - Joint name to update.
+     * @param {number} value - Joint angle or displacement in radians.
      */
     setJointValue(jointName, value) {
         if (!this.robot || !this.robot.joints || !this.robot.joints[jointName]) {
@@ -303,21 +341,24 @@ export default class URDFIKManipulator extends URDFManipulator {
         
         this.robot.setJointValue(jointName, value);
         
-        // Update IK state
+        // Update IK state.
         if (this.ikRoot) {
             setIKFromUrdf(this.ikRoot, this.robot);
         }
         
-        // Reset goal to new position
+        // Reset goal to new position.
         this.resetGoal();
         
-        // Trigger angle change event
+        // Notify listeners so sliders/MCP can update.
         this.dispatchEvent(new CustomEvent('angle-change', { detail: jointName }));
         
         this.redraw();
         if (this.requestRender) this.requestRender();
     }
 
+    /**
+     * Solve IK for the current goal and apply it back to the URDF.
+     */
     solve() {
         if (!this.robot || !this.ikRoot || !this.goal) return;
         const goal = this.goal;
@@ -338,7 +379,7 @@ export default class URDFIKManipulator extends URDFManipulator {
             setUrdfFromIK(robot, ik);
             this.dispatchEvent(new Event('angle-change'));
 
-            // With righs, keep robot base local identity under the rig
+            // Keep robot at local origin; the rig holds world offset.
             robot.position.set(0, 0, 0);
             robot.quaternion.identity();
             robot.updateMatrixWorld(true);
@@ -358,6 +399,9 @@ export default class URDFIKManipulator extends URDFManipulator {
     }
 
 
+    /**
+     * Start IK drag interaction and show delta label.
+     */
     onDragStart() {
         this.controls.enabled = false;
 
@@ -369,6 +413,9 @@ export default class URDFIKManipulator extends URDFManipulator {
         this.dispatchEvent(new Event("manipulate-start"));
     }
 
+    /**
+     * Update IK during drag and refresh delta label.
+     */
     onDragChange() {
         this.solve();
         if (!this.labelSprite.visible) return;
@@ -380,6 +427,9 @@ export default class URDFIKManipulator extends URDFManipulator {
         this.labelTexture.needsUpdate = true;
     }
 
+    /**
+     * End IK drag, reset goal, and hide delta label.
+     */
     onDragEnd() {
         this.resetGoal();
 
@@ -389,6 +439,10 @@ export default class URDFIKManipulator extends URDFManipulator {
 
     }
 
+    /**
+     * Draw the delta label for the current drag delta.
+     * @param {Vector3} delta - World-space delta from drag start.
+     */
     drawLabelText(delta) {
         const ctx = this.labelCtx;
         const canvas = this.labelCanvas;
@@ -433,6 +487,10 @@ export default class URDFIKManipulator extends URDFManipulator {
         ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
     }
 
+    /**
+     * Handle IK/FK keyboard controls (w/e/q/t).
+     * @param {string} key - Keyboard key pressed.
+     */
     handleKey(key) {
         if (this.ignoreKeys) return;
         
@@ -449,29 +507,55 @@ export default class URDFIKManipulator extends URDFManipulator {
                 break;
             case 't':
                 if (this.transformControls.object) { 
-                    // Case 1: Gizmo is active. Switch to Joint Drag Mode (FK).
+                    // Case 1: IK gizmo active -> switch to FK dragging.
                     this.transformControls.detach();
                     this.scene.remove(this.transformControls.getHelper());
 
-                    // Enable FK dragging
                     this._enableDragControls();
                 } else {
-                    // Case 2: FK is active. Switch to Gizmo Mode (IK).
+                    // Case 2: FK active → switch to IK gizmo.
                     this.transformControls.attach(this.targetObject);
                     this.scene.add(this.transformControls.getHelper());
                     
-                    // Disable FK dragging
                     this._disableDragControls();
                 }
                 break;
         }
 
     }
+
+    /**
+     * Toggle active state so only the focused robot has IK gizmo enabled.
+     * @param {boolean} isActive - True for active robot, false for inactive.
+     */
+    setActiveState(isActive) {
+        if (!this.transformControls) return;
+
+        if (this.controls) {
+            this.controls.enabled = true;
+        }
+
+        if (isActive) {
+            if (!this.transformControls.object && this.targetObject) {
+                this.transformControls.attach(this.targetObject);
+                this.scene.add(this.transformControls.getHelper());
+            }
+            this._disableDragControls();
+        } else {
+            if (this.transformControls.object) {
+                this.transformControls.detach();
+                this.scene.remove(this.transformControls.getHelper());
+            }
+            this._enableDragControls();
+        }
+    }
+    /**
+     * Dispose all controls and detach gizmos for cleanup/removal.
+     */
     remove() {
-        // Dispose drag controls
+        // Dispose per-robot controls and gizmo for cleanup.
         this._disableDragControls();
 
-        // Detach transform controls
         if (this.transformControls) {
             this.transformControls.detach();
 
@@ -484,7 +568,6 @@ export default class URDFIKManipulator extends URDFManipulator {
             this.transformControls = null;
         }
 
-        // Remove gizmo target object
         if (this.targetObject && this.targetObject.parent) {
             this.targetObject.parent.remove(this.targetObject);
         }
