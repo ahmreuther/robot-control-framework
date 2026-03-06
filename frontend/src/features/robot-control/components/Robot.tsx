@@ -1,3 +1,4 @@
+import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Goal, setIKFromUrdf, setUrdfFromIK, Solver, urdfRobotToIKRoot } from 'closed-chain-ik';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -24,6 +25,7 @@ export const SOLVE_STATUS = {
 } as const;
 
 const END_EFFECTOR_NAMES = ['tool_point', 'tool0', 'tool', 'ee_link', 'tcp', 'flange'];
+const GOAL_MARKER_MOUSEUP_HOVERED_EVENT = 'goal-marker:mouseup-hovered';
 
 interface RobotProps {
   urdfPath: string;
@@ -131,6 +133,11 @@ export function Robot({
   const hoveredJointRef = useRef<URDFJoint>(null);
 
   const [showGoalMarker, setShowGoalMarker] = useState(false);
+  const [isControlDragging, setIsControlDragging] = useState(false);
+  const [isAbortAreaHovered, setIsAbortAreaHovered] = useState(false);
+  const isAbortAreaHoveredRef = useRef(false);
+  const abortAreaRef = useRef<HTMLDivElement | null>(null);
+  const lastPointerClientRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!robotRef.current) return;
@@ -159,6 +166,52 @@ export function Robot({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (isSyncActive && isControlDragging) return;
+    isAbortAreaHoveredRef.current = false;
+    setIsAbortAreaHovered(false);
+  }, [isSyncActive, isControlDragging]);
+
+  const isPointInsideAbortArea = useCallback((x: number, y: number) => {
+    const rect = abortAreaRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }, []);
+
+  const syncAbortHoverState = useCallback(
+    (x: number, y: number) => {
+      const isInside = isPointInsideAbortArea(x, y);
+      if (isAbortAreaHoveredRef.current === isInside) return;
+      isAbortAreaHoveredRef.current = isInside;
+      setIsAbortAreaHovered(isInside);
+    },
+    [isPointInsideAbortArea],
+  );
+
+  useEffect(() => {
+    const updatePointer = (event: PointerEvent) => {
+      lastPointerClientRef.current = { x: event.clientX, y: event.clientY };
+      if (isSyncActive && isControlDragging) {
+        syncAbortHoverState(event.clientX, event.clientY);
+      }
+    };
+    window.addEventListener('pointerdown', updatePointer, true);
+    window.addEventListener('pointermove', updatePointer, true);
+    window.addEventListener('pointerup', updatePointer, true);
+    return () => {
+      window.removeEventListener('pointerdown', updatePointer, true);
+      window.removeEventListener('pointermove', updatePointer, true);
+      window.removeEventListener('pointerup', updatePointer, true);
+    };
+  }, [isSyncActive, isControlDragging, syncAbortHoverState]);
+
+  useEffect(() => {
+    if (!isSyncActive || !isControlDragging) return;
+    const pointer = lastPointerClientRef.current;
+    if (!pointer) return;
+    syncAbortHoverState(pointer.x, pointer.y);
+  }, [isSyncActive, isControlDragging, syncAbortHoverState]);
 
   useEffect(() => {
     const unsubscribe = jointManager.subscribe((angles) => {
@@ -422,7 +475,18 @@ export function Robot({
   };
 
   // DragControls handlers
+  const triggerAbortOnMouseUpIfHovered = useCallback(() => {
+    if (!isSyncActive) return;
+    const isHovered = isAbortAreaHoveredRef.current;
+    const pointer = lastPointerClientRef.current;
+    const isPointerInsideRect = !!pointer && isPointInsideAbortArea(pointer.x, pointer.y);
+
+    if (!isHovered && !isPointerInsideRect) return;
+    window.dispatchEvent(new Event(GOAL_MARKER_MOUSEUP_HOVERED_EVENT));
+  }, [isSyncActive, isPointInsideAbortArea]);
+
   const handleDragStart = () => {
+    setIsControlDragging(true);
     jointManager.mountWriter(WRITER_ID.DRAG, WRITER_PRIORITY.DRAG);
     if (isSyncActive) {
       jointManager.unmountWriter(WRITER_ID.SYN);
@@ -434,11 +498,26 @@ export function Robot({
   const handleDragEnd = () => {
     // Unmount SYN writer if sync is active (method call will be triggered)
     if (isSyncActive) {
+      triggerAbortOnMouseUpIfHovered();
       setPendingJoints(jointManager.getAngles());
     }
+    setIsControlDragging(false);
     jointManager.unmountWriter(WRITER_ID.DRAG);
     onDrag?.(false);
   };
+
+  const handleGoalMarkerMouseUp = useCallback(() => {
+    triggerAbortOnMouseUpIfHovered();
+  }, [triggerAbortOnMouseUpIfHovered]);
+
+  const handleGoalMarkerDrag = useCallback(
+    (dragging: boolean) => {
+      setIsControlDragging(dragging);
+      onDrag?.(dragging);
+    },
+    [onDrag],
+  );
+
   const handleHover = (joint: URDFJoint) => {
     if (joint && !drag) {
       highlightJointGeometry(joint, true);
@@ -583,7 +662,7 @@ export function Robot({
 
     if (!robot || !goal || !solver || !ikRoot || !robotGroup) {
       console.warn('IK components not ready');
-      return;
+      return null;
     }
 
     // Sync IK with current robot state
@@ -631,12 +710,56 @@ export function Robot({
           onUpdateJoint={handleUpdateJoint}
         />
       )}
+      {isSyncActive && isControlDragging && (
+        <Html fullscreen>
+          <div style={{ position: 'absolute', top: 12, right: 12, pointerEvents: 'none' }}>
+            <div
+              ref={abortAreaRef}
+              onMouseEnter={() => {
+                isAbortAreaHoveredRef.current = true;
+                setIsAbortAreaHovered(true);
+              }}
+              onMouseLeave={() => {
+                isAbortAreaHoveredRef.current = false;
+                setIsAbortAreaHovered(false);
+              }}
+              onMouseUp={() => {
+                window.dispatchEvent(new Event(GOAL_MARKER_MOUSEUP_HOVERED_EVENT));
+              }}
+              style={{
+                width: 160,
+                height: 90,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: isAbortAreaHovered ? '2px solid #ff3b30' : '1px dashed #ff9800',
+                borderRadius: 8,
+                background: isAbortAreaHovered ? 'rgba(255,59,48,0.22)' : 'rgba(0,0,0,0.18)',
+                color: isAbortAreaHovered ? '#ffebe9' : '#ffe0b2',
+                fontSize: 14,
+                fontWeight: 700,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                boxShadow: isAbortAreaHovered
+                  ? '0 0 0 2px rgba(255,59,48,0.3), 0 8px 18px rgba(255,59,48,0.28)'
+                  : '0 6px 14px rgba(0,0,0,0.22)',
+                pointerEvents: 'auto',
+                cursor: 'pointer',
+                userSelect: 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Abort
+            </div>
+          </div>
+        </Html>
+      )}
       {!isAnimatingRef.current && showGoalMarker && (
         <GoalMarker
           onPositionChange={setGoalPosition}
           onQuaternionChange={setGoalQuaternion}
           goalQuaternion={goalQuaternion}
-          onDrag={onDrag}
+          onDrag={handleGoalMarkerDrag}
           handleUnhover={handleUnhover}
           goalPosition={goalPosition}
           converged={convergedRef.current}
@@ -645,6 +768,7 @@ export function Robot({
           {...(setMovedDistance ? { setMovedDistance } : {})}
           setPendingJoints={setPendingJoints}
           solveIKOnce={solveIKOnce}
+          onDragMouseUp={handleGoalMarkerMouseUp}
         />
       )}
     </>

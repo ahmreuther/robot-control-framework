@@ -5,6 +5,9 @@ import { useSyncContext } from '../contexts/SyncContext';
 import { useUrlContext } from '../../server-management/contexts/UrlContext';
 import { JointStateManager, WRITER_ID, WRITER_PRIORITY } from '../hooks/useJointState';
 import { useRobotInfoContext } from '../contexts/RobotInfoContext';
+import { useLogContext } from '../../address-space/contexts/LogContext';
+
+const GOAL_MARKER_MOUSEUP_HOVERED_EVENT = 'goal-marker:mouseup-hovered';
 
 interface MessageControllerProps {
   pendingJoints: number[];
@@ -27,10 +30,30 @@ function MessageController({
   const methodCallStatus = useDirectMethodCallStatus();
   const [waitingForMethodResult, setWaitingForMethodResult] = useState(false);
   const lastRequestedJointsKeyRef = useRef<string | null>(null);
+  const skipNextDirectMethodCallRef = useRef(false);
   const prevSyncActiveRef = useRef(false);
   const waitingSinceRef = useRef<number | null>(null);
+  const { appendLog } = useLogContext();
 
   const { directCallMethod } = useMethodCall(opcUaUrl, socket as any);
+
+  useEffect(() => {
+    const handleAbortRequest = () => {
+      skipNextDirectMethodCallRef.current = true;
+    };
+
+    window.addEventListener(
+      GOAL_MARKER_MOUSEUP_HOVERED_EVENT,
+      handleAbortRequest as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        GOAL_MARKER_MOUSEUP_HOVERED_EVENT,
+        handleAbortRequest as EventListener,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSyncActive) return;
@@ -63,6 +86,16 @@ function MessageController({
       nodeClass: 'Method',
     };
 
+    if (skipNextDirectMethodCallRef.current) {
+      skipNextDirectMethodCallRef.current = false;
+      lastRequestedJointsKeyRef.current = jointsKey;
+      setPendingJoints(null);
+      appendLog(
+        `Abort: skipped synchronized go-to call for node "${gotoMethodNodeId}".\n`,
+      );
+      return;
+    }
+
     directCallMethod(tmpNode, {
       mode: 'automatic',
       joints: jointsKey,
@@ -84,6 +117,7 @@ function MessageController({
     gotoMethodNodeId,
     opcUaUrl,
     setPendingJoints,
+    appendLog,
   ]);
 
   useEffect(() => {
@@ -95,6 +129,7 @@ function MessageController({
   useEffect(() => {
     if (isSyncActive && !prevSyncActiveRef.current) {
       prevSyncActiveRef.current = true;
+      skipNextDirectMethodCallRef.current = false;
       setPendingJoints(null);
       lastRequestedJointsKeyRef.current = null;
       waitingSinceRef.current = null;
@@ -102,6 +137,7 @@ function MessageController({
     }
 
     prevSyncActiveRef.current = isSyncActive;
+    skipNextDirectMethodCallRef.current = false;
     lastRequestedJointsKeyRef.current = null;
     lastGlobalGotoRequestKey = null;
     setWaitingForMethodResult(false);

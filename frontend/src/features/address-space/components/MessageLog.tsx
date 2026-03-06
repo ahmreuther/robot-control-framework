@@ -31,6 +31,9 @@ function getLineColorClass(line: string) {
   if (l.includes('warning')) {
     return 'text-amber-300';
   }
+  if (l.includes('abort') || l.includes('aborted')) {
+    return 'text-amber-300';
+  }
 
   return 'text-white/80';
 }

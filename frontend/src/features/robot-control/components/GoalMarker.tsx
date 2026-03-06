@@ -7,7 +7,6 @@ import type { URDFJoint } from 'urdf-loader/src/URDFClasses';
 import { useSyncContext } from '../contexts/SyncContext';
 import type { JointStateManager } from '../hooks/useJointState';
 import { WRITER_ID, WRITER_PRIORITY } from '../hooks/useJointState';
-import { useSendMessage } from '../../../features/socket/hooks/useSendMessage';
 
 interface GoalMarkerProps {
   onPositionChange: (position: [number, number, number]) => void;
@@ -22,6 +21,7 @@ interface GoalMarkerProps {
   setMovedDistance?: (distance: number) => void;
   setPendingJoints: (joints: number[]) => void;
   solveIKOnce?: () => number[] | null;
+  onDragMouseUp?: () => void;
 }
 
 function GoalMarker({
@@ -37,9 +37,9 @@ function GoalMarker({
   setPendingJoints,
   robot,
   solveIKOnce,
+  onDragMouseUp,
 }: GoalMarkerProps) {
   const { isSyncActive } = useSyncContext();
-  const { sendMessage } = useSendMessage();
   const meshRef = useRef<Mesh>(null);
   const isDraggingRef = useRef(false);
   const lastPosRef = useRef<[number, number, number] | null>(null);
@@ -103,7 +103,7 @@ function GoalMarker({
       const dy = currentPos[1] - dragStartPosRef.current[1];
       const dz = currentPos[2] - dragStartPosRef.current[2];
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      setMovedDistance(dist);
+      setMovedDistance?.(dist);
     }
 
     onPositionChange(currentPos);
@@ -128,10 +128,13 @@ function GoalMarker({
         meshRef.current.position.z,
       ];
     }
-    setMovedDistance(0);
+    setMovedDistance?.(0);
     if (robot?.joints) {
       Object.keys(robot.joints).forEach((jointName) => {
-        handleUnhover(robot.joints[jointName]);
+        const joint = robot.joints[jointName];
+        if (joint) {
+          handleUnhover(joint);
+        }
       });
     }
   };
@@ -139,9 +142,10 @@ function GoalMarker({
   const handleMouseUp = () => {
     isDraggingRef.current = false;
     jointManager.unmountWriter(WRITER_ID.IK);
+    onDragMouseUp?.();
     onDrag(false);
     dragStartPosRef.current = null;
-    setMovedDistance(0);
+    setMovedDistance?.(0);
     // Unmount SYN writer if sync is active (method call will be triggered)
     if (isSyncActive) {
       jointManager.unmountWriter(WRITER_ID.SYN);
