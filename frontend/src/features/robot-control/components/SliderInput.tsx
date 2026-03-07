@@ -210,14 +210,16 @@ export function SliderInput({
             window.dispatchEvent(new Event(GOAL_MARKER_MOUSEUP_HOVERED_EVENT));
           }}
           style={{
-            position: 'fixed',
+            position: 'absolute',
             top: 0,
-            left: 0,
-            bottom: 0,
+            left: -16,
+            height: '100%',
             width: 16,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            borderTop: isAbortAreaHovered ? '2px solid #ff3b30' : '1px dashed #ff9800',
+            borderBottom: isAbortAreaHovered ? '2px solid #ff3b30' : '1px dashed #ff9800',
             borderRight: isAbortAreaHovered ? '2px solid #ff3b30' : '1px dashed #ff9800',
             background: isAbortAreaHovered ? 'rgba(255,59,48,0.26)' : 'rgba(0,0,0,0.18)',
             color: isAbortAreaHovered ? '#ffebe9' : '#ffe0b2',

@@ -65,7 +65,7 @@ export function JointAnglesPanel({
             onToggle={(checked) => setShowRadians(checked)}
           />
         </div>
-        <div className="space-y-2">
+        <div className="relative space-y-2">
           {localAngles.map((angle, i) => {
             const property = jointProperties?.[i];
             if (property && property.min === property.max) return null;

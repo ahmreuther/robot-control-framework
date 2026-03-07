@@ -733,7 +733,7 @@ export function Robot({
                 alignItems: 'center',
                 justifyContent: 'center',
                 border: isAbortAreaHovered ? '2px solid #ff3b30' : '1px dashed #ff9800',
-                borderRadius: 8,
+                borderRadius: 0,
                 background: isAbortAreaHovered ? 'rgba(255,59,48,0.22)' : 'rgba(0,0,0,0.18)',
                 color: isAbortAreaHovered ? '#ffebe9' : '#ffe0b2',
                 fontSize: 14,
