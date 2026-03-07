@@ -11,13 +11,13 @@ import type { MobileControlsProps, WorkspaceLayoutProps } from './types';
 
 type MobileLayoutProps = WorkspaceLayoutProps & MobileControlsProps;
 
-const triggerKeyPress = (keyName:any) => {
+const triggerKeyPress = (keyName: any) => {
   // Create a synthetic keydown event
-  const event = new KeyboardEvent("keydown", {
+  const event = new KeyboardEvent('keydown', {
     key: keyName,
     code: keyName.length === 1 ? `Key${keyName.toUpperCase()}` : keyName,
     bubbles: true,
-    cancelable: true
+    cancelable: true,
   });
   // Dispatch the event on the document
   document.dispatchEvent(event);
@@ -27,7 +27,11 @@ export function MobileLayout(props: MobileLayoutProps) {
   return (
     <div className="px-2 py-2">
       <div className="flex items-center justify-between mb-2 z-50">
-        <img src={props.logoSrc} alt="PLCM logo" className="h-10 w-auto bg-gray-200 rounded-sm p-1" />
+        <img
+          src={props.logoSrc}
+          alt="PLCM logo"
+          className="h-10 w-auto bg-gray-200 rounded-sm p-1"
+        />
         <Settings settings={props.settings} toggleSettings={props.toggleSettings} />
         <MobilePanelControls
           className="flex items-center gap-2"
@@ -41,18 +45,20 @@ export function MobileLayout(props: MobileLayoutProps) {
         {props.mobilePanelState === 'main' && (
           <div className="h-full gap-2 flex flex-col">
             <div className="w-full h-[60vh]">
-              <button onClick={() =>triggerKeyPress("h")} className="button-ghost ">
-              Toggle Goal Marker
-              </button>
-              <button onClick={() =>triggerKeyPress("w")} className="button-ghost ">
-              Set Mode to translate
-              </button>
-              <button onClick={() =>triggerKeyPress("e")} className="button-ghost ">
-              Set Mode to rotate
-              </button>
-              <button onClick={() =>triggerKeyPress("q")} className="button-ghost ">
-              Toggle space
-              </button>
+              <div className="flex gap-2 mb-2">
+                <button onClick={() => triggerKeyPress('h')} className="button-ghost ">
+                  H
+                </button>
+                <button onClick={() => triggerKeyPress('w')} className="button-ghost ">
+                  W
+                </button>
+                <button onClick={() => triggerKeyPress('e')} className="button-ghost ">
+                  E
+                </button>
+                <button onClick={() => triggerKeyPress('q')} className="button-ghost ">
+                  Q
+                </button>
+              </div>
               <Viewport
                 key={props.reloadKey}
                 urdfPath={props.selectedRobot?.url ?? null}
