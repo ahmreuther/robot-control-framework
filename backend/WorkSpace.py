@@ -4,7 +4,7 @@ import struct
 import numpy as np
 from fastapi import WebSocket, APIRouter
 
-from modules.VPC2SPC import (
+from dt_robot_control.opcua.VPC2SPC import (
     compute_outer_surface_points_from_xyz,  # ✅ neu: Array-basierte API
 )
 
