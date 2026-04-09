@@ -2,7 +2,7 @@
  * Per-robot OPC UA helpers.
  * Handles connection, messages, angles, events, subscriptions, and axis to joint mapping for each robot.
  */
-import { getActiveRobot, listRobots } from "../robot/robotManager.js";
+import { getActiveRobot, listRobots, setGlobalSocket } from "../robot/robotManager.js";
 import { isPrismaticType, getJointLimits, getOrderedRevoluteJointNames } from "../robot/joints.js";
 import { setInfoBoxState } from "../ui/layout.js";
 import { logMessageToBox } from '../ui/logging.js';
