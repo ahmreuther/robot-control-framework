@@ -1,4 +1,5 @@
 import os
+import sys
 
 from fastapi.staticfiles import StaticFiles
 import uvicorn
@@ -7,10 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, TypedDict, Set
 
 from contextlib import asynccontextmanager
-
-import sys
 # Note: Keep runtime compatible with the project's declared Python range.
 # Dependency installation (uv/pip) will fail early if an incompatible Python version is used.
+
+BACKEND_ROOT = os.path.dirname(__file__)
+SRC_ROOT = os.path.join(BACKEND_ROOT, "src")
+if SRC_ROOT not in sys.path:
+    sys.path.insert(0, SRC_ROOT)
 
 import WorkSpace
 from dt_robot_control.opcua import endpoints
