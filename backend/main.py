@@ -12,9 +12,10 @@ import sys
 # Note: Keep runtime compatible with the project's declared Python range.
 # Dependency installation (uv/pip) will fail early if an incompatible Python version is used.
 
-import opcua
-import mcp_server
 import WorkSpace
+from dt_robot_control.opcua import endpoints
+import dt_robot_control.server.mcp as mcp
+from dt_robot_control.websocket import router as ws_router
 
 
 class State(TypedDict):
@@ -32,11 +33,11 @@ async def app_lifespan(app: FastAPI):
 
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
-    # Run both lifespans
+    # Run both lifespans; also initialize shared MCP socket state.
     async with app_lifespan(app):
-        async with mcp_server.mcp_app.lifespan(app):
+        async with mcp.mcp_app.lifespan(app):
             # app.state.mcp_sockets = set()
-            mcp_server.mcp_app.state.mcp_sockets = set()
+            mcp.mcp_app.state.mcp_sockets = set()
             yield # {"mcp_sockets", set()}
 
 
@@ -56,11 +57,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(opcua.router)
-app.include_router(mcp_server.router)
+app.include_router(ws_router.router)  # WebSocket endpoints
+app.include_router(endpoints.router)  # REST endpoints for OPC UA browsing
+app.include_router(mcp.router)
+app.mount("/llm", mcp.mcp_app)
 app.include_router(WorkSpace.router)
-
-app.mount("/llm", mcp_server.mcp_app)
 
 # --- Static File Serving & Entrypoint ---
 if os.getenv("HOST"):

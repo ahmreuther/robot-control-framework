@@ -8,22 +8,27 @@ The goal is to be able to control robots such as **Franka Research 3**, **EVA Au
 
 ---
 
-## Citation
+## Citation  
 
-If you intend to work with this repository, please cite the paper:
+If you use this repository in your work, please cite our paper.  
+We will add the full citation once the paper is accepted and published.
 
-Citation information will be updated once the paper is accepted and published.
+---
 
-## Structure
-The project is divided into two main folders:
-- **Backend/**
- Contains the Python backend, which communicates with an OPC UA Robotics Server as an OPC UA client.
-    
-It provides an HTTP and WebSocket interface for the frontend and delivers URDF files for supported robots (including meshes and textures).
-- **frontend/**
-  
-Contains the web interface for skill-based control and the logic for inverse kinematics (IK) and forward kinematics (FK).
-**Architecture overview:**
+## Project Structure  
+
+The project consists of a **backend** and a **frontend**.
+
+- **Backend**  
+  Written in Python. It connects to an OPC UA Robotics Server as a client.  
+  It provides HTTP and WebSocket endpoints for the frontend and delivers URDF files (including meshes and textures) for supported robots.
+
+- **Frontend**  
+  A web interface for robot control.  
+  It handles visualization as well as inverse kinematics (IK) and forward kinematics (FK).
+
+
+## Architecture Overview  
 
 ```mermaid
 flowchart TD
@@ -31,7 +36,45 @@ flowchart TD
     A[Frontend: Web UI, IK/FK] <-->|HTTP/WebSocket| C[Backend: Python, OPC UA Client]
 ```
 
+## Main Goals  
+
+- Support multiple robots in one scene without opening multiple socket connections.  
+- Keep IK/FK calculations stable even when robots are placed at different positions.  
+- Have one clear place where robot state is stored (per robot in the frontend, per URL in the backend).  
+- Keep transport logic, OPC UA logic, and UI logic separated.
+
+
+## Frontend workflow:
+
+When a robot is added, the `robotManager` creates a new robot record. Then the `sceneManager` loads the URDF into its own rig (`THREE.Group`) and places it in the scene with a small offset so robots don’t overlap. After that, the `URDFIKManipulator` is attached to handle IK and FK.
+
+When the user moves a robot (either with IK or by dragging joints in FK), the joint values update and the sliders/UI reflect the changes. If OPC UA sync is enabled, the backend also receives and sends updates, which are applied to the correct robot using the robot URL.
+
+Some important design choices we did:
+
+- We use only one viewer instance as scene that provides the camera.
+- Each robot has its own rig to handle world offsets cleanly.
+- Only the active robot can be controlled (IK + dragging), so robots don’t interfere with each other.
+- All robots share one WebSocket connection instead of opening a new one per robot.
+- Robot states are stored per robot inside the `robotManager`, instead of using global variables.
+
 ---
+
+## Backend workflow:
+
+When the frontend sends a connect request, the WebSocket router forwards it to the `OPCUAClient`.  
+The client connects to the OPC UA server and the `SubscriptionManager` searches for relevant nodes (axes, modes, etc.).  
+Once subscriptions are active, joint and mode updates are streamed back to the frontend.
+
+The backend also provides REST endpoints to browse the OPC UA address space, which is shown in the UI.
+
+Important design choices:
+
+- Only one shared WebSocket connection is used.
+- Messages include the robot URL so the backend knows which robot/client they belong to.
+- A `ClientRegistry` keeps track of which URL is connected to which OPC UA client.
+- OPC UA logic is split into smaller modules (client, subscriptions, browsing, transport) to keep responsibilities clear and testing easier.
+
 ## Prerequisites
 For development, you will need:
 - **Git**
@@ -39,12 +82,19 @@ For development, you will need:
 - **Python 3.12.x** (required — Open3D in backend needs Python 3.12.x)
 - **Node.js LTS** (e.g., 20.x) + **npm**
 - **uv** (Python package manager from Astral)
-Installation:
+- **git lfs** (for Linux and Mac)
+
+### Installation:
   
 - macOS/Linux:
     ```bash
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
+    Inside the project execute:
+    ```
+    git lfs install && git lfs pull
+    ```
+    
 - Windows (PowerShell):
 ```powershell
     iwr https://astral.sh/uv/install.ps1 -UseBasicParsing | iex
@@ -65,7 +115,8 @@ git clone git@git.rwth-aachen.de:ai-in-production/project-repositories/webskillc
 ### 1. Set up the backend
 Change to the backend directory:
 ```bash
-cd Backend
+cd backend
+uv pip install -e .          # Installs the dependencies and builds the dt_robot_control package
 uv run main.py               # Start backend
 ```
 ### 2. Set up the frontend
@@ -116,8 +167,8 @@ Each movement or action is based on a **skill**:
 - Skills are **standardized** and work identically for all connected robots.
 ### 5. Activate live synchronization
 In online mode, **digital and physical twins** can be continuously synchronized:
-- Changes to the physical robot → immediately visible in the digital twin.
-- Manipulations in the digital twin → immediate execution on the physical robot.
+- Changes to the physical robot -> immediately visible in the digital twin.
+- Manipulations in the digital twin -> immediate execution on the physical robot.
 ### 6. Monitor and analyze
 - Browse the address structure of the robot in the **OPC UA browser**.
 - Subscribe to variables and events (e.g., joint positions, temperatures, errors).

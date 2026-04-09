@@ -1,2 +1,6 @@
 **/__pycache__/
 .venv/
+.idea/
+.vscode/
+/build/
+backend/src/dt_robot_control_backend.egg-info

@@ -57,8 +57,7 @@
                         <th>Value</th>
                     </tr>
                 </thead>
-                <tbody>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
 
@@ -77,11 +76,9 @@
                         <th>TypeDefinition</th>
                     </tr>
                 </thead>
-                <tbody>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
-
     </div>
 
     <div id="menu">
@@ -96,13 +93,30 @@
         <div id="menu-output">
             <pre id="output"></pre>
         </div>
+   
+        <!-- Multi Robot UI Changes -->
 
-        <ul id="urdf-options">
-            <li urdf="/urdf/eva_description/urdf/eva_description.urdf" color="#546575">EVA Automata</li>
-            <li urdf="/urdf/fr3_description/urdf/fr3.urdf" color="#567554">Franka Research 3</li>
-            <li urdf="/urdf/fr3_description_with_wagon/urdf/fr3.urdf" color="#567554">Franka Research 3 & Wagon</li>
-            <li urdf="/urdf/ur5_description/urdf/ur5_robot.urdf" color="#aaaab3">UR5e</li>
-        </ul>
+        <div id="multi-robot-controls" 
+            style="padding:8px; background: rgba(40,40,40,0.85); border-radius:8px; color:#f2f2f2; font-family:sans-serif; width:100%; max-width:320px; margin-top:12px; box-sizing:border-box;">
+    
+            <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
+                <span style="font-size: 13px;">Add Robot:</span>
+                <select id="multi-robot-model" style="flex:1;"></select>
+                <button id="add-robot-btn" class="ds-btn ds-btn-primary">Add</button>
+                <span style="font-size: 12px;">Total: <span id="robot-count-value">0</span></span>
+            </div>
+
+            <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
+                <span style="font-size: 13px;">Active Robot:</span>
+                <select id="active-robot-select" style="flex:1;"></select>
+                <button id="delete-robot-btn" style="padding:2px 6px;">Delete</button>
+            </div>
+
+            <ul id="robot-sliders" style="list-style:none; padding:0; margin:0; max-height:200px; overflow-y:auto;"></ul>
+        </div>
+    <!-- Multi Robot UI Changes -->
+
+        
         <div id="controls" class="hidden">
             <div id="toggle-controls"></div>
             <div id="ignore-joint-limits" class="toggle">Ignore Joint Limits</div>
@@ -142,8 +156,6 @@
         <div id="opc-ua" class="hidden">
             <div id="toggle-opc-ua"></div>
             <div>
-
-
                 <label for="opc-ua-url">OPC UA Server URL:</label><br>
                 <div id="opc-ua-input-container">
                     <input list="opc-ua-url-list" type="text" multiple id="opc-ua-url" />
@@ -152,29 +164,25 @@
                         <option value="opc.tcp://10.10.38.25:4840/freeopcua/server/"></option>
                         <option value="opc.tcp://10.10.38.26:4840/freeopcua/server/"></option>
                         <option value="opc.tcp://10.10.38.27:4840/freeopcua/server/"></option>
-
                     </datalist>
-
                 </div>
+
                 <button id="connect-opc-ua">Connect</button>
                 <button id="disconnect-opc-ua">Disconnect</button>
-
             </div>
+            
             <div id="opc-ua-sync-toggle-container" style="margin: 10px 0 0 0;">
                 <label class="switch">
                     <input type="checkbox" id="opc-ua-sync-toggle">
                     <span class="slider round"></span>
                 </label>
-                <span style="margin-left: 10px; font-size: 14px; vertical-align: middle;">Synchronize
-                    OPC UA
-                    server</span>
+                <span style="margin-left: 10px; font-size: 14px; vertical-align: middle;">Synchronize OPC UA server</span>
             </div>
             <div id="method-call-status" style="display:none;">
                 <span id="method-spinner" class="ds-spinner"
                     style="margin-right:10px; display:inline-block; vertical-align:middle;"></span>
                 <span id="method-status-text" style="vertical-align:middle;"></span>
             </div>
-
         </div>
 
         <div id="robot-dashboard" class="hidden">
@@ -208,12 +216,7 @@
                 Errors: <span id="robot-errors">None</span>
             </div>
         </div>
-
-
-
-
-
-
+        
     </div>
 
     <div id="robot-stats-box">
@@ -236,9 +239,6 @@
         </div>
     </div>
 
-
-
-
     <div id="message-box">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <strong style="font-size: 16px;">Message Log</strong>
@@ -246,11 +246,6 @@
         </div>
         <div id="message-log"></div>
     </div>
-
-
-
-
-
 
     <div id="custom-context-menu" style="display:none;">
         <ul class="context-menu-list">
@@ -294,7 +289,6 @@
     <urdf-viewer up="-Z" display-shadow tabindex="0"></urdf-viewer>
 
     <script type="module" src="./index.js"></script>
-    <script type="module" src="./functionalities.js"></script>
 </body>
 
 </html>
