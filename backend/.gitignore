@@ -4,3 +4,6 @@
 .vscode/
 /build/
 backend/src/dt_robot_control_backend.egg-info
+.coverage
+coverage.xml
+pytest-report.xml

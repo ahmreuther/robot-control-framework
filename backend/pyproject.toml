@@ -42,6 +42,9 @@ target-version = "py313"
 exclude = ["__pycache__", ".venv", "venv", "src_old", "tests"]
 src = ["src"]
 
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
 [tool.ruff.lint]
 select = [
   "E",   # pycodestyle errors
