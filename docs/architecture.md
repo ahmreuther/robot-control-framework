@@ -19,7 +19,7 @@ The project consists of a **backend** and a **frontend**.
 ```mermaid
 flowchart TD
     C[Backend Python, OPC UA Client] <-->|OPC UA| B[OPC UA Robotics Server Robot / Twin]
-    A[Frontend: Web UI, IK/FK] <-->|WebSocket / REST(HTTP) / MCP| C[Backend: Python, OPC UA Client]
+    A[Frontend: Web UI, IK/FK] <-->|WebSocket / HTTP| C[Backend: Python, OPC UA Client]
 ```
 
 ## Design Decisions
