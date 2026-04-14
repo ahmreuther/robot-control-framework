@@ -91,7 +91,6 @@ export const QuickActionsPanel = ({ opcUaUrl, openMethodDialog }: QuickActionsPa
           placeholder="Filter methods by name or NodeId"
           className="input-ghost w-full text-left"
         />
-        {error && <div className="cell-muted mb-2">{error}</div>}
       </div>
       <table className="panel-table">
         <thead>
