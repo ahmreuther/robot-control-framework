@@ -1,0 +1,4 @@
+{% import "device_set.html" as tree %}
+{% for child in items.Children %}
+    {{ tree.render_nodes(child) }}
+{% endfor %}

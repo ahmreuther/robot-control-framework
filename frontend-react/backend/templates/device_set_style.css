@@ -1,0 +1,940 @@
+#menu {
+  display: inline-block;
+  padding-right: 10px;
+  border-right: none;
+  /* wir machen den Strich extern */
+}
+
+
+
+
+/* Styling für die OPC UA Sektion */
+#opc-ua {
+  width: 400px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
+}
+
+#opc-ua>* {
+  margin: 5px 0;
+}
+
+#opc-ua #toggle-opc-ua {
+  margin-top: 0;
+  margin-bottom: 10px;
+  text-align: right;
+  transition: 0.1s opacity linear;
+  border-top: 1px solid white;
+}
+
+#opc-ua #toggle-opc-ua:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#opc-ua #toggle-opc-ua:before {
+  content: "hide OPC UA";
+  font-size: 12px;
+  font-weight: normal;
+}
+
+/* hidden state */
+#opc-ua.hidden #toggle-opc-ua:before {
+  content: "show OPC UA functionalities";
+}
+
+#opc-ua.hidden>*:not(#toggle-opc-ua) {
+  display: none;
+}
+
+#opc-ua.hidden #toggle-opc-ua {
+  opacity: 0.5;
+}
+
+/* list of OPC UA items */
+#opc-ua ul {
+  flex: 1;
+  overflow-y: auto;
+}
+
+#opc-ua li {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  padding: 1px 0;
+
+  width: 100%;
+  user-select: text;
+
+  transition: background 0.25s ease;
+}
+
+#opc-ua li:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+#opc-ua li span {
+  padding: 0 5px;
+  max-width: 175px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  user-select: none;
+}
+
+#opc-ua li input[type="number"] {
+  width: 50px;
+  overflow: hidden;
+}
+
+#opc-ua button {
+  font-family: "Roboto", helvetica, arial, sans-serif;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid white;
+  color: white;
+  font-size: 16px;
+  font-weight: 300;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+#opc-ua button:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+#opc-ua button:active {
+  background: rgba(255, 255, 255, 0.6);
+  transform: scale(0.95);
+}
+
+#opc-ua button:focus {
+  outline: none;
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+}
+
+#opc-ua input[type="text"] {
+  font-family: "Roboto", helvetica, arial, sans-serif;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid white;
+  color: white;
+  font-size: 16px;
+  font-weight: 300;
+  padding: 8px 12px;
+  border-radius: 5px;
+  width: 100%; /* volle Breite des Parent-Containers */
+  min-width: 0;
+  box-sizing: border-box;
+  margin-bottom: 0; /* Abstand wird jetzt über gap geregelt */
+}
+
+#opc-ua input[type="text"]::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
+#opc-ua input[type="text"]:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+}
+
+#opc-ua #opc-ua-input-container {
+  display: flex;
+  flex-direction: column; /* vertikal anordnen */
+  align-items: stretch;
+  gap: 18px; /* mehr vertikaler Abstand zwischen Input und Buttons */
+  margin: 10px 0; /* Abstand nach oben und unten */
+}
+
+#opc-ua label {
+  margin-bottom: 10px;
+  display: inline-block;
+}
+
+
+#info-box {
+  position: absolute;
+  top: 150px;
+  right: 10px;
+  background-color: transparent;
+  border: 2px solid white;
+  border-radius: 8px;
+  padding: 15px;
+  color: white;
+  font-family: 'Roboto', sans-serif;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 450px;
+  max-height: 31vw;
+  overflow: auto;
+  z-index: 1000;
+  transition: width 1.4s ease;
+
+}
+
+.info-box-header {
+  position: sticky;
+  top: 160px;
+  right: 10px;
+  z-index: 2000;
+  padding-top: 2px;
+  padding-bottom: 5px;
+  text-align: right;
+}
+
+#info-box h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+#info-box p {
+  margin: 0;
+  font-size: 14px;
+}
+
+
+/* Allgemeine Schriftart und Farbe */
+body,
+.tree {
+  font-family: 'Roboto', sans-serif;
+  color: white;
+  font-weight: 300;
+  background-color: transparent;
+}
+
+/* Tree-Grundstruktur */
+.tree {
+  --spacing: 13px;
+  --radius: 11px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* Listeneinträge */
+.tree li {
+  position: relative;
+  padding-left: calc(2 * var(--spacing));
+  margin: 5px 0;
+  line-height: 1.4;
+}
+
+/* Unterlisten */
+.tree ul {
+  margin-left: var(--spacing);
+  padding-left: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Verbindungslinien */
+.tree ul li::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -25px;
+  width: 20px;
+  height: 20px;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Marker-Kreise */
+.tree li::after,
+.tree summary::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  width: var(--radius);
+  height: var(--radius);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+/* ✅ Nur der Marker wird beim Hover heller */
+.tree li:hover::after,
+.tree summary:hover::before {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* ❌ Kein Hover-Hintergrund für den ganzen Eintrag */
+.tree li:hover {
+  background: none;
+}
+
+.tree summary:hover {
+  color: inherit;
+}
+
+/* Summary Styling */
+.tree summary {
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 400;
+  color: white;
+  padding: 2px;
+  transition: color 0.2s ease;
+}
+
+.tree summary:focus {
+  outline: none;
+}
+
+.tree summary:focus-visible {
+  outline: 1px dotted rgba(255, 255, 255, 0.7);
+}
+
+.tree summary::marker,
+.tree summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Blätter */
+.leaf-node>span {
+  font-size: 15px;
+  padding: 2px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Auswahl-Markierung */
+.tree li.selected {
+  border-left: 2px solid #4CAF50;
+}
+
+.tree li span.selected,
+.tree summary.selected {
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+/* Nodes mit Kindern */
+.has-children>details>summary {
+  color: #ffffff;
+}
+
+/* Pfeilsymbole (auf/zu) */
+
+
+
+
+#properties-box {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background-color: transparent;
+  border: 2px solid white;
+  border-radius: 8px;
+  padding: 0;
+  color: white;
+  font-family: 'Roboto', sans-serif;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 750px;
+  max-height: 28vh;
+  overflow: hidden;
+  z-index: 1000;
+  display: none;
+  display: flex;
+  flex-direction: column;
+  transition: width 1.4s ease;
+    overflow-y: auto;
+
+
+}
+
+#info-box,
+#properties-box {
+  box-sizing: border-box;
+}
+
+.tab-header {
+  display: flex;
+  background: rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid white;
+}
+
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  color: white;
+  font-size: 14px;
+  font-weight: 300;
+  padding: 10px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tab-btn.active {
+  background: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+
+.tab-content {
+  display: none;
+  padding: 15px;
+  flex: 1;
+  max-height: 255px;
+}
+
+
+.tab-content.active {
+  display: block;
+}
+
+#properties-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+#properties-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+#properties-table td:first-child {
+  font-weight: bold;
+  width: 40%;
+}
+
+
+#properties-box h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+#properties-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+#properties-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+#properties-table td:first-child {
+  font-weight: bold;
+  width: 40%;
+}
+
+
+
+
+#message-box {
+  position: fixed;
+  bottom: 18px;
+  left: 18px;
+  width: 400px;
+  max-height: 200px;
+  background-color: rgba(0, 0, 0, 0.301);
+  color: white;
+  font-family: monospace;
+  font-size: 13px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  overflow-y: auto;
+  z-index: 9999;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+  display: inline-block;
+}
+
+#message-log {
+  font-family: monospace;
+  font-size: 13px;
+  max-height: 200px;
+  padding: 5px;
+}
+
+.log-entry {
+  padding: 2px 0;
+  border-bottom: 1px dotted #ddd;
+}
+#clear-log-btn {
+   padding: 4px 8px;
+   font-size: 13px;
+}
+
+#robot-stats-box {
+  position: fixed;
+  bottom: 18px;
+  left: 440px;
+  min-width: 180px;
+  max-width: 35%;
+  background: none;
+  border: none;
+  color: #fff;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: 'Roboto', sans-serif;
+  z-index: 9999;
+  padding: 16px 18px 14px 18px;
+  font-size: 10px;
+  transition: none;
+  display: inline-block;
+}
+
+@media (max-width: 50vw) {
+  #robot-stats-box {
+    left: 18px;
+    bottom: 230px;
+    right: auto;
+  }
+}
+
+#robot-stats-box:hover {
+  box-shadow: none;
+}
+
+#robot-stats-title {
+  font-size: 17px;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+#robot-stats-content p {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+#robot-status-value {
+  font-weight: bold;
+  color: #ffd600;
+}
+
+#robot-position-value,
+#robot-mode-value {
+  font-family: monospace;
+  color: #b2ff59;
+}
+
+/* Switch Design für OPC UA Sync Toggle */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  vertical-align: middle;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked+.slider {
+  background-color: #4CAF50;
+}
+
+input:focus+.slider {
+  box-shadow: 0 0 1px #4CAF50;
+}
+
+input:checked+.slider:before {
+  transform: translateX(20px);
+}
+
+.slider.round {
+  border-radius: 24px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+
+/* Kontextmenü – kompakt und modern */
+#custom-context-menu {
+  position: absolute !important;
+  z-index: 10000 !important;
+  background: #222 !important;
+  color: #fff !important;
+  border-radius: 7px !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25) !important;
+  min-width: 180px !important;
+  max-width: 240px !important;
+  padding: 0.3em 0 !important;
+  display: none;
+  font-family: inherit;
+  font-size: 1em;
+  box-sizing: border-box !important;
+}
+
+.context-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  background: none;
+  border: none;
+  color: inherit;
+  width: 100%;
+  text-align: left;
+  padding: 0.45em 1.1em 0.45em 0.9em;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background 0.15s;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.context-menu-item:hover {
+  background: #444;
+}
+
+.context-menu-icon {
+  width: 1.3em;
+  min-width: 1.3em;
+  text-align: center;
+  font-size: 1.15em;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.context-menu-label {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Overlay für Methoden-Dialog */
+.ds-overlay {
+  position: fixed;
+  z-index: 10001;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ds-modal {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  padding: 2em 2em 1.5em 2em;
+  min-width: 320px;
+  max-width: 95vw;
+  color: #222;
+  font-family: inherit;
+}
+
+.ds-modal-title {
+  margin-top: 0;
+  margin-bottom: 1em;
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.ds-form-group {
+  margin-bottom: 1em;
+}
+
+.ds-label {
+  display: block;
+  margin-bottom: 0.3em;
+  font-weight: 500;
+}
+
+.ds-input {
+  width: 100%;
+  padding: 0.5em;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  font-size: 1em;
+}
+
+.ds-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7em;
+  margin-top: 1.2em;
+}
+
+.ds-btn {
+  padding: 0.5em 1.2em;
+  border: none;
+  border-radius: 4px;
+  font-size: 1em;
+  cursor: pointer;
+  font-weight: 400;
+  transition: background 0.15s;
+}
+
+.ds-btn-primary {
+  background: #1976d2;
+  color: #fff;
+}
+
+.ds-btn-primary:hover {
+  background: #125ea7;
+}
+
+.ds-btn-secondary {
+  background: #eee;
+  color: #222;
+}
+
+.ds-btn-secondary:hover {
+  background: #ddd;
+}
+
+
+#info-box #custom-context-menu {
+  z-index: 11000;
+  /* über alles andere im info-box-Bereich */
+  position: absolute;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  min-width: 160px;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+#info-box #custom-context-menu button {
+  padding: 8px 14px;
+  text-align: left;
+  border: none;
+  background: none;
+  color: inherit;
+  width: 100%;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  transition: background 0.2s;
+}
+
+#info-box #custom-context-menu button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+#refresh-info-box {
+  font-family: "Roboto", helvetica, arial, sans-serif;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid white;
+  color: white;
+  font-size: 19px;
+  font-weight: 400;
+  padding: 7px 13px 7px 13px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+  box-shadow: none;
+  position: fixed;
+  top: 165px;
+  right: 50px;
+  z-index: 2000;
+}
+
+#refresh-info-box:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+#refresh-info-box:active {
+  background: rgba(255, 255, 255, 0.6);
+  transform: scale(0.96);
+}
+
+#refresh-info-box:focus {
+  outline: none;
+  box-shadow: 0 0 5px rgba(255,255,255,0.8);
+}
+#refresh-info-box:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+
+#tab-subscriptions table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+#tab-subscriptions th, #tab-subscriptions td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    font-size: 15px;
+}
+#tab-subscriptions th {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+
+#tab-references table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+#tab-references th, #tab-references td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    font-size: 15px;
+}
+#tab-references th {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+#robot-dashboard {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin: 15px 0;
+    transition: 0.5s opacity ease;
+    overflow: hidden;
+    padding-right: 10px;
+}
+
+#robot-dashboard > * {
+    margin: 5px 0;
+}
+
+#robot-dashboard #toggle-robot-dashboard {
+    margin-top: 0;
+    margin-bottom: 10px;
+    text-align: right;
+    transition: 0.1s opacity linear;
+    border-top: 1px solid white;
+    padding-top: 5px;
+}
+
+#robot-dashboard #toggle-robot-dashboard:hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+#robot-dashboard #toggle-robot-dashboard:before {
+    content: "hide Physical Twin Dashboard";
+    font-size: 12px;
+    font-weight: normal;
+}
+
+/* hidden state */
+#robot-dashboard.hidden #toggle-robot-dashboard:before {
+    content: "show Physical Twin Dashboard";
+}
+
+#robot-dashboard.hidden > *:not(#toggle-robot-dashboard) {
+    display: none;
+}
+
+#robot-dashboard.hidden #toggle-robot-dashboard {
+    opacity: 0.5;
+}
+
+/* Dashboard entry rows */
+#robot-dashboard .dashboard-row {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    font-size: 15px;
+    padding: 1px 1px;
+    color: #fff;
+    opacity: 0.95;
+    line-height: 1.4;
+    font-weight: bold;
+}
+
+/* Optionales Icon oder Label */
+#robot-dashboard .dashboard-label {
+    font-weight: 400;
+    min-width: 160px;
+    color: #ffffff;
+}
+
+/* Wert oder Liste */
+#robot-dashboard .dashboard-value,
+#robot-dashboard .dashboard-row span,
+#robot-dashboard .dashboard-row ul {
+    flex: 1;
+    margin-left: 0;
+    color: rgba(255, 255, 255, 0.85);
+}
+#robot-dashboard .dashboard-row span {
+    padding-left: 6px; 
+}
+
+/* Waypoints */
+#robot-dashboard ul#robot-waypoints-list {
+    list-style: disc inside;
+    margin: 0;
+    padding-left: 15px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.4;
+}
+
+/* Home Icon Animation */
+#home-icon svg {
+  stroke: white;
+  transition: transform 0.18s cubic-bezier(.4,2,.6,1), filter 0.18s cubic-bezier(.4,2,.6,1);
+}
+#home-icon:active svg {
+  transform: scale(0.82) rotate(-8deg);
+  filter: drop-shadow(0 0 8px #1976d2) brightness(1.3);
+}
+#home-icon {
+  cursor: pointer;
+}
+
+/* Responsive fallback */
+@media (max-width: 700px) {
+    #robot-dashboard {
+        display: none;
+    }
+}
+

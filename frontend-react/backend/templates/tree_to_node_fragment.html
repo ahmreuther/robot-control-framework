@@ -1,0 +1,38 @@
+{# templates/tree_to_node_fragment.html #}
+<ul class="tree" id="opcua-tree">
+{% macro render_path(node, open_path, selected_id) %}
+    {% set id = node.Attributes.NodeId.Identifier %}
+    {% set prefix = 's' if id is string else 'i' %}
+    {% set full_nodeid = 'ns={};{}={}'.format(node.Attributes.NodeId.NamespaceIndex, prefix, id) %}
+    {% set is_open = full_nodeid in open_path %}
+    {% set is_selected = (full_nodeid == selected_id) %}
+    <li class="{{ 'has-children' if node.Children else 'leaf-node' }}{% if is_selected %} selected-node{% endif %}">
+        {% if node.Children %}
+            <details data-node-id="{{ full_nodeid }}" {% if is_open %}open{% endif %} class="opcua-details{% if is_open %} expanded{% endif %}">
+                <summary
+                    data-node-id="{{ full_nodeid }}"
+                    data-nodeclass="{{ node.Attributes.NodeClass }}"
+                    class="opcua-summary{% if is_selected %} selected{% endif %}"
+                >{{ node.Pictogram }} {{ node.Name }}</summary>
+                <ul>
+                    {% for child in node.Children %}
+                        {{ render_path(child, open_path, selected_id) }}
+                    {% endfor %}
+                </ul>
+            </details>
+        {% else %}
+            <span
+                data-node-id="{{ full_nodeid }}"
+                data-nodeclass="{{ node.Attributes.NodeClass }}"
+                class="opcua-leaf{% if is_selected %} selected{% endif %}"
+            >{{ node.Pictogram }} {{ node.Name }}</span>
+        {% endif %}
+    </li>
+{% endmacro %}
+
+{% if tree is defined and tree %}
+    {{ render_path(tree, open_path, selected_id) }}
+{% else %}
+    <li>Kein Baum vorhanden</li>
+{% endif %}
+</ul>
