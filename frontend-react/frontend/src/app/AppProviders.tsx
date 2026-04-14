@@ -9,7 +9,7 @@ import { UrlProvider } from '../features/server-management/contexts/UrlContext';
 import { SocketProvider } from '../features/socket/hooks/useSocket';
 import { LoadingProvider } from './contexts/LoadingContext';
 
-const WEBSOCKET_URL = 'ws://127.0.0.1:8001/ws';
+const WEBSOCKET_URL = 'ws://127.0.0.1:8000/ws';
 
 export function AppProviders({ children }: PropsWithChildren) {
   return (
