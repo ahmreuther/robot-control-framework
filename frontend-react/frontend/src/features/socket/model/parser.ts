@@ -28,6 +28,10 @@ export function normalizeIncomingMessage(raw: string): NormalizedIncomingMessage
     return { scope: null, message: raw };
   }
 
+  if (raw.startsWith('x|')) {
+    return { scope: null, message: raw };
+  }
+
   const prefixedWithScopeMatch = /^(.*?)\|x\|([\s\S]*)$/.exec(raw);
   if (prefixedWithScopeMatch) {
     const scope = prefixedWithScopeMatch[1] ?? null;
