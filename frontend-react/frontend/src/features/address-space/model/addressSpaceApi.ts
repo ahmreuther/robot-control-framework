@@ -1,5 +1,5 @@
 import type { UaNode } from './types';
-import { REST_BACKEND_BASE } from './types';
+import { REST_BACKEND_BASE } from '../../../app/config/backendEndpoints';
 
 export const fetchChildren = async (opcUaUrl: string, nodeId: string): Promise<UaNode[]> => {
   const encodedUrl = encodeURIComponent(opcUaUrl);

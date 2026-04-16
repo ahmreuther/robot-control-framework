@@ -56,5 +56,3 @@ export const typeMap: Record<number, string> = {
   24: 'Variant',
   25: 'DiagnosticInfo',
 };
-
-export const REST_BACKEND_BASE = 'http://127.0.0.1:8001';

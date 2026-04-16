@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { normalizeIncomingMessage } from '../../socket/model/parser';
 import type { UaNode } from '../model/types';
 
 export interface Subscription {
@@ -49,7 +50,7 @@ export function useSubscriptions(opcUaUrl: string | null, socket: WebSocket | nu
     const handleMessage = (event: MessageEvent) => {
       if (typeof event.data !== 'string') return;
 
-      const msg = event.data;
+      const { message: msg } = normalizeIncomingMessage(event.data);
       if (!msg.startsWith('x|custom:')) return;
 
       const payloadRaw = msg.slice('x|custom:'.length);

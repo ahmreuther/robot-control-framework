@@ -4,6 +4,7 @@ import { message } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useLoading } from '../../../app/contexts/LoadingContext';
+import { normalizeIncomingMessage } from '../../socket/model/parser';
 import { useLogContext } from '../contexts/LogContext';
 import { useServersContext } from '../../server-management/contexts/ServersContext';
 import { fetchNodeValue, fetchReferences } from '../model/addressSpaceApi';
@@ -361,7 +362,7 @@ export function useMethodCall(
         return;
       }
 
-      const messageText = String(event.data ?? '');
+      const { message: messageText } = normalizeIncomingMessage(String(event.data ?? ''));
 
       if (messageText.startsWith('Method call result:')) {
         const result = messageText.replace('Method call result:', '').trim();
@@ -396,7 +397,7 @@ export function useMethodCall(
     if (!socket || !state.isOpen) return;
 
     const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
+      const { message } = normalizeIncomingMessage(String(event.data ?? ''));
 
       if (message.startsWith('Method call result:')) {
         const result = message.replace('Method call result:', '').trim();

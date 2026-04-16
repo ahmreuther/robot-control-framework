@@ -6,6 +6,7 @@ import { useServersContext } from '../../../features/server-management/contexts/
 import { useSyncContext } from '../../../features/robot-control/contexts/SyncContext';
 import { SocketContext } from '../../../features/socket/hooks/useSocket';
 import type { JointStateManager } from '../../robot-control/hooks/useJointState';
+import { normalizeIncomingMessage } from '../model/parser';
 import { handleIncomingMessage } from '../model/handlers';
 
 export interface WebSocketReceiverProps {
@@ -21,6 +22,7 @@ export default function WebSocketReceiver({ jointManager }: WebSocketReceiverPro
   const { appendLog } = useLogContext();
   const { isSyncActive } = useSyncContext();
   const {
+    servers,
     activeRuntimeServerId,
     activeASpaceServerId,
     setActiveRuntimeServerId,
@@ -28,7 +30,6 @@ export default function WebSocketReceiver({ jointManager }: WebSocketReceiverPro
   } = useServersContext();
 
   const targetServerId = activeRuntimeServerId ?? activeASpaceServerId;
-  const targetServerState = getServerRobotState(targetServerId);
 
   useEffect(() => {
     const lastMessage = socket?.lastMessage;
@@ -41,26 +42,33 @@ export default function WebSocketReceiver({ jointManager }: WebSocketReceiverPro
     if (typeof data !== 'string') return;
     if (!data) return;
 
+    const normalized = normalizeIncomingMessage(data);
+    const scopedServerId = normalized.scope
+      ? (servers.find((server) => server.connectedUrl === normalized.scope)?.id ?? null)
+      : null;
+    const effectiveServerId = scopedServerId ?? targetServerId;
+    const effectiveState = getServerRobotState(effectiveServerId);
+
     const updateTargetState = (patch: Parameters<typeof updateServerRobotState>[1]) => {
-      if (targetServerId === null) {
+      if (effectiveServerId === null) {
         return;
       }
-      updateServerRobotState(targetServerId, patch);
+      updateServerRobotState(effectiveServerId, patch);
     };
 
     const resetTargetState = () => {
-      if (targetServerId === null) {
+      if (effectiveServerId === null) {
         return;
       }
-      resetServerRobotState(targetServerId);
+      resetServerRobotState(effectiveServerId);
     };
 
     try {
-      const { nextLastAxleUiUpdateAt } = handleIncomingMessage(data, {
-        targetServerId,
+      const { nextLastAxleUiUpdateAt } = handleIncomingMessage(normalized.message, {
+        targetServerId: effectiveServerId,
         isSyncActive,
-        orderedJointNames: targetServerState.orderedJointNames,
-        opcuaJointLength: targetServerState.opcuaJointLength,
+        orderedJointNames: effectiveState.orderedJointNames,
+        opcuaJointLength: effectiveState.opcuaJointLength,
         lastAxleUiUpdateAt: lastAxleUiUpdateAtRef.current,
         jointManager,
         appendLog,
@@ -76,14 +84,14 @@ export default function WebSocketReceiver({ jointManager }: WebSocketReceiverPro
     }
   }, [
     appendLog,
+    getServerRobotState,
     isSyncActive,
     jointManager,
     resetServerRobotState,
     setActiveRuntimeServerId,
+    servers,
     socket?.lastMessage,
     targetServerId,
-    targetServerState.opcuaJointLength,
-    targetServerState.orderedJointNames,
     updateServerConnectionStatus,
     updateServerRobotState,
   ]);

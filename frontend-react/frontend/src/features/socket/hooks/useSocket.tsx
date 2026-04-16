@@ -1,23 +1,20 @@
 //this hook ist used for providing a websocket connection throughout the app
 
 import { createContext, type PropsWithChildren, useContext } from 'react';
-import useWebSocket, { ReadyState } from 'react-use-websocket';
+import useWebSocket from 'react-use-websocket';
 import type { WebSocketHook, WebSocketLike } from 'react-use-websocket/dist/lib/types';
+import { WEBSOCKET_URL } from '../../../app/config/backendEndpoints';
 
 //this context is later wrapped around the app in App.tsx in order to keep track of current websocket connection
 type SocketContextType = WebSocketHook | null;
 
 export const SocketContext = createContext<SocketContextType>(null);
 
-export type SocketProviderProps = PropsWithChildren<{
-  readonly url: string;
-}>;
-
 // Super Hacky. Refer to: https://github.com/oven-sh/bun/issues/3138
 const useWs = (useWebSocket as any).default as typeof useWebSocket;
 
-export function SocketProvider(props: SocketProviderProps) {
-  const wsCtx = useWs(props.url, undefined, true);
+export function SocketProvider(props: PropsWithChildren) {
+  const wsCtx = useWs(WEBSOCKET_URL, undefined, true);
   /* if (wsCtx.readyState !== ReadyState.OPEN) {
       return (
         <div>
