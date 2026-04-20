@@ -3,13 +3,15 @@ import { Canvas } from '@react-three/fiber';
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import { message, notification } from 'antd';
 import { Component, type ReactNode, Suspense, useEffect, useState } from 'react';
+import type * as THREE from 'three';
+import type { URDFRobot } from 'urdf-loader/src/URDFClasses';
 
 import type { JointStateManager } from '../hooks/useJointState';
 import type { JointProperty } from '../hooks/useSceneState';
 import { Robot } from './Robot';
 import { SolverStatus } from './SolverStatus';
 import { Stats } from './Stats';
-import { MethodCallStatusPanel } from './MethodCallStatus';
+import { WorkspacePointCloud } from './WorkspacePointCloud';
 
 function EnvironmentLoader() {
   useEffect(() => {
@@ -42,7 +44,7 @@ class EnvironmentErrorBoundary extends Component<
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error) {
+  override componentDidCatch(error: Error) {
     if (this.state.hideLoading) {
       this.state.hideLoading();
     }
@@ -55,7 +57,7 @@ class EnvironmentErrorBoundary extends Component<
     });
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return this.props.fallback;
     }
@@ -72,7 +74,10 @@ export interface ViewportProps {
   effectComposer?: boolean;
   environment?: boolean;
   pendingJoints: number[];
-  setPendingJoints: (joints: number[]) => void;
+  setPendingJoints: (joints: number[] | null) => void;
+  workspacePoints?: THREE.Vector3[];
+  showWorkspace?: boolean;
+  onRobotReady?: (robot: URDFRobot | null) => void;
 }
 
 export function Viewport(props: ViewportProps) {
@@ -139,19 +144,27 @@ export function Viewport(props: ViewportProps) {
           {/* Robot with IK */}
           <Suspense fallback={<RobotLoader />}>
             <Robot
-              urdfPath={props.urdfPath}
+              urdfPath={props.urdfPath ?? ''}
               drag={drag}
               onSolveStatusesChange={setSolveStatusesState}
               onDrag={setDrag}
               jointManager={props.jointManager}
               onJointLimitsLoaded={props.onJointLimitsLoaded}
               showCollisionMesh={props.showCollisionMesh}
-              setHoveredJointMesh={props.setHoveredJointMesh}
+              {...(props.setHoveredJointMesh
+                ? { setHoveredJointMesh: props.setHoveredJointMesh }
+                : {})}
               setMovedDistance={setMovedDistance}
               pendingJoints={props.pendingJoints}
               setPendingJoints={props.setPendingJoints}
+              {...(props.onRobotReady ? { onRobotReady: props.onRobotReady } : {})}
             />
           </Suspense>
+
+          <WorkspacePointCloud
+            points={props.workspacePoints ?? []}
+            visible={props.showWorkspace ?? false}
+          />
         </Canvas>
       </div>
     </div>

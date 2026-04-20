@@ -39,6 +39,7 @@ interface RobotProps {
   setMovedDistance?: (distance: number) => void;
   pendingJoints: number[];
   setPendingJoints: (joints: number[] | null) => void;
+  onRobotReady?: (robot: URDFRobot | null) => void;
 }
 
 export function Robot({
@@ -53,6 +54,7 @@ export function Robot({
   setMovedDistance,
   pendingJoints,
   setPendingJoints,
+  onRobotReady,
 }: RobotProps) {
   const { isSyncActive } = useSyncContext();
   const { sendMessage } = useSendMessage();
@@ -307,6 +309,7 @@ export function Robot({
     async (robot: URDFRobot, robotGroup: THREE.Group) => {
       robotRef.current = robot;
       robotGroupRef.current = robotGroup;
+      onRobotReady?.(robot);
       robotGroup.rotation.x = -Math.PI / 2;
 
       const ordered = getOrderedRevoluteJointNames(robot);
@@ -448,8 +451,12 @@ export function Robot({
 
       solverRef.current = solver;
     },
-    [jointManager, onJointLimitsLoaded, setOrderedJointNames],
+    [jointManager, onJointLimitsLoaded, onRobotReady, setOrderedJointNames],
   );
+
+  useEffect(() => {
+    return () => onRobotReady?.(null);
+  }, [onRobotReady]);
 
   // Animation: home position
   const homeAnimation = (jointNames: string[]) => {

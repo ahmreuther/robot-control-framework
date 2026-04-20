@@ -8,7 +8,7 @@ import {
 import { JointAnglesPanel, Viewport } from '../../features/robot-control/components';
 import { RobotsServersManager } from '../../features/server-management/components';
 import Settings from './Settings';
-import type { WorkspaceLayoutProps } from './types';
+import type { WorkspaceLayoutProps } from '../types';
 
 export function DesktopLayout(props: WorkspaceLayoutProps) {
   return (
@@ -37,6 +37,15 @@ export function DesktopLayout(props: WorkspaceLayoutProps) {
                     reloadKey={props.reloadKey}
                     hoveredJointMesh={props.hoveredJointMesh}
                     setPendingJoints={props.setPendingJoints}
+                    workspaceResolution={props.workspaceResolution}
+                    setWorkspaceResolution={props.setWorkspaceResolution}
+                    showWorkspace={props.showWorkspace}
+                    setShowWorkspace={props.setShowWorkspace}
+                    hasWorkspace={props.workspacePoints.length > 0}
+                    isGeneratingWorkspace={props.isGeneratingWorkspace}
+                    workspaceProgress={props.workspaceProgress}
+                    onGenerateWorkspace={props.onGenerateWorkspace}
+                    onCancelWorkspace={props.onCancelWorkspace}
                   />
                 </Panel>
                 <Panel defaultSize={'85%'}>
@@ -51,6 +60,9 @@ export function DesktopLayout(props: WorkspaceLayoutProps) {
                     environment={props.settings.environment}
                     pendingJoints={props.pendingJoints}
                     setPendingJoints={props.setPendingJoints}
+                    workspacePoints={props.workspacePoints}
+                    showWorkspace={props.showWorkspace}
+                    onRobotReady={props.onRobotReady}
                   />
                 </Panel>
               </Group>

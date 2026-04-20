@@ -1,8 +1,14 @@
-import type { ModelConfig } from '../../features/server-management/components/URDFSelector';
-import type { Robot, Server } from '../../features/server-management/hooks/useServersAndRobots';
-import type { JointProperty } from '../../features/robot-control/hooks/useSceneState';
-import type { JointStateManager } from '../../features/robot-control/hooks/useJointState';
-import type { MobilePanelState, SettingsState } from '../hooks/useAppShellState';
+import type { ModelConfig } from '../features/server-management/components/URDFSelector';
+import type { Robot, Server } from '../features/server-management/hooks/useServersAndRobots';
+import type { JointProperty } from '../features/robot-control/hooks/useSceneState';
+import type { JointStateManager } from '../features/robot-control/hooks/useJointState';
+import type {
+  WorkspaceProgress,
+  WorkspaceResolution,
+} from '../features/robot-control/model/workspaceGeneration';
+import type { MobilePanelState, SettingsState } from './hooks/useAppShellState';
+import type * as THREE from 'three';
+import type { URDFRobot } from 'urdf-loader/src/URDFClasses';
 
 export interface WorkspaceLayoutProps {
   logoSrc: string;
@@ -18,7 +24,17 @@ export interface WorkspaceLayoutProps {
   hoveredJointMesh: number | null;
   setHoveredJointMesh: (index: number | null) => void;
   pendingJoints: number[];
-  setPendingJoints: (joints: number[]) => void;
+  setPendingJoints: (joints: number[] | null) => void;
+  workspaceResolution: WorkspaceResolution;
+  setWorkspaceResolution: (resolution: WorkspaceResolution) => void;
+  workspacePoints: THREE.Vector3[];
+  showWorkspace: boolean;
+  setShowWorkspace: (visible: boolean) => void;
+  isGeneratingWorkspace: boolean;
+  workspaceProgress: WorkspaceProgress | null;
+  onGenerateWorkspace: () => void;
+  onCancelWorkspace: () => void;
+  onRobotReady: (robot: URDFRobot | null) => void;
   servers: Server[];
   robots: Robot[];
   addServer: (name: string, connectedUrl: string, backendport: string | null) => number;

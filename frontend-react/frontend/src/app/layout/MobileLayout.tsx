@@ -7,7 +7,7 @@ import { JointAnglesPanel, Viewport } from '../../features/robot-control/compone
 import { RobotsServersManager } from '../../features/server-management/components';
 import Settings from './Settings';
 import MobilePanelControls from './MobilePanelControls';
-import type { MobileControlsProps, WorkspaceLayoutProps } from './types';
+import type { MobileControlsProps, WorkspaceLayoutProps } from '../types';
 
 type MobileLayoutProps = WorkspaceLayoutProps & MobileControlsProps;
 
@@ -70,6 +70,9 @@ export function MobileLayout(props: MobileLayoutProps) {
                 environment={props.settings.environment}
                 pendingJoints={props.pendingJoints}
                 setPendingJoints={props.setPendingJoints}
+                workspacePoints={props.workspacePoints}
+                showWorkspace={props.showWorkspace}
+                onRobotReady={props.onRobotReady}
               />
             </div>
             <div className="w-full z-50 max-h-[30vh] overflow-auto">
@@ -81,6 +84,15 @@ export function MobileLayout(props: MobileLayoutProps) {
                 reloadKey={props.reloadKey}
                 hoveredJointMesh={props.hoveredJointMesh}
                 setPendingJoints={props.setPendingJoints}
+                workspaceResolution={props.workspaceResolution}
+                setWorkspaceResolution={props.setWorkspaceResolution}
+                showWorkspace={props.showWorkspace}
+                setShowWorkspace={props.setShowWorkspace}
+                hasWorkspace={props.workspacePoints.length > 0}
+                isGeneratingWorkspace={props.isGeneratingWorkspace}
+                workspaceProgress={props.workspaceProgress}
+                onGenerateWorkspace={props.onGenerateWorkspace}
+                onCancelWorkspace={props.onCancelWorkspace}
               />
             </div>
           </div>

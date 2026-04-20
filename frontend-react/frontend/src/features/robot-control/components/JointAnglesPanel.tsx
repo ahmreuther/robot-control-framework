@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 import type { JointStateManager } from '../hooks/useJointState';
 import type { JointProperty } from '../hooks/useSceneState';
+import type { WorkspaceProgress, WorkspaceResolution } from '../model/workspaceGeneration';
 import { CheckBox } from '../../../shared/CheckBox';
 import { SliderInput } from './SliderInput';
 
@@ -18,6 +19,15 @@ export interface JointAnglesPanelProps {
   reloadKey: number;
   hoveredJointMesh?: number | null;
   setPendingJoints?: (joints: number[]) => void;
+  workspaceResolution: WorkspaceResolution;
+  setWorkspaceResolution: (resolution: WorkspaceResolution) => void;
+  showWorkspace: boolean;
+  setShowWorkspace: (visible: boolean) => void;
+  hasWorkspace: boolean;
+  isGeneratingWorkspace: boolean;
+  workspaceProgress: WorkspaceProgress | null;
+  onGenerateWorkspace: () => void;
+  onCancelWorkspace: () => void;
 }
 
 export function JointAnglesPanel({
@@ -29,6 +39,15 @@ export function JointAnglesPanel({
   reloadKey,
   hoveredJointMesh,
   setPendingJoints,
+  workspaceResolution,
+  setWorkspaceResolution,
+  showWorkspace,
+  setShowWorkspace,
+  hasWorkspace,
+  isGeneratingWorkspace,
+  workspaceProgress,
+  onGenerateWorkspace,
+  onCancelWorkspace,
 }: JointAnglesPanelProps) {
   const [showRadians, setShowRadians] = useState(false);
   const [localAngles, setLocalAngles] = useState<number[]>([]);
@@ -64,14 +83,58 @@ export function JointAnglesPanel({
             value={showRadians}
             onToggle={(checked) => setShowRadians(checked)}
           />
+          <CheckBox
+            label="Show Work Envelope"
+            value={showWorkspace}
+            onToggle={(checked) => setShowWorkspace(checked)}
+          />
+          <div
+            className="space-y-2 border-t pt-2"
+            style={{ borderColor: 'rgb(var(--panel-border) / 0.12)' }}
+          >
+            <div className="flex items-center gap-2">
+              <select
+                value={workspaceResolution}
+                onChange={(event) =>
+                  setWorkspaceResolution(event.target.value as WorkspaceResolution)
+                }
+                disabled={isGeneratingWorkspace}
+                className="input-ghost flex-1"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+              <button
+                type="button"
+                onClick={isGeneratingWorkspace ? onCancelWorkspace : onGenerateWorkspace}
+                className="button-ghost"
+              >
+                {isGeneratingWorkspace ? 'Cancel' : hasWorkspace ? 'Regenerate' : 'Generate'}
+              </button>
+            </div>
+            {workspaceProgress && (
+              <div>
+                <div className="mb-1 text-xs text-white/70">
+                  {workspaceProgress.label} ({workspaceProgress.percent}%)
+                </div>
+                <div className="h-2 overflow-hidden bg-white/15">
+                  <div
+                    className="h-full bg-[rgb(var(--ok))]"
+                    style={{ width: `${workspaceProgress.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <div className="relative space-y-2">
           {localAngles.map((angle, i) => {
             const property = jointProperties?.[i];
             if (property && property.min === property.max) return null;
 
-            const minDisp = property.min;
-            const maxDisp = property.max;
+            const minDisp = property?.min ?? -Math.PI;
+            const maxDisp = property?.max ?? Math.PI;
             const valueDisp = angle;
 
             const highlight = hoveredJointMesh === i;
@@ -82,7 +145,7 @@ export function JointAnglesPanel({
                   minDisp={minDisp}
                   maxDisp={maxDisp}
                   valueDisp={valueDisp}
-                  property={property}
+                  {...(property ? { property } : {})}
                   showRadians={showRadians}
                   localAngles={localAngles}
                   setLocalAngles={setLocalAngles}
@@ -90,7 +153,7 @@ export function JointAnglesPanel({
                   jointManager={jointManager}
                   radToDeg={radToDeg}
                   degToRad={degToRad}
-                  setPendingJoints={setPendingJoints}
+                  setPendingJoints={setPendingJoints ?? (() => undefined)}
                 />
               </div>
             );
