@@ -3,6 +3,14 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 
 from wsc2_backend.models.messages import (
+    AddressSpaceChildrenEvent,
+    AddressSpaceNodeDetailsEvent,
+    AddressSpaceReferencesEvent,
+    AddressSpaceRootEvent,
+    BrowseAddressSpaceChildrenCommand,
+    BrowseAddressSpaceNodeDetailsCommand,
+    BrowseAddressSpaceReferencesCommand,
+    BrowseAddressSpaceRootCommand,
     CallRobotMethodCommand,
     CallRawMethodCommand,
     ClientMessage,
@@ -121,10 +129,16 @@ async def handle_client_message(
 ) -> list[ServerMessage]:
     if isinstance(message, ConnectServerCommand):
         try:
-            connected_event, _robots_event = await discover_and_register(
+            connection = ensure_connection(
                 server_url=message.server_url,
                 registry=registry,
                 connection_factory=connection_factory,
+            )
+            await connection.connect()
+            server = registry.ensure_server(message.server_url)
+            server.mark_connected(
+                namespace_uris=server.namespace_uris,
+                is_robotics_server=False,
             )
         except Exception as exc:
             return [
@@ -136,8 +150,13 @@ async def handle_client_message(
                 )
             ]
 
-        connected_event.request_id = message.request_id
-        return [connected_event]
+        return [
+            ServerConnectedEvent(
+                type="serverConnected",
+                request_id=message.request_id,
+                server=server.to_info(),
+            )
+        ]
 
     if isinstance(message, DiscoverRobotsCommand):
         try:
@@ -166,6 +185,117 @@ async def handle_client_message(
                 type="serverDisconnected",
                 request_id=message.request_id,
                 server_url=message.server_url,
+            )
+        ]
+
+    if isinstance(message, BrowseAddressSpaceRootCommand):
+        try:
+            connection = ensure_connection(
+                server_url=message.server_url,
+                registry=registry,
+                connection_factory=connection_factory,
+            )
+            nodes = await connection.browse_address_space_root()
+        except Exception as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=message.server_url,
+                    message=f"Failed to browse address space root: {exc}",
+                    code="addressSpaceBrowseFailed",
+                )
+            ]
+
+        return [
+            AddressSpaceRootEvent(
+                type="addressSpaceRoot",
+                request_id=message.request_id,
+                server_url=message.server_url,
+                nodes=nodes,
+            )
+        ]
+
+    if isinstance(message, BrowseAddressSpaceChildrenCommand):
+        try:
+            connection = ensure_connection(
+                server_url=message.server_url,
+                registry=registry,
+                connection_factory=connection_factory,
+            )
+            nodes = await connection.browse_address_space_children(message.node_id)
+        except Exception as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=message.server_url,
+                    message=f"Failed to browse address space children for {message.node_id}: {exc}",
+                    code="addressSpaceBrowseFailed",
+                )
+            ]
+
+        return [
+            AddressSpaceChildrenEvent(
+                type="addressSpaceChildren",
+                request_id=message.request_id,
+                server_url=message.server_url,
+                node_id=message.node_id,
+                nodes=nodes,
+            )
+        ]
+
+    if isinstance(message, BrowseAddressSpaceReferencesCommand):
+        try:
+            connection = ensure_connection(
+                server_url=message.server_url,
+                registry=registry,
+                connection_factory=connection_factory,
+            )
+            references = await connection.browse_address_space_references(message.node_id)
+        except Exception as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=message.server_url,
+                    message=f"Failed to browse address space references for {message.node_id}: {exc}",
+                    code="addressSpaceBrowseFailed",
+                )
+            ]
+
+        return [
+            AddressSpaceReferencesEvent(
+                type="addressSpaceReferences",
+                request_id=message.request_id,
+                server_url=message.server_url,
+                node_id=message.node_id,
+                references=references,
+            )
+        ]
+
+    if isinstance(message, BrowseAddressSpaceNodeDetailsCommand):
+        try:
+            connection = ensure_connection(
+                server_url=message.server_url,
+                registry=registry,
+                connection_factory=connection_factory,
+            )
+            details = await connection.browse_address_space_node_details(message.node_id)
+        except Exception as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=message.server_url,
+                    message=f"Failed to browse address space node details for {message.node_id}: {exc}",
+                    code="addressSpaceBrowseFailed",
+                )
+            ]
+
+        return [
+            AddressSpaceNodeDetailsEvent(
+                type="addressSpaceNodeDetails",
+                request_id=message.request_id,
+                server_url=message.server_url,
+                node_id=message.node_id,
+                details=details,
             )
         ]
 

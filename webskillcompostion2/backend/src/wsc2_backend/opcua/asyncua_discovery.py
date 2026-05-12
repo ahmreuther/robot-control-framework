@@ -199,7 +199,11 @@ async def discover_axis_bindings(
 
 
 async def read_method_arguments(method_node: Node, argument_node_name: str) -> list[MethodArgument]:
-    argument_node = await child_by_name(method_node, argument_node_name)
+    argument_node: Node | None = None
+    try:
+        argument_node = await method_node.get_child(f"0:{argument_node_name}")
+    except Exception:
+        argument_node = await child_by_name(method_node, argument_node_name)
     if argument_node is None:
         return []
 
@@ -350,7 +354,7 @@ async def discover_connected_server(
         status=ServerStatus.CONNECTED,
         namespace_uris=namespace_uris,
         is_robotics_server=ROBOTICS_NAMESPACE_URI in namespace_uris,
-        robot_ids=[robot.robot_id for robot in robots],
+        motion_device_ids=[robot.robot_id for robot in robots],
     )
     return ServerDiscoveryResult(server=server, robots=robots)
 

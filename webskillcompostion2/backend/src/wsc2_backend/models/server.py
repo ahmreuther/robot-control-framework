@@ -19,5 +19,4 @@ class ServerSessionInfo(ContractModel):
     status: ServerStatus = ServerStatus.DISCONNECTED
     namespace_uris: list[str] = Field(default_factory=list)
     is_robotics_server: bool = False
-    robot_ids: list[str] = Field(default_factory=list)
-
+    motion_device_ids: list[str] = Field(default_factory=list)

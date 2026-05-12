@@ -33,7 +33,6 @@ function App() {
     return () => {
       unsubscribeStatus();
       unsubscribeState();
-      controller.dispose();
     };
   }, [controller]);
 

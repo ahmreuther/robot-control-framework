@@ -25,7 +25,7 @@ async def fake_discover_server(server_url: str) -> ServerDiscoveryResult:
             status=ServerStatus.CONNECTED,
             namespaceUris=["http://opcfoundation.org/UA/"],
             isRoboticsServer=True,
-            robotIds=[robot.robot_id],
+            motionDeviceIds=[robot.robot_id],
         ),
         robots=[robot],
     )

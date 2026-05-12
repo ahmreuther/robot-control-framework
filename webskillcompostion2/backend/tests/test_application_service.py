@@ -1,6 +1,10 @@
 import pytest
 
 from wsc2_backend.models.messages import (
+    AddressSpaceChildrenEvent,
+    AddressSpaceNodeDetailsEvent,
+    AddressSpaceReferencesEvent,
+    AddressSpaceRootEvent,
     ErrorEvent,
     MethodResultEvent,
     RobotsDiscoveredEvent,
@@ -67,7 +71,7 @@ async def fake_discover(server_url: str) -> ServerDiscoveryResult:
             status=ServerStatus.CONNECTED,
             namespaceUris=["http://opcfoundation.org/UA/"],
             isRoboticsServer=True,
-            robotIds=[robot.robot_id for robot in robots],
+            motionDeviceIds=[robot.robot_id for robot in robots],
         ),
         robots=robots,
     )
@@ -92,6 +96,9 @@ class FakeConnection:
         self.subscribed_modes: list[str] = []
         self.unsubscribed_modes: list[str] = []
         self.raw_method_calls: list[dict[str, object]] = []
+        self.browse_root_count = 0
+        self.browse_children_calls: list[str] = []
+        self.browse_references_calls: list[str] = []
         self.fail_method_call = False
         FakeConnection.created.append(self)
 
@@ -185,6 +192,54 @@ class FakeConnection:
             "status": "ok",
         }
 
+    async def browse_address_space_root(self):
+        self.browse_root_count += 1
+        return [
+            {
+                "nodeId": "i=84",
+                "displayName": "Root",
+                "browseName": "Root",
+                "nodeClass": "Object",
+                "hasChildren": True,
+            }
+        ]
+
+    async def browse_address_space_children(self, node_id: str):
+        self.browse_children_calls.append(node_id)
+        return [
+            {
+                "nodeId": f"{node_id}.child",
+                "displayName": "Child Node",
+                "browseName": "ChildNode",
+                "nodeClass": "Variable",
+                "hasChildren": False,
+            }
+        ]
+
+    async def browse_address_space_references(self, node_id: str):
+        self.browse_references_calls.append(node_id)
+        return [
+            {
+                "referenceType": "Organizes (i=35)",
+                "nodeId": "i=86",
+                "browseName": "0:Types",
+                "typeDefinition": "FolderType (i=61)",
+            }
+        ]
+
+    async def browse_address_space_node_details(self, node_id: str):
+        return {
+            "nodeId": node_id,
+            "browseName": "0:Root",
+            "displayName": "Root",
+            "nodeClass": "Object",
+            "nodeClassValue": 1,
+            "description": "Top level root",
+            "value": None,
+            "dataType": None,
+            "eventNotifier": "0",
+        }
+
 
 @pytest.fixture(autouse=True)
 def clear_fake_connections() -> None:
@@ -208,7 +263,8 @@ async def test_connect_command_returns_server_connected_event() -> None:
     assert isinstance(events[0], ServerConnectedEvent)
     assert events[0].server.server_url == SERVER_URL
     assert registry.get_server(SERVER_URL) is not None
-    assert FakeConnection.created[0].discovery_count == 1
+    assert FakeConnection.created[0].connected is True
+    assert FakeConnection.created[0].discovery_count == 0
     parsed = parse_server_message_json(events[0].model_dump_json(by_alias=True))
     assert parsed.type == "serverConnected"
 
@@ -231,6 +287,91 @@ async def test_discover_command_registers_multiple_robot_sessions() -> None:
     assert [robot.display_name for robot in events[0].robots] == ["Demo Robot 1", "Demo Robot 2"]
     assert registry.get_robot(events[0].robots[0].robot_id) is not None
     assert registry.get_robot(events[0].robots[1].robot_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_browse_address_space_root_returns_nodes() -> None:
+    registry = RuntimeRegistry()
+    command = parse_client_message_json(
+        '{"type":"browseAddressSpaceRoot","requestId":"req-root","serverUrl":"' + SERVER_URL + '"}'
+    )
+
+    events = await handle_client_message(
+        command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert len(events) == 1
+    assert isinstance(events[0], AddressSpaceRootEvent)
+    assert events[0].nodes[0].display_name == "Root"
+    assert FakeConnection.created[0].browse_root_count == 1
+
+
+@pytest.mark.asyncio
+async def test_browse_address_space_children_returns_nodes() -> None:
+    registry = RuntimeRegistry()
+    command = parse_client_message_json(
+        '{"type":"browseAddressSpaceChildren","requestId":"req-children","serverUrl":"'
+        + SERVER_URL
+        + '","nodeId":"i=85"}'
+    )
+
+    events = await handle_client_message(
+        command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert len(events) == 1
+    assert isinstance(events[0], AddressSpaceChildrenEvent)
+    assert events[0].node_id == "i=85"
+    assert events[0].nodes[0].display_name == "Child Node"
+    assert FakeConnection.created[0].browse_children_calls == ["i=85"]
+
+
+@pytest.mark.asyncio
+async def test_browse_address_space_references_returns_references() -> None:
+    registry = RuntimeRegistry()
+    command = parse_client_message_json(
+        '{"type":"browseAddressSpaceReferences","requestId":"req-references","serverUrl":"'
+        + SERVER_URL
+        + '","nodeId":"i=85"}'
+    )
+
+    events = await handle_client_message(
+        command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert len(events) == 1
+    assert isinstance(events[0], AddressSpaceReferencesEvent)
+    assert events[0].node_id == "i=85"
+    assert events[0].references[0].reference_type == "Organizes (i=35)"
+    assert FakeConnection.created[0].browse_references_calls == ["i=85"]
+
+
+@pytest.mark.asyncio
+async def test_browse_address_space_node_details_returns_details() -> None:
+    registry = RuntimeRegistry()
+    command = parse_client_message_json(
+        '{"type":"browseAddressSpaceNodeDetails","requestId":"req-node-details","serverUrl":"'
+        + SERVER_URL
+        + '","nodeId":"i=84"}'
+    )
+
+    events = await handle_client_message(
+        command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert len(events) == 1
+    assert isinstance(events[0], AddressSpaceNodeDetailsEvent)
+    assert events[0].node_id == "i=84"
+    assert events[0].details.description == "Top level root"
+    assert events[0].details.node_class_value == 1
 
 
 @pytest.mark.asyncio

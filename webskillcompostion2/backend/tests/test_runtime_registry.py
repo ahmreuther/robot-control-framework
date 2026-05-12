@@ -23,7 +23,7 @@ def test_registry_indexes_robots_by_server_and_robot_id() -> None:
 
     registry.replace_server_robots(server, robots)
 
-    assert server.to_info().robot_ids == [robots[0].robot_id, robots[1].robot_id]
+    assert server.to_info().motion_device_ids == [robots[0].robot_id, robots[1].robot_id]
     assert registry.get_robot(robots[0].robot_id) is robots[0]
     assert registry.get_robot(robots[1].robot_id) is robots[1]
 
@@ -39,4 +39,3 @@ def test_removing_server_removes_its_robots_from_global_lookup() -> None:
     assert removed is server
     assert registry.get_server(server.server_url) is None
     assert registry.get_robot(robot.robot_id) is None
-

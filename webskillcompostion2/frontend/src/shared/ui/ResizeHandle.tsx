@@ -7,8 +7,8 @@ export function ResizeHandle({
 }) {
   const className =
     direction === "vertical"
-      ? "w-1 shrink-0 bg-[rgb(var(--bg-gray-200))]"
-      : "h-1 shrink-0 bg-[rgb(var(--bg-gray-200))]";
+      ? "w-2 shrink-0 bg-[rgb(var(--bg-gray-200))]"
+      : "h-2 shrink-0 bg-[rgb(var(--bg-gray-200))]";
 
   return <Separator className={className} />;
 }

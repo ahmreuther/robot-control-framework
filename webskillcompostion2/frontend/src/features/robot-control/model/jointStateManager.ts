@@ -1,36 +1,50 @@
-export const JOINT_WRITER_PRIORITY = {
+export const JOINT_SOURCE_ID = {
+  RESET: "joint-reset",
+  ANIMATION: "joint-animation",
+  SYNC: "joint-sync",
+  IK: "joint-ik",
+  DRAG: "joint-drag",
+  MANUAL: "joint-manual",
+  FK: "joint-fk",
+} as const;
+
+export const JOINT_SOURCE_PRIORITY = {
   RESET: 6,
   ANIMATION: 5,
-  SYN: 4,
+  SYNC: 4,
   IK: 3,
   DRAG: 2,
+  MANUAL: 1,
   FK: 1,
 } as const;
 
-export const JOINT_WRITER_ID = {
-  RESET: 'joint-reset',
-  ANIMATION: 'joint-animation',
-  SYN: 'joint-syn',
-  IK: 'joint-ik',
-  DRAG: 'joint-drag',
-  FK: 'joint-fk',
-} as const;
+export type JointSourceId =
+  | (typeof JOINT_SOURCE_ID)[keyof typeof JOINT_SOURCE_ID]
+  | string;
 
-export type JointWriterId = (typeof JOINT_WRITER_ID)[keyof typeof JOINT_WRITER_ID] | string;
-export type JointStateListener = (angles: number[]) => void;
-
-export interface JointWriter {
-  id: JointWriterId;
+export interface JointStateSource {
+  id: JointSourceId;
   priority: number;
+  mountedAt: number;
 }
 
+export interface JointStateSnapshot {
+  angles: number[];
+  activeSourceId: JointSourceId | null;
+  jointNames: string[];
+}
+
+export type JointStateListener = (snapshot: JointStateSnapshot) => void;
+
 export interface JointStateManager {
-  mountWriter(id: JointWriterId, priority: number): boolean;
-  unmountWriter(id: JointWriterId): void;
-  setAngles(id: JointWriterId, angles: number[]): boolean;
+  mountSource(id: JointSourceId, priority: number): void;
+  unmountSource(id: JointSourceId): void;
+  setActiveSource(id: JointSourceId | null): boolean;
+  updateFromSource(id: JointSourceId, angles: number[]): boolean;
   subscribe(listener: JointStateListener): () => void;
+  getState(): JointStateSnapshot;
   getAngles(): number[];
-  getActiveWriter(): JointWriter | null;
+  getActiveSource(): JointStateSource | null;
   setJointNames(jointNames: string[]): void;
   getOrderedJointNames(): string[];
   getJointNameToIndexMap(): Record<string, number>;
@@ -38,41 +52,85 @@ export interface JointStateManager {
 
 export function createJointStateManager(): JointStateManager {
   let angles: number[] = [];
-  let activeWriter: JointWriter | null = null;
+  let activeSourceId: JointSourceId | null = null;
   let jointNames: string[] = [];
-  const writers = new Map<JointWriterId, JointWriter>();
+  const sources = new Map<JointSourceId, JointStateSource>();
   const listeners = new Set<JointStateListener>();
 
-  function nextHighestWriter(): JointWriter | null {
-    return Array.from(writers.values()).sort((a, b) => b.priority - a.priority)[0] ?? null;
+  function chooseHighestPrioritySource(): JointStateSource | null {
+    return (
+      Array.from(sources.values()).sort((a, b) => {
+        if (b.priority !== a.priority) {
+          return b.priority - a.priority;
+        }
+        return a.mountedAt - b.mountedAt;
+      })[0] ?? null
+    );
+  }
+
+  function notifyListeners() {
+    for (const listener of listeners) {
+      listener({
+        angles: [...angles],
+        activeSourceId,
+        jointNames: [...jointNames],
+      });
+    }
   }
 
   return {
-    mountWriter(id: JointWriterId, priority: number) {
-      const writer = { id, priority };
-      writers.set(id, writer);
+    mountSource(id: JointSourceId, priority: number) {
+      const existing = sources.get(id);
+      if (existing) {
+        existing.priority = priority;
+        const nextActive = chooseHighestPrioritySource();
+        activeSourceId = nextActive?.id ?? null;
+        notifyListeners();
+        return;
+      }
+      sources.set(id, {
+        id,
+        priority,
+        mountedAt: Date.now(),
+      });
+      const nextActive = chooseHighestPrioritySource();
+      activeSourceId = nextActive?.id ?? null;
+      notifyListeners();
+    },
 
-      if (!activeWriter || priority > activeWriter.priority) {
-        activeWriter = writer;
+    unmountSource(id: JointSourceId) {
+      sources.delete(id);
+      const nextActive = chooseHighestPrioritySource();
+      activeSourceId = nextActive?.id ?? null;
+      notifyListeners();
+    },
+
+    setActiveSource(id: JointSourceId | null) {
+      if (id === null) {
+        activeSourceId = null;
+        notifyListeners();
         return true;
       }
-      return false;
-    },
-
-    unmountWriter(id: JointWriterId) {
-      writers.delete(id);
-      if (activeWriter?.id === id) {
-        activeWriter = nextHighestWriter();
+      if (!sources.has(id)) {
+        return false;
       }
+      const requested = sources.get(id);
+      const highest = chooseHighestPrioritySource();
+      if (!requested || (highest && highest.id !== requested.id)) {
+        return false;
+      }
+      activeSourceId = id;
+      notifyListeners();
+      return true;
     },
 
-    setAngles(id: JointWriterId, nextAngles: number[]) {
-      if (activeWriter?.id !== id) return false;
+    updateFromSource(id: JointSourceId, nextAngles: number[]) {
+      if (!sources.has(id) || activeSourceId !== id) {
+        return false;
+      }
 
       angles = [...nextAngles];
-      for (const listener of listeners) {
-        listener([...angles]);
-      }
+      notifyListeners();
       return true;
     },
 
@@ -81,16 +139,25 @@ export function createJointStateManager(): JointStateManager {
       return () => listeners.delete(listener);
     },
 
+    getState() {
+      return {
+        angles: [...angles],
+        activeSourceId,
+        jointNames: [...jointNames],
+      };
+    },
+
     getAngles() {
       return [...angles];
     },
 
-    getActiveWriter() {
-      return activeWriter;
+    getActiveSource() {
+      return activeSourceId ? (sources.get(activeSourceId) ?? null) : null;
     },
 
     setJointNames(nextJointNames: string[]) {
       jointNames = [...nextJointNames];
+      notifyListeners();
     },
 
     getOrderedJointNames() {

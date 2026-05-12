@@ -4,8 +4,8 @@ import type { Robot } from '../../../entities/robot/model/types';
 import type { RobotStoreState } from '../../../entities/robot/model/store';
 import {
   createJointStateManager,
-  JOINT_WRITER_ID,
-  JOINT_WRITER_PRIORITY,
+  JOINT_SOURCE_ID,
+  JOINT_SOURCE_PRIORITY,
 } from './jointStateManager';
 import {
   applyRobotJointMapping,
@@ -17,8 +17,29 @@ import {
 } from './robotJointSync';
 
 function robot(overrides: Partial<Robot> = {}): Robot {
+  const defaultVisual = {
+    urdfId: null,
+    urdfLabel: null,
+    urdfUrl: null,
+    origin: {
+      x: 0,
+      y: 0,
+      z: 0,
+    },
+    orderedUrdfJointNames: ['joint_1', 'joint_2'],
+    axisToJointName: {},
+  };
+  const defaultPanel = {
+    useDegrees: false,
+    showCollisionMap: false,
+    showWorkspace: false,
+  };
+
+  const { visual: visualOverrides, panel: panelOverrides, ...restOverrides } = overrides;
+
   return {
     robotId: 'robot-a',
+    motionDeviceId: 'robot-a',
     serverUrl: 'opc.tcp://127.0.0.1:4840',
     displayName: 'MotionDevice_EVA',
     motionDevice: { nodeId: 'ns=4;s=robot-a' },
@@ -47,11 +68,15 @@ function robot(overrides: Partial<Robot> = {}): Robot {
       },
       unit: 'C81',
     },
+    ...restOverrides,
     visual: {
-      orderedUrdfJointNames: ['joint_1', 'joint_2'],
-      axisToJointName: {},
+      ...defaultVisual,
+      ...visualOverrides,
     },
-    ...overrides,
+    panel: {
+      ...defaultPanel,
+      ...panelOverrides,
+    },
     mode: overrides.mode ?? null,
   };
 }
@@ -87,6 +112,11 @@ describe('robot joint sync lifecycle', () => {
   it('returns null when mapping cannot be created without visual joint order', () => {
     const withoutVisualJoints = robot({
       visual: {
+        origin: {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
         orderedUrdfJointNames: [],
         axisToJointName: {},
       },
@@ -107,7 +137,6 @@ describe('robot joint sync lifecycle', () => {
       synced: false,
       reason: 'notStarted',
       robotId: 'robot-a',
-      angles: [0.5, 1],
       axisToJointName: {
         Axis_1: 'joint_1',
         Axis_2: 'joint_2',
@@ -117,7 +146,7 @@ describe('robot joint sync lifecycle', () => {
 
     expect(session.start()).toBe(true);
     expect(session.isStarted()).toBe(true);
-    expect(manager.getActiveWriter()?.id).toBe(JOINT_WRITER_ID.SYN);
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.SYNC);
     expect(manager.getOrderedJointNames()).toEqual(['joint_1', 'joint_2']);
 
     const firstUpdate = session.update({
@@ -134,7 +163,7 @@ describe('robot joint sync lifecycle', () => {
     expect(manager.getAngles()).toEqual([0.6, 1.2]);
   });
 
-  it('stops sync by unmounting the sync writer', () => {
+  it('stops sync by unmounting the sync source', () => {
     const manager = createJointStateManager();
     const session = createRobotJointSyncSession(applyRobotJointMapping(robot()), manager);
 
@@ -144,15 +173,15 @@ describe('robot joint sync lifecycle', () => {
     session.stop();
 
     expect(session.isStarted()).toBe(false);
-    expect(manager.getActiveWriter()).toBe(null);
+    expect(manager.getActiveSource()).toBe(null);
     expect(session.update({ axisValues: { Axis_1: 1, Axis_2: 2 }, unit: 'C81' }).reason).toBe(
       'notStarted',
     );
   });
 
-  it('reports writerBlocked if a higher priority writer is active during updates', () => {
+  it('makes the sync source active when sync starts', () => {
     const manager = createJointStateManager();
-    manager.mountWriter(JOINT_WRITER_ID.RESET, JOINT_WRITER_PRIORITY.RESET);
+    manager.mountSource(JOINT_SOURCE_ID.RESET, JOINT_SOURCE_PRIORITY.RESET);
     const session = createRobotJointSyncSession(applyRobotJointMapping(robot()), manager);
 
     if (!session || 'synced' in session) throw new Error('Expected sync session');
@@ -161,8 +190,7 @@ describe('robot joint sync lifecycle', () => {
     const result = session.update({ axisValues: { Axis_1: 0.5, Axis_2: 1 }, unit: 'C81' });
 
     expect(result.synced).toBe(false);
-    expect(result.reason).toBe('writerBlocked');
-    expect(manager.getActiveWriter()?.id).toBe(JOINT_WRITER_ID.RESET);
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.RESET);
     expect(manager.getAngles()).toEqual([]);
   });
 
@@ -190,7 +218,6 @@ describe('robot joint sync lifecycle', () => {
     ).toEqual({
       synced: false,
       reason: 'noActiveRobot',
-      angles: [],
       axisToJointName: {},
     });
     expect(
@@ -205,7 +232,6 @@ describe('robot joint sync lifecycle', () => {
       synced: false,
       reason: 'robotMissing',
       robotId: 'missing',
-      angles: [],
       axisToJointName: {},
     });
   });

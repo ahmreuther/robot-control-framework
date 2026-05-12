@@ -1,6 +1,10 @@
 import type { ServerMessage } from '../../../shared/api/messages';
 import type { Robot } from './types';
-import { createRobotFromSession } from './types';
+import {
+  bindRobotToMotionDevice,
+  createRobotFromSession,
+  unbindRobotFromMotionDevice,
+} from './types';
 
 export interface RobotStoreState {
   byId: Record<string, Robot>;
@@ -12,49 +16,51 @@ export const initialRobotStoreState: RobotStoreState = {
   activeRobotId: null,
 };
 
+function findRobotInstanceIdByMotionDeviceId(
+  state: RobotStoreState,
+  motionDeviceId: string,
+): string | null {
+  for (const robot of Object.values(state.byId)) {
+    if (robot.motionDeviceId === motionDeviceId) {
+      return robot.robotId;
+    }
+  }
+  return null;
+}
+
 export function applyRobotMessage(
   state: RobotStoreState,
   message: ServerMessage,
 ): RobotStoreState {
   switch (message.type) {
-    case 'robotsDiscovered': {
-      const nextById = { ...state.byId };
-      for (const session of message.robots) {
-        nextById[session.robotId] = {
-          ...(nextById[session.robotId] ?? createRobotFromSession(session)),
-          ...session,
-        };
-      }
-
-      return {
-        byId: nextById,
-        activeRobotId: state.activeRobotId ?? message.robots[0]?.robotId ?? null,
-      };
-    }
+    case 'robotsDiscovered':
+      return state;
 
     case 'robotInfo': {
-      const current = state.byId[message.robotId] ?? createRobotFromSession(message.robot);
+      const localRobotId = findRobotInstanceIdByMotionDeviceId(state, message.robotId);
+      if (!localRobotId) return state;
+      const current = state.byId[localRobotId];
+      if (!current) return state;
       return {
         ...state,
         byId: {
           ...state.byId,
-          [message.robotId]: {
-            ...current,
-            ...message.robot,
-          },
+          [localRobotId]: bindRobotToMotionDevice(current, message.robot),
         },
       };
     }
 
     case 'robotJointState': {
-      const current = state.byId[message.robotId];
+      const localRobotId = findRobotInstanceIdByMotionDeviceId(state, message.robotId);
+      if (!localRobotId) return state;
+      const current = state.byId[localRobotId];
       if (!current) return state;
 
       return {
         ...state,
         byId: {
           ...state.byId,
-          [message.robotId]: {
+          [localRobotId]: {
             ...current,
             joints: message.data,
           },
@@ -63,14 +69,16 @@ export function applyRobotMessage(
     }
 
     case 'robotModeChanged': {
-      const current = state.byId[message.robotId];
+      const localRobotId = findRobotInstanceIdByMotionDeviceId(state, message.robotId);
+      if (!localRobotId) return state;
+      const current = state.byId[localRobotId];
       if (!current) return state;
 
       return {
         ...state,
         byId: {
           ...state.byId,
-          [message.robotId]: {
+          [localRobotId]: {
             ...current,
             mode: message.mode,
           },
@@ -83,29 +91,29 @@ export function applyRobotMessage(
       for (const [robotId, robot] of Object.entries(nextById)) {
         if (robot.serverUrl !== message.serverUrl) continue;
         nextById[robotId] = {
-          ...robot,
+          ...unbindRobotFromMotionDevice(robot),
           status: 'disconnected',
         };
       }
 
-      const activeRobot = state.activeRobotId ? nextById[state.activeRobotId] : null;
       return {
         byId: nextById,
-        activeRobotId:
-          activeRobot?.serverUrl === message.serverUrl ? null : state.activeRobotId,
+        activeRobotId: state.activeRobotId,
       };
     }
 
     case 'error': {
       if (!message.robotId) return state;
-      const current = state.byId[message.robotId];
+      const localRobotId = findRobotInstanceIdByMotionDeviceId(state, message.robotId);
+      if (!localRobotId) return state;
+      const current = state.byId[localRobotId];
       if (!current) return state;
 
       return {
         ...state,
         byId: {
           ...state.byId,
-          [message.robotId]: {
+          [localRobotId]: {
             ...current,
             status: 'error',
           },

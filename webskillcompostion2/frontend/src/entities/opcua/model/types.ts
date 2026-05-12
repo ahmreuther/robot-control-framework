@@ -5,6 +5,31 @@ export interface NodeBinding {
   nodeClass?: string | null;
 }
 
+export interface AddressSpaceNode extends NodeBinding {
+  hasChildren: boolean;
+}
+
+export interface AddressSpaceReference {
+  referenceType: string;
+  nodeId: string;
+  browseName?: string | null;
+  typeDefinition?: string | null;
+}
+
+export interface AddressSpaceNodeDetails {
+  nodeId: string;
+  browseName?: string | null;
+  displayName?: string | null;
+  nodeClass?: string | null;
+  nodeClassValue?: number | null;
+  description?: string | null;
+  value?: unknown;
+  dataType?: string | null;
+  eventNotifier?: string | null;
+  inputArguments: MethodArgument[];
+  outputArguments: MethodArgument[];
+}
+
 export interface MotionDeviceBinding extends NodeBinding {
   typeDefinitionNodeId?: string | null;
   namespaceUri?: string | null;

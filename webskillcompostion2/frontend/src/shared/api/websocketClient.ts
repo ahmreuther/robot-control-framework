@@ -183,6 +183,45 @@ export class WscWebSocketClient {
     return requestId;
   }
 
+  browseAddressSpaceRoot(serverUrl: string): string {
+    const requestId = this.nextRequestId('browse-root');
+    this.sendOrQueue({ type: 'browseAddressSpaceRoot', requestId, serverUrl });
+    return requestId;
+  }
+
+  browseAddressSpaceChildren(serverUrl: string, nodeId: string): string {
+    const requestId = this.nextRequestId('browse-children');
+    this.sendOrQueue({
+      type: 'browseAddressSpaceChildren',
+      requestId,
+      serverUrl,
+      nodeId,
+    });
+    return requestId;
+  }
+
+  browseAddressSpaceReferences(serverUrl: string, nodeId: string): string {
+    const requestId = this.nextRequestId('browse-references');
+    this.sendOrQueue({
+      type: 'browseAddressSpaceReferences',
+      requestId,
+      serverUrl,
+      nodeId,
+    });
+    return requestId;
+  }
+
+  browseAddressSpaceNodeDetails(serverUrl: string, nodeId: string): string {
+    const requestId = this.nextRequestId('browse-node-details');
+    this.sendOrQueue({
+      type: 'browseAddressSpaceNodeDetails',
+      requestId,
+      serverUrl,
+      nodeId,
+    });
+    return requestId;
+  }
+
   private sendOrQueue(message: ClientMessage): void {
     if (this.socket?.readyState === OPEN_READY_STATE) {
       this.send(message);

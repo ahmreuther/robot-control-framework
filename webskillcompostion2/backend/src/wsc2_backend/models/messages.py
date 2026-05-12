@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, TypeAdapter
 
+from .address_space import AddressSpaceNode, AddressSpaceNodeDetails, AddressSpaceReference
 from .base import ContractModel
 from .robot import RobotJointState, RobotSessionInfo
 from .server import ServerSessionInfo
@@ -95,6 +96,33 @@ class CallRawMethodCommand(ContractModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
 
 
+class BrowseAddressSpaceRootCommand(ContractModel):
+    type: Literal["browseAddressSpaceRoot"]
+    request_id: str
+    server_url: str
+
+
+class BrowseAddressSpaceChildrenCommand(ContractModel):
+    type: Literal["browseAddressSpaceChildren"]
+    request_id: str
+    server_url: str
+    node_id: str
+
+
+class BrowseAddressSpaceReferencesCommand(ContractModel):
+    type: Literal["browseAddressSpaceReferences"]
+    request_id: str
+    server_url: str
+    node_id: str
+
+
+class BrowseAddressSpaceNodeDetailsCommand(ContractModel):
+    type: Literal["browseAddressSpaceNodeDetails"]
+    request_id: str
+    server_url: str
+    node_id: str
+
+
 ClientMessage = Annotated[
     ConnectServerCommand
     | DisconnectServerCommand
@@ -108,7 +136,11 @@ ClientMessage = Annotated[
     | UnsubscribeEventCommand
     | SubscribeRobotModeCommand
     | UnsubscribeRobotModeCommand
-    | CallRawMethodCommand,
+    | CallRawMethodCommand
+    | BrowseAddressSpaceRootCommand
+    | BrowseAddressSpaceChildrenCommand
+    | BrowseAddressSpaceReferencesCommand
+    | BrowseAddressSpaceNodeDetailsCommand,
     Field(discriminator="type"),
 ]
 
@@ -187,6 +219,37 @@ class ErrorEvent(ContractModel):
     code: str | None = None
 
 
+class AddressSpaceRootEvent(ContractModel):
+    type: Literal["addressSpaceRoot"]
+    request_id: str | None = None
+    server_url: str
+    nodes: list[AddressSpaceNode]
+
+
+class AddressSpaceChildrenEvent(ContractModel):
+    type: Literal["addressSpaceChildren"]
+    request_id: str | None = None
+    server_url: str
+    node_id: str
+    nodes: list[AddressSpaceNode]
+
+
+class AddressSpaceReferencesEvent(ContractModel):
+    type: Literal["addressSpaceReferences"]
+    request_id: str | None = None
+    server_url: str
+    node_id: str
+    references: list[AddressSpaceReference]
+
+
+class AddressSpaceNodeDetailsEvent(ContractModel):
+    type: Literal["addressSpaceNodeDetails"]
+    request_id: str | None = None
+    server_url: str
+    node_id: str
+    details: AddressSpaceNodeDetails
+
+
 ServerMessage = Annotated[
     ServerConnectedEvent
     | ServerDisconnectedEvent
@@ -197,7 +260,11 @@ ServerMessage = Annotated[
     | MethodResultEvent
     | NodeValueChangedEvent
     | OpcUaEventNotificationEvent
-    | ErrorEvent,
+    | ErrorEvent
+    | AddressSpaceRootEvent
+    | AddressSpaceChildrenEvent
+    | AddressSpaceReferencesEvent
+    | AddressSpaceNodeDetailsEvent,
     Field(discriminator="type"),
 ]
 

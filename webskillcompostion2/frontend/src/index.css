@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import '@heroui/styles';
+@import "tailwindcss";
+@import "@heroui/styles";
 
 @layer base {
   :root {
@@ -55,7 +55,7 @@
     -webkit-appearance: none;
     margin: 0;
   }
-  input[type='number'] {
+  input[type="number"] {
     -moz-appearance: textfield;
   }
 }
@@ -69,7 +69,7 @@
   }
 
   .panel-header {
-    @apply flex items-center justify-between gap-2 border-b px-4 py-2;
+    @apply flex min-h-10 items-center justify-between gap-2 border-b px-4 py-2;
     border-color: rgb(var(--panel-border) / 0.1);
   }
 
@@ -79,12 +79,12 @@
   }
 
   .panel-body {
-    @apply p-4 text-sm;
+    @apply p-2 text-sm;
   }
 
   .input-ghost {
     @apply bg-transparent border px-2 py-1 text-xs outline-none transition-colors duration-150;
-    border-color: rgb(var(--panel-border) / 0.2);
+    border-color: rgb(var(--panel-border) / 0.1);
     color: rgb(var(--fg) / 0.75);
   }
 
@@ -100,7 +100,7 @@
   }
 
   .button-ghost {
-    @apply border px-2 py-1 text-xs transition-colors duration-150;
+    @apply inline-flex h-6 items-center justify-center border px-2 text-xs leading-none transition-colors duration-150;
     border-color: rgb(var(--panel-border) / 0.1);
     background: transparent;
     color: rgb(var(--fg) / 0.8);
@@ -137,25 +137,11 @@
     color: rgb(var(--fg));
   }
 
-  .row {
-    @apply border border-transparent transition-colors duration-150;
-    border-color: transparent;
-  }
-
-  .row-hover {
+  .panel.active {
     border-color: rgb(var(--brand) / 0.7);
     background: rgb(var(--brand) / 0.08);
     box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
-  }
-
-  .hover-surface {
-    @apply border border-transparent transition-colors duration-150 px-2 py-1;
-  }
-
-  .hover-surface:hover {
-    border-color: rgb(var(--brand) / 0.7);
-    background: rgb(var(--brand) / 0.08);
-    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
+    color: rgb(var(--fg));
   }
 
   .list-panel {
@@ -171,39 +157,6 @@
     background: rgb(var(--panel-border) / 0.08);
   }
 
-  .panel-nav {
-    @apply flex items-center gap-2;
-  }
-
-  .panel-tab {
-    @apply inline-flex items-center justify-center
-           px-2 py-1 text-xs
-           cursor-pointer select-none
-           transition-colors duration-150;
-    color: rgb(var(--fg) / 0.75);
-    background: transparent;
-    border: 1px solid rgb(var(--panel-border) / 0.1);
-  }
-
-  .panel-tab:hover {
-    border-color: rgb(var(--brand) / 0.7);
-    background: rgb(var(--brand) / 0.08);
-    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
-    color: rgb(var(--fg));
-  }
-
-  .panel-tab[aria-selected='true'] {
-    border-color: rgb(var(--brand) / 0.7);
-    background: rgb(var(--brand) / 0.08);
-    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
-    color: rgb(var(--fg));
-  }
-
-  .panel-tab:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px rgb(var(--brand) / 0.35);
-  }
-
   .panel-table {
     width: 100%;
     border-collapse: collapse;
@@ -215,12 +168,12 @@
     padding: 4px;
     font-weight: 600;
     color: rgb(var(--fg) / 0.9);
-    border-bottom: 1px solid rgb(var(--panel-border) / 0.18);
+    border-bottom: 1px solid rgb(var(--panel-border) / 0.1);
     white-space: nowrap;
   }
 
   .panel-table tbody tr {
-    border-bottom: 1px solid rgb(var(--panel-border) / 0.12);
+    border-bottom: 1px solid rgb(var(--panel-border) / 0.1);
   }
 
   .panel-table tbody tr:hover {
@@ -235,26 +188,21 @@
 
   .panel-table .cell-mono {
     font-family:
-      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
     color: rgb(var(--brand) / 0.9);
   }
 
   .code {
     font-family:
-      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
     color: rgb(var(--fg-muted) / 0.9);
   }
 
   .panel-table .cell-muted {
     color: rgb(var(--fg-muted) / 0.9);
   }
-
-  .panel-subtitle {
-    @apply text-xs ml-2;
-    text-transform: none;
-    color: rgb(var(--fg-muted) / 0.9);
-  }
-
   .address-space-tree .ant-tree-node-content-wrapper {
     border-radius: 0 !important;
     border: 1px solid rgb(var(--panel-border) / 0) !important;
@@ -267,17 +215,23 @@
     color: rgb(var(--fg));
   }
 
-  .address-space-tree .ant-tree-treenode-selected > .ant-tree-node-content-wrapper {
+  .address-space-tree
+    .ant-tree-treenode-selected
+    > .ant-tree-node-content-wrapper {
     background: transparent !important;
   }
 
   .address-space-tree .ant-tree-node-content-wrapper .ant-tree-title {
     font-family:
-      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace !important;
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
     color: rgb(var(--fg-muted) / 0.9) !important;
   }
 
-  .address-space-tree .ant-tree-treenode-selected > .ant-tree-node-content-wrapper .ant-tree-title {
+  .address-space-tree
+    .ant-tree-treenode-selected
+    > .ant-tree-node-content-wrapper
+    .ant-tree-title {
     color: rgb(var(--brand) / 0.7) !important;
   }
 
@@ -291,11 +245,41 @@
   .address-space-tree .ant-tree-switcher:hover {
     color: rgb(var(--brand) / 0.7);
   }
+  .address-space-tree {
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 0 !important;
+  }
+
+  .address-space-tree .ant-tree-list {
+    height: auto !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+  }
+
+  .address-space-tree .ant-tree-list-holder {
+    min-width: 0;
+    overflow: visible !important;
+    border-radius: 0 !important;
+  }
+
+  .address-space-tree .ant-tree-list-holder-inner {
+    border-radius: 0 !important;
+  }
 
   .select {
-    @apply w-full px-1 py-0 text-xs
+    @apply w-full px-2 py-1 text-xs
            border bg-transparent
-           focus:outline-none transition-colors;
+          transition-colors;
+    border-color: rgb(var(--panel-border) / 0.2);
+    color: rgb(var(--fg) / 0.75);
+  }
+
+  .select:focus-visible {
+    border-color: rgb(var(--brand) / 0.7);
+    background: rgb(var(--brand) / 0.08);
+    box-shadow: 0 0 6px 0 rgb(var(--brand) / 0.35);
+    color: rgb(var(--fg));
   }
 
   .slider {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RobotSessionInfo } from '../../entities/robot/model/types';
+import { ROBOT_MODEL_OPTIONS } from '../../features/robot-control/model/robotModels';
 import { WscWebSocketClient, type WebSocketLike } from '../../shared/api/websocketClient';
 import { createApplicationController } from './applicationController';
 
@@ -91,6 +92,16 @@ function setup() {
   return { socket, controller };
 }
 
+function createBoundRobot(controller: ReturnType<typeof createApplicationController>) {
+  const robotId = controller.createRobot('Manual EVA', ROBOT_MODEL_OPTIONS[0], {
+    x: 0,
+    y: 0,
+    z: 0,
+  });
+  controller.bindRobotToMotionDevice(robotId, 'robot-a');
+  return robotId;
+}
+
 describe('ApplicationController', () => {
   it('routes websocket messages into stores and per-robot joint runtime', () => {
     const { socket, controller } = setup();
@@ -100,11 +111,12 @@ describe('ApplicationController', () => {
       serverUrl: SERVER_URL,
       robots: [robotSession()],
     });
-    controller.updateRobotVisualBinding('robot-a', {
+    const robotId = createBoundRobot(controller);
+    controller.updateRobotVisualBinding(robotId, {
       orderedUrdfJointNames: ['joint_1', 'joint_2'],
     });
 
-    const started = controller.startRobotSync('robot-a');
+    const started = controller.startRobotSync(robotId);
     socket.receive({
       type: 'robotJointState',
       serverUrl: SERVER_URL,
@@ -119,11 +131,11 @@ describe('ApplicationController', () => {
     });
 
     expect(started?.requestId).toBe('subscribe-joints-1');
-    expect(controller.getSnapshot().robot.byId['robot-a']?.joints.axisValues).toEqual({
+    expect(controller.getSnapshot().robot.byId[robotId]?.joints.axisValues).toEqual({
       Axis_1: 1,
       Axis_2: 2,
     });
-    expect(controller.getJointRuntime().getManager('robot-a').getAngles()).toEqual([
+    expect(controller.getJointRuntime().getManager(robotId).getAngles()).toEqual([
       1,
       2,
     ]);
@@ -131,15 +143,25 @@ describe('ApplicationController', () => {
 
   it('exposes lifecycle helpers for server, mode, node, and event subscriptions', () => {
     const { socket, controller } = setup();
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [robotSession()],
+    });
+    const robotId = createBoundRobot(controller);
 
     controller.connectServer(SERVER_URL);
     controller.discoverRobots(SERVER_URL);
-    controller.subscribeRobotMode('robot-a');
-    controller.unsubscribeRobotMode('robot-a');
+    controller.subscribeRobotMode(robotId);
+    controller.unsubscribeRobotMode(robotId);
     controller.subscribeNode(SERVER_URL, 'ns=4;s=temperature');
     controller.unsubscribeNode(SERVER_URL, 'ns=4;s=temperature');
     controller.subscribeEvent(SERVER_URL, 'ns=4;s=MotionDevice_EVA');
     controller.unsubscribeEvent(SERVER_URL, 'ns=4;s=MotionDevice_EVA');
+    controller.browseAddressSpaceRoot(SERVER_URL);
+    controller.browseAddressSpaceChildren(SERVER_URL, 'i=85');
+    controller.browseAddressSpaceReferences(SERVER_URL, 'i=85');
+    controller.browseAddressSpaceNodeDetails(SERVER_URL, 'i=85');
 
     expect(socket.sent.map((raw) => JSON.parse(raw).type)).toEqual([
       'connectServer',
@@ -150,6 +172,10 @@ describe('ApplicationController', () => {
       'unsubscribeNode',
       'subscribeEvent',
       'unsubscribeEvent',
+      'browseAddressSpaceRoot',
+      'browseAddressSpaceChildren',
+      'browseAddressSpaceReferences',
+      'browseAddressSpaceNodeDetails',
     ]);
   });
 
@@ -161,12 +187,13 @@ describe('ApplicationController', () => {
       serverUrl: SERVER_URL,
       robots: [robotSession()],
     });
+    const robotId = createBoundRobot(controller);
 
-    const gotoRequestId = controller.callRobotGoto('robot-a', {
+    const gotoRequestId = controller.callRobotGoto(robotId, {
       joints: [0, 0.1],
       maxSpeed: 0.5,
     });
-    const toggleRequestId = controller.toggleEndEffector('robot-a');
+    const toggleRequestId = controller.toggleEndEffector(robotId);
     socket.receive({
       type: 'methodResult',
       requestId: gotoRequestId,
@@ -230,5 +257,252 @@ describe('ApplicationController', () => {
       nodeId: 'ns=4;s=RawMethod',
       method: 'raw',
     });
+  });
+
+  it('creates a local robot instance and selects it', () => {
+    const { controller } = setup();
+
+    const robotId = controller.createRobot('Manual EVA', ROBOT_MODEL_OPTIONS[0], {
+      x: 1,
+      y: 2,
+      z: 3,
+    });
+    const snapshot = controller.getSnapshot();
+
+    expect(snapshot.robot.activeRobotId).toBe(robotId);
+    expect(snapshot.robot.byId[robotId]).toEqual({
+      robotId,
+      motionDeviceId: null,
+      serverUrl: 'local://manual',
+      displayName: 'Manual EVA',
+      motionDevice: {
+        nodeId: `manual:${robotId}`,
+        displayName: 'Manual EVA',
+        browseName: 'Manual EVA',
+      },
+      info: {},
+      opcua: {
+        variables: {},
+        methods: {},
+        axes: {},
+      },
+      status: 'unknown',
+      joints: {
+        axisValues: {},
+        unit: null,
+      },
+      mode: null,
+      visual: {
+        urdfId: 'eva',
+        urdfLabel: 'EVA',
+        urdfUrl: '/urdf/eva_description/urdf/eva_description.urdf',
+        origin: {
+          x: 1,
+          y: 2,
+          z: 3,
+        },
+        orderedUrdfJointNames: [
+          'joint_1',
+          'joint_2',
+          'joint_3',
+          'joint_4',
+          'joint_5',
+          'joint_6',
+        ],
+        axisToJointName: {},
+      },
+      panel: {
+        useDegrees: false,
+        showCollisionMap: false,
+        showWorkspace: false,
+      },
+    });
+    expect(controller.getJointRuntime().getExistingManager(robotId) !== null).toBe(true);
+  });
+
+  it('lets the active server be selected explicitly', () => {
+    const { socket, controller } = setup();
+    const otherUrl = 'opc.tcp://127.0.0.1:4841';
+
+    socket.receive({
+      type: 'serverConnected',
+      server: {
+        serverUrl: SERVER_URL,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: true,
+        motionDeviceIds: [],
+      },
+    });
+    socket.receive({
+      type: 'serverConnected',
+      server: {
+        serverUrl: otherUrl,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: false,
+        motionDeviceIds: [],
+      },
+    });
+
+    controller.selectServer(SERVER_URL);
+
+    expect(controller.getSnapshot().server.activeServerUrl).toBe(SERVER_URL);
+  });
+
+  it('tracks address-space browse and selection state by server', () => {
+    const { socket, controller } = setup();
+
+    const rootRequestId = controller.browseAddressSpaceRoot(SERVER_URL);
+    expect(
+      controller.getSnapshot().server.addressSpace.byServerUrl[SERVER_URL]
+        ?.rootRequestStatus,
+    ).toBe('loading');
+    socket.receive({
+      type: 'addressSpaceRoot',
+      requestId: rootRequestId,
+      serverUrl: SERVER_URL,
+      nodes: [
+        {
+          nodeId: 'i=85',
+          displayName: 'Objects',
+          browseName: 'Objects',
+          nodeClass: 'Object',
+          hasChildren: true,
+        },
+      ],
+    });
+    controller.selectAddressSpaceNode(SERVER_URL, 'i=85');
+    controller.setAddressSpaceExpandedNodeIds(SERVER_URL, ['i=85']);
+    const referencesRequestId = controller.browseAddressSpaceReferences(
+      SERVER_URL,
+      'i=85',
+    );
+    const detailsRequestId = controller.browseAddressSpaceNodeDetails(
+      SERVER_URL,
+      'i=85',
+    );
+    socket.receive({
+      type: 'addressSpaceReferences',
+      requestId: referencesRequestId,
+      serverUrl: SERVER_URL,
+      nodeId: 'i=85',
+      references: [
+        {
+          referenceType: 'Organizes (i=35)',
+          nodeId: 'i=86',
+          browseName: '0:Types',
+          typeDefinition: 'FolderType (i=61)',
+        },
+      ],
+    });
+    socket.receive({
+      type: 'addressSpaceNodeDetails',
+      requestId: detailsRequestId,
+      serverUrl: SERVER_URL,
+      nodeId: 'i=85',
+      details: {
+        nodeId: 'i=85',
+        browseName: '0:Objects',
+        displayName: 'Objects',
+        nodeClass: 'Object',
+        nodeClassValue: 1,
+        description: 'Objects folder',
+        value: null,
+        dataType: null,
+        eventNotifier: '0',
+      },
+    });
+
+    const snapshot = controller.getSnapshot();
+    expect(snapshot.server.addressSpace.byServerUrl[SERVER_URL]?.rootNodeIds).toEqual([
+      'i=85',
+    ]);
+    expect(
+      snapshot.server.addressSpace.byServerUrl[SERVER_URL]?.rootRequestStatus,
+    ).toBe('succeeded');
+    expect(snapshot.server.addressSpace.byServerUrl[SERVER_URL]?.selectedNodeId).toBe(
+      'i=85',
+    );
+    expect(snapshot.server.addressSpace.byServerUrl[SERVER_URL]?.expandedNodeIds).toEqual([
+      'i=85',
+    ]);
+    expect(
+      snapshot.server.addressSpace.byServerUrl[SERVER_URL]?.referencesByNodeId['i=85'],
+    ).toEqual([
+      {
+        referenceType: 'Organizes (i=35)',
+        nodeId: 'i=86',
+        browseName: '0:Types',
+        typeDefinition: 'FolderType (i=61)',
+      },
+    ]);
+    expect(
+      snapshot.server.addressSpace.byServerUrl[SERVER_URL]?.detailsByNodeId['i=85'],
+    ).toEqual({
+      nodeId: 'i=85',
+      browseName: '0:Objects',
+      displayName: 'Objects',
+      nodeClass: 'Object',
+      nodeClassValue: 1,
+      description: 'Objects folder',
+      value: null,
+      dataType: null,
+      eventNotifier: '0',
+    });
+    expect(
+      snapshot.server.addressSpace.byServerUrl[SERVER_URL]?.referenceRequestStatusByNodeId[
+        'i=85'
+      ],
+    ).toBe('succeeded');
+    expect(
+      snapshot.server.addressSpace.byServerUrl[SERVER_URL]?.detailRequestStatusByNodeId[
+        'i=85'
+      ],
+    ).toBe('succeeded');
+  });
+
+  it('marks failed address-space requests explicitly without needing resend heuristics', () => {
+    const { socket, controller } = setup();
+
+    const requestId = controller.browseAddressSpaceNodeDetails(SERVER_URL, 'i=85');
+
+    expect(
+      controller.getSnapshot().server.addressSpace.byServerUrl[SERVER_URL]
+        ?.detailRequestStatusByNodeId['i=85'],
+    ).toBe('loading');
+
+    socket.receive({
+      type: 'error',
+      requestId,
+      serverUrl: SERVER_URL,
+      message: 'Failed to browse address space node details for i=85',
+      code: 'addressSpaceBrowseFailed',
+    });
+
+    expect(
+      controller.getSnapshot().server.addressSpace.byServerUrl[SERVER_URL]
+        ?.detailRequestStatusByNodeId['i=85'],
+    ).toBe('failed');
+  });
+
+  it('tracks optimistic variable and event subscriptions by node', () => {
+    const { controller } = setup();
+
+    controller.subscribeNode(SERVER_URL, 'i=85');
+    controller.subscribeEvent(SERVER_URL, 'i=85');
+
+    let snapshot = controller.getSnapshot();
+    expect(snapshot.server.subscribedNodeKeys).toEqual([`${SERVER_URL}::i=85`]);
+    expect(snapshot.server.subscribedEventNodeKeys).toEqual([
+      `${SERVER_URL}::i=85`,
+    ]);
+
+    controller.unsubscribeNode(SERVER_URL, 'i=85');
+    controller.unsubscribeEvent(SERVER_URL, 'i=85');
+
+    snapshot = controller.getSnapshot();
+    expect(snapshot.server.subscribedNodeKeys).toEqual([]);
+    expect(snapshot.server.subscribedEventNodeKeys).toEqual([]);
   });
 });

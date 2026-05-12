@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Robot } from '../../../entities/robot/model/types';
+import { JOINT_SOURCE_ID } from './jointStateManager';
 import { createRobotJointRuntime } from './robotJointRuntime';
 
 function robot(robotId: string, offset = 0): Robot {
   return {
     robotId,
+    motionDeviceId: robotId,
     serverUrl: 'opc.tcp://127.0.0.1:4840',
     displayName: robotId,
     motionDevice: { nodeId: `ns=4;s=${robotId}` },
@@ -34,11 +36,24 @@ function robot(robotId: string, offset = 0): Robot {
     },
     mode: null,
     visual: {
+      urdfId: null,
+      urdfLabel: null,
+      urdfUrl: null,
+      origin: {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
       orderedUrdfJointNames: ['joint_1', 'joint_2'],
       axisToJointName: {
         Axis_1: 'joint_1',
         Axis_2: 'joint_2',
       },
+    },
+    panel: {
+      useDegrees: false,
+      showCollisionMap: false,
+      showWorkspace: false,
     },
   };
 }
@@ -73,6 +88,16 @@ describe('RobotJointRuntime', () => {
     expect(runtime.getManager('robot-a').getAngles()).toEqual([1, 2]);
   });
 
+  it('configures a manual source and joint names for a robot manager', () => {
+    const runtime = createRobotJointRuntime();
+
+    const manager = runtime.configureRobot(robot('robot-a'));
+
+    expect(manager.getOrderedJointNames()).toEqual(['joint_1', 'joint_2']);
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.MANUAL);
+    expect(manager.getAngles()).toEqual([0.1, 0.2]);
+  });
+
   it('does not apply updates when no sync session exists', () => {
     const runtime = createRobotJointRuntime();
 
@@ -86,19 +111,18 @@ describe('RobotJointRuntime', () => {
       synced: false,
       reason: 'noSession',
       robotId: 'robot-a',
-      angles: [],
       axisToJointName: {},
     });
   });
 
-  it('stops sync and unmounts the session writer', () => {
+  it('stops sync and unmounts the session source', () => {
     const runtime = createRobotJointRuntime();
 
     runtime.startSync(robot('robot-a'));
     runtime.stopSync('robot-a');
 
     expect(runtime.isSyncing('robot-a')).toBe(false);
-    expect(runtime.getManager('robot-a').getActiveWriter()).toBe(null);
+    expect(runtime.getManager('robot-a').getActiveSource()?.id).toBe(JOINT_SOURCE_ID.MANUAL);
     expect(runtime.update('robot-a', { axisValues: { Axis_1: 1 } }).reason).toBe('noSession');
   });
 

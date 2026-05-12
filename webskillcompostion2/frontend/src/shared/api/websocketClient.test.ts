@@ -80,6 +80,19 @@ describe('WscWebSocketClient', () => {
     client.unsubscribeEvent('opc.tcp://127.0.0.1:4840', 'ns=4;s=MotionDevice_EVA');
     client.subscribeRobotMode('robot-a');
     client.unsubscribeRobotMode('robot-a');
+    client.browseAddressSpaceRoot('opc.tcp://127.0.0.1:4840');
+    client.browseAddressSpaceChildren(
+      'opc.tcp://127.0.0.1:4840',
+      'ns=4;s=MotionDevice_EVA',
+    );
+    client.browseAddressSpaceReferences(
+      'opc.tcp://127.0.0.1:4840',
+      'ns=4;s=MotionDevice_EVA',
+    );
+    client.browseAddressSpaceNodeDetails(
+      'opc.tcp://127.0.0.1:4840',
+      'ns=4;s=MotionDevice_EVA',
+    );
     client.callRawMethod('opc.tcp://127.0.0.1:4840', 'ns=4;s=Go To', {
       args: ['joint', [0, 0, 0, 0, 0, 0]],
     });
@@ -120,8 +133,31 @@ describe('WscWebSocketClient', () => {
         robotId: 'robot-a',
       },
       {
+        type: 'browseAddressSpaceRoot',
+        requestId: 'browse-root-7',
+        serverUrl: 'opc.tcp://127.0.0.1:4840',
+      },
+      {
+        type: 'browseAddressSpaceChildren',
+        requestId: 'browse-children-8',
+        serverUrl: 'opc.tcp://127.0.0.1:4840',
+        nodeId: 'ns=4;s=MotionDevice_EVA',
+      },
+      {
+        type: 'browseAddressSpaceReferences',
+        requestId: 'browse-references-9',
+        serverUrl: 'opc.tcp://127.0.0.1:4840',
+        nodeId: 'ns=4;s=MotionDevice_EVA',
+      },
+      {
+        type: 'browseAddressSpaceNodeDetails',
+        requestId: 'browse-node-details-10',
+        serverUrl: 'opc.tcp://127.0.0.1:4840',
+        nodeId: 'ns=4;s=MotionDevice_EVA',
+      },
+      {
         type: 'callRawMethod',
-        requestId: 'raw-method-7',
+        requestId: 'raw-method-11',
         serverUrl: 'opc.tcp://127.0.0.1:4840',
         nodeId: 'ns=4;s=Go To',
         inputs: {
@@ -169,7 +205,7 @@ describe('WscWebSocketClient', () => {
           status: 'connected',
           namespaceUris: [],
           isRoboticsServer: false,
-          robotIds: [],
+          motionDeviceIds: [],
         },
       }),
     );

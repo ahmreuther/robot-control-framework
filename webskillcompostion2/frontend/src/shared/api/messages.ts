@@ -1,4 +1,9 @@
 import type { RobotJointState, RobotSessionInfo } from '../../entities/robot/model/types';
+import type {
+  AddressSpaceNode,
+  AddressSpaceNodeDetails,
+  AddressSpaceReference,
+} from '../../entities/opcua/model/types';
 import type { ServerSessionInfo } from '../../entities/server/model/types';
 
 export type ClientMessage =
@@ -46,6 +51,29 @@ export type ClientMessage =
       serverUrl: string;
       nodeId: string;
       inputs: Record<string, unknown>;
+    }
+  | {
+      type: 'browseAddressSpaceRoot';
+      requestId: string;
+      serverUrl: string;
+    }
+  | {
+      type: 'browseAddressSpaceChildren';
+      requestId: string;
+      serverUrl: string;
+      nodeId: string;
+    }
+  | {
+      type: 'browseAddressSpaceReferences';
+      requestId: string;
+      serverUrl: string;
+      nodeId: string;
+    }
+  | {
+      type: 'browseAddressSpaceNodeDetails';
+      requestId: string;
+      serverUrl: string;
+      nodeId: string;
     };
 
 export type ServerMessage =
@@ -112,4 +140,31 @@ export type ServerMessage =
       robotId?: string | null;
       message: string;
       code?: string | null;
+    }
+  | {
+      type: 'addressSpaceRoot';
+      requestId?: string | null;
+      serverUrl: string;
+      nodes: AddressSpaceNode[];
+    }
+  | {
+      type: 'addressSpaceChildren';
+      requestId?: string | null;
+      serverUrl: string;
+      nodeId: string;
+      nodes: AddressSpaceNode[];
+    }
+  | {
+      type: 'addressSpaceReferences';
+      requestId?: string | null;
+      serverUrl: string;
+      nodeId: string;
+      references: AddressSpaceReference[];
+    }
+  | {
+      type: 'addressSpaceNodeDetails';
+      requestId?: string | null;
+      serverUrl: string;
+      nodeId: string;
+      details: AddressSpaceNodeDetails;
     };

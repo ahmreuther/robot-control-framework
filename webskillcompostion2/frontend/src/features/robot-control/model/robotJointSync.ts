@@ -2,8 +2,8 @@ import type { Robot, RobotJointState, RobotVisualBinding } from '../../../entiti
 import type { RobotStoreState } from '../../../entities/robot/model/store';
 import { buildAxisToJointMap, mapAxisValuesToJointAngles } from './axisMapping';
 import {
-  JOINT_WRITER_ID,
-  JOINT_WRITER_PRIORITY,
+  JOINT_SOURCE_ID,
+  JOINT_SOURCE_PRIORITY,
   type JointStateManager,
 } from './jointStateManager';
 
@@ -13,10 +13,8 @@ export interface RobotJointSyncResult {
     | 'noActiveRobot'
     | 'robotMissing'
     | 'noVisualJoints'
-    | 'notStarted'
-    | 'writerBlocked';
+    | 'notStarted';
   robotId?: string;
-  angles: number[];
   axisToJointName: Record<string, string>;
 }
 
@@ -107,7 +105,8 @@ export function createRobotJointSyncSession(
 
     start() {
       jointManager.setJointNames(mapping.orderedJointNames);
-      const mounted = jointManager.mountWriter(JOINT_WRITER_ID.SYN, JOINT_WRITER_PRIORITY.SYN);
+      jointManager.mountSource(JOINT_SOURCE_ID.SYNC, JOINT_SOURCE_PRIORITY.SYNC);
+      const mounted = jointManager.setActiveSource(JOINT_SOURCE_ID.SYNC);
       started = true;
       return mounted;
     },
@@ -124,23 +123,24 @@ export function createRobotJointSyncSession(
           synced: false,
           reason: 'notStarted',
           robotId: robot.robotId,
-          angles: mapped.angles,
           axisToJointName: mapping.axisToJointName,
         };
       }
 
-      const synced = jointManager.setAngles(JOINT_WRITER_ID.SYN, mapped.angles);
+      const synced = jointManager.updateFromSource(
+        JOINT_SOURCE_ID.SYNC,
+        mapped.angles,
+      );
       return {
         synced,
-        reason: synced ? undefined : 'writerBlocked',
+        reason: synced ? undefined : 'notStarted',
         robotId: robot.robotId,
-        angles: mapped.angles,
         axisToJointName: mapping.axisToJointName,
       };
     },
 
     stop() {
-      jointManager.unmountWriter(JOINT_WRITER_ID.SYN);
+      jointManager.unmountSource(JOINT_SOURCE_ID.SYNC);
       started = false;
     },
   };
@@ -154,7 +154,6 @@ export function createActiveRobotJointSyncSession(
     return {
       synced: false,
       reason: 'noActiveRobot',
-      angles: [],
       axisToJointName: {},
     };
   }
@@ -165,7 +164,6 @@ export function createActiveRobotJointSyncSession(
       synced: false,
       reason: 'robotMissing',
       robotId: state.activeRobotId,
-      angles: [],
       axisToJointName: {},
     };
   }
@@ -176,7 +174,6 @@ export function createActiveRobotJointSyncSession(
       synced: false,
       reason: 'noVisualJoints',
       robotId: robot.robotId,
-      angles: [],
       axisToJointName: robot.visual.axisToJointName,
     };
   }

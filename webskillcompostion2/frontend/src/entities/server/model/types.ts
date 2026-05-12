@@ -5,6 +5,5 @@ export interface ServerSessionInfo {
   status: ServerStatus;
   namespaceUris: string[];
   isRoboticsServer: boolean;
-  robotIds: string[];
+  motionDeviceIds: string[];
 }
-

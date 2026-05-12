@@ -101,6 +101,7 @@ describe('axis mapping', () => {
   it('maps a full robot visual binding', () => {
     const robot: Robot = {
       robotId: 'robot-a',
+      motionDeviceId: 'robot-a',
       serverUrl: 'opc.tcp://127.0.0.1:4840',
       displayName: 'Robot A',
       motionDevice: { nodeId: 'ns=4;s=robot-a' },
@@ -116,8 +117,18 @@ describe('axis mapping', () => {
       },
       mode: null,
       visual: {
+        origin: {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
         orderedUrdfJointNames: ['joint_1', 'joint_2'],
         axisToJointName: {},
+      },
+      panel: {
+        useDegrees: false,
+        showCollisionMap: false,
+        showWorkspace: false,
       },
     };
 

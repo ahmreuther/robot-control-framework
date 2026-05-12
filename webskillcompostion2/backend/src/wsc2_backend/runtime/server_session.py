@@ -26,7 +26,7 @@ class ServerSession:
             status=self.status,
             namespace_uris=self.namespace_uris,
             is_robotics_server=self.is_robotics_server,
-            robot_ids=list(self.robots_by_id),
+            motion_device_ids=list(self.robots_by_id),
         )
 
     def mark_connected(

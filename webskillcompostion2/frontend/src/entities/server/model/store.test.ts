@@ -4,6 +4,7 @@ import type { RobotSessionInfo } from '../../robot/model/types';
 import {
   applyServerMessage,
   initialServerStoreState,
+  selectActiveServer,
   trackMethodCallRequest,
 } from './store';
 
@@ -31,14 +32,14 @@ describe('server store routing', () => {
   it('stores connected servers by serverUrl', () => {
     const state = applyServerMessage(initialServerStoreState, {
       type: 'serverConnected',
-      server: {
-        serverUrl: SERVER_URL,
-        status: 'connected',
-        namespaceUris: ['http://opcfoundation.org/UA/'],
-        isRoboticsServer: true,
-        robotIds: [],
-      },
-    });
+        server: {
+          serverUrl: SERVER_URL,
+          status: 'connected',
+          namespaceUris: ['http://opcfoundation.org/UA/'],
+          isRoboticsServer: true,
+          motionDeviceIds: [],
+        },
+      });
 
     expect(state.byUrl[SERVER_URL]?.status).toBe('connected');
     expect(state.activeServerUrl).toBe(SERVER_URL);
@@ -51,11 +52,12 @@ describe('server store routing', () => {
       robots: [robotSession('robot-a'), robotSession('robot-b')],
     });
 
-    expect(state.byUrl[SERVER_URL]?.robotIds).toEqual(['robot-a', 'robot-b']);
+    expect(state.byUrl[SERVER_URL]?.motionDeviceIds).toEqual(['robot-a', 'robot-b']);
+    expect(Object.keys(state.motionDevicesById)).toEqual(['robot-a', 'robot-b']);
     expect(state.byUrl[SERVER_URL]?.status).toBe('connected');
   });
 
-  it('marks disconnected servers and clears active server', () => {
+  it('removes disconnected servers and clears active server', () => {
     const connected = applyServerMessage(initialServerStoreState, {
       type: 'serverConnected',
       server: {
@@ -63,7 +65,7 @@ describe('server store routing', () => {
         status: 'connected',
         namespaceUris: [],
         isRoboticsServer: false,
-        robotIds: ['robot-a'],
+        motionDeviceIds: ['robot-a'],
       },
     });
 
@@ -72,9 +74,68 @@ describe('server store routing', () => {
       serverUrl: SERVER_URL,
     });
 
-    expect(disconnected.byUrl[SERVER_URL]?.status).toBe('disconnected');
-    expect(disconnected.byUrl[SERVER_URL]?.robotIds).toEqual(['robot-a']);
+    expect(disconnected.byUrl[SERVER_URL]).toBe(undefined);
+    expect(disconnected.motionDevicesById).toEqual({});
     expect(disconnected.activeServerUrl).toBe(null);
+  });
+
+  it('falls back to another server when the active server disconnects', () => {
+    const otherUrl = 'opc.tcp://127.0.0.1:4841';
+    const withFirst = applyServerMessage(initialServerStoreState, {
+      type: 'serverConnected',
+      server: {
+        serverUrl: SERVER_URL,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: false,
+        motionDeviceIds: [],
+      },
+    });
+    const withSecond = applyServerMessage(withFirst, {
+      type: 'serverConnected',
+      server: {
+        serverUrl: otherUrl,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: false,
+        motionDeviceIds: [],
+      },
+    });
+    const selectedFirst = selectActiveServer(withSecond, SERVER_URL);
+    const disconnected = applyServerMessage(selectedFirst, {
+      type: 'serverDisconnected',
+      serverUrl: SERVER_URL,
+    });
+
+    expect(disconnected.activeServerUrl).toBe(otherUrl);
+  });
+
+  it('lets the active server be selected explicitly', () => {
+    const otherUrl = 'opc.tcp://127.0.0.1:4841';
+    const withFirst = applyServerMessage(initialServerStoreState, {
+      type: 'serverConnected',
+      server: {
+        serverUrl: SERVER_URL,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: false,
+        motionDeviceIds: [],
+      },
+    });
+    const withSecond = applyServerMessage(withFirst, {
+      type: 'serverConnected',
+      server: {
+        serverUrl: otherUrl,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: false,
+        motionDeviceIds: [],
+      },
+    });
+
+    const selected = selectActiveServer(withSecond, SERVER_URL);
+
+    expect(selected.activeServerUrl).toBe(SERVER_URL);
   });
 
   it('records method results and errors', () => {
@@ -100,7 +161,7 @@ describe('server store routing', () => {
       {
         requestId: 'req-2',
         serverUrl: SERVER_URL,
-        robotId: 'robot-a',
+        motionDeviceId: 'robot-a',
         message: 'Nope',
         code: 'demoError',
       },

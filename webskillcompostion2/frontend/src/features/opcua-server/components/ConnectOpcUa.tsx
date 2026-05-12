@@ -1,41 +1,35 @@
-import { useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from "react";
+import { createPortal } from "react-dom";
 
-import type { ApplicationController } from '../../../app/model/applicationController';
+import { useOpcuaServer } from "../context/OpcuaServerContext";
 
 const defaultUrls = [
-  'opc.tcp://127.0.0.1:4840/freeopcua/server/',
-  'opc.tcp://10.10.38.25:4840/freeopcua/server/',
-  'opc.tcp://10.10.38.26:4840/freeopcua/server/',
-  'opc.tcp://10.10.38.27:4840/freeopcua/server/',
-  'opc.tcp://10.10.38.28:4840/freeopcua/server/',
+  "opc.tcp://127.0.0.1:4840/freeopcua/server/",
+  "opc.tcp://10.10.38.25:4840/freeopcua/server/",
+  "opc.tcp://10.10.38.26:4840/freeopcua/server/",
+  "opc.tcp://10.10.38.27:4840/freeopcua/server/",
+  "opc.tcp://10.10.38.28:4840/freeopcua/server/",
 ];
 
-export interface ConnectOpcUaProps {
-  controller: ApplicationController;
-  onLabel: (serverUrl: string, label: string) => void;
-}
-
-function ConnectOpcUa({ controller, onLabel }: ConnectOpcUaProps) {
-  const lastUrl = localStorage.getItem('lastOpcUaUrl');
+function ConnectOpcUa() {
+  const { connectServer, discoverRobots } = useOpcuaServer();
+  const lastUrl = localStorage.getItem("lastOpcUaUrl");
   const initialSavedUrls =
-    lastUrl && !defaultUrls.includes(lastUrl) ? [...defaultUrls, lastUrl] : defaultUrls;
+    lastUrl && !defaultUrls.includes(lastUrl)
+      ? [...defaultUrls, lastUrl]
+      : defaultUrls;
 
-  const [serverName, setServerName] = useState('');
   const [open, setOpen] = useState(false);
   const [savedUrls] = useState<string[]>(initialSavedUrls);
-  const [localUrl, setLocalUrl] = useState('');
+  const [localUrl, setLocalUrl] = useState("");
 
   function handleConnect() {
-    const trimmed = serverName.trim();
     const trimmedUrl = localUrl.trim();
-    if (trimmed && trimmedUrl) {
-      localStorage.setItem('lastOpcUaUrl', trimmedUrl);
-      onLabel(trimmedUrl, trimmed);
-      controller.connectServer(trimmedUrl);
-      controller.discoverRobots(trimmedUrl);
-      setServerName('');
-      setLocalUrl('');
+    if (trimmedUrl) {
+      localStorage.setItem("lastOpcUaUrl", trimmedUrl);
+      connectServer(trimmedUrl);
+      discoverRobots(trimmedUrl);
+      setLocalUrl("");
     }
     setOpen(false);
   }
@@ -61,7 +55,7 @@ function ConnectOpcUa({ controller, onLabel }: ConnectOpcUaProps) {
                   ✕
                 </button>
               </div>
-              <div className="panel-body connect-panel-body">
+              <div className="panel-body flex flex-col gap-2">
                 <input
                   value={localUrl}
                   onChange={(e) => setLocalUrl(e.target.value)}
@@ -77,14 +71,8 @@ function ConnectOpcUa({ controller, onLabel }: ConnectOpcUaProps) {
                     </option>
                   ))}
                 </datalist>
-                <input
-                  value={serverName}
-                  onChange={(e) => setServerName(e.target.value)}
-                  placeholder="Server Name"
-                  className="input-ghost w-full text-left"
-                />
                 <button onClick={handleConnect} className="button-ghost">
-                  Add Server
+                  Connect Server
                 </button>
               </div>
             </section>
