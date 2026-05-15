@@ -69,7 +69,7 @@
   }
 
   .panel-header {
-    @apply flex min-h-10 items-center justify-between gap-2 border-b px-4 py-2;
+    @apply flex min-h-10 items-center justify-between gap-2 border-b px-2 py-2;
     border-color: rgb(var(--panel-border) / 0.1);
   }
 

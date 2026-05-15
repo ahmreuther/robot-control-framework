@@ -19,6 +19,7 @@ import {
 import { useViewportSceneState } from "../../features/viewport/model/sceneState";
 import { ResizeHandle } from "../../shared/ui/ResizeHandle";
 import JointAnglesPanel from "../../features/robot-control/components/JointAnglesPanel";
+import { RobotInteractionProvider } from "../../features/robot-control/context/RobotInteractionContext";
 import RobotManager from "../../features/robot-control/components/RobotManager";
 import { RobotControlProvider } from "../../features/robot-control/context/RobotControlContext";
 
@@ -46,17 +47,25 @@ export function DesktopLayout({
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden">
       <header className="panel-header flex">
-        <img
-          src={logoSrc}
-          alt="PLCM logo"
-          className="h-10 w-auto bg-gray-200 rounded-sm p-1"
-        />
+        <a
+          href="https://www.maschinenbau.tu-darmstadt.de/plcm/fachgebiet_plcm/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open PLCM website"
+        >
+          <img
+            src={logoSrc}
+            alt="PLCM logo"
+            className="h-10 w-auto bg-gray-200 rounded-sm p-1"
+          />
+        </a>
         <div className="panel-title text-sm">Digital Twin Robots</div>
       </header>
 
       <RobotControlProvider controller={controller} snapshot={snapshot}>
-        <OpcuaServerProvider controller={controller} snapshot={snapshot}>
-          <div className="panel-body flex h-screen w-full flex-col overflow-hidden">
+        <RobotInteractionProvider>
+          <OpcuaServerProvider controller={controller} snapshot={snapshot}>
+            <div className="panel-body flex h-screen w-full flex-col overflow-hidden">
             <Group className="min-h-0 flex-1" orientation="horizontal">
               <Panel defaultSize={82} minSize={60}>
                 <Group className="h-full" orientation="vertical">
@@ -80,7 +89,9 @@ export function DesktopLayout({
                         <section className="panel h-full flex flex-col">
                           <header className="panel-header">
                             <div className="panel-title">Viewport</div>
-                            <ViewportSettingsButton sceneState={viewportScene} />
+                            <ViewportSettingsButton
+                              sceneState={viewportScene}
+                            />
                           </header>
                           <div className="min-h-0 flex-1">
                             <Viewport sceneState={viewportScene} />
@@ -146,8 +157,9 @@ export function DesktopLayout({
                 </div>
               </Panel>
             </Group>
-          </div>
-        </OpcuaServerProvider>
+            </div>
+          </OpcuaServerProvider>
+        </RobotInteractionProvider>
       </RobotControlProvider>
     </div>
   );

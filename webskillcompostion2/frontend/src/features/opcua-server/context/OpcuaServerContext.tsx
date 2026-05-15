@@ -5,7 +5,7 @@ import type {
   ApplicationSnapshot,
   RawMethodCommand,
 } from "../../../app/model/applicationController";
-import type { AddressSpaceNode, AddressSpaceNodeDetails, AddressSpaceReference } from "../../../entities/opcua/model/types";
+import type { AddressSpaceNode, AddressSpaceNodeDetails, AddressSpaceReference } from "../../../entities/server/model/types";
 import type {
   AddressSpaceServerState,
 } from "../../../entities/server/model/store";

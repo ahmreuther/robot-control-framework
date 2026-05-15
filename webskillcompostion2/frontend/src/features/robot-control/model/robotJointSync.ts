@@ -13,7 +13,8 @@ export interface RobotJointSyncResult {
     | 'noActiveRobot'
     | 'robotMissing'
     | 'noVisualJoints'
-    | 'notStarted';
+    | 'notStarted'
+    | 'suspended';
   robotId?: string;
   axisToJointName: Record<string, string>;
 }
@@ -28,7 +29,10 @@ export interface RobotJointSyncSession {
   readonly robotId: string;
   readonly mapping: RobotJointMapping;
   isStarted(): boolean;
+  isSuspended(): boolean;
   start(): boolean;
+  suspend(): void;
+  resume(): boolean;
   update(jointState: RobotJointState): RobotJointSyncResult;
   stop(): void;
 }
@@ -94,6 +98,8 @@ export function createRobotJointSyncSession(
   }
 
   let started = false;
+  let suspended = false;
+  let latestAngles = jointManager.getAngles();
 
   return {
     robotId: robot.robotId,
@@ -103,12 +109,41 @@ export function createRobotJointSyncSession(
       return started;
     },
 
+    isSuspended() {
+      return suspended;
+    },
+
     start() {
       jointManager.setJointNames(mapping.orderedJointNames);
       jointManager.mountSource(JOINT_SOURCE_ID.SYNC, JOINT_SOURCE_PRIORITY.SYNC);
       const mounted = jointManager.setActiveSource(JOINT_SOURCE_ID.SYNC);
       started = true;
+      suspended = false;
+      if (mounted && latestAngles.length === mapping.orderedJointNames.length) {
+        jointManager.updateFromSource(JOINT_SOURCE_ID.SYNC, latestAngles);
+      }
       return mounted;
+    },
+
+    suspend() {
+      if (!started || suspended) {
+        return;
+      }
+      jointManager.unmountSource(JOINT_SOURCE_ID.SYNC);
+      suspended = true;
+    },
+
+    resume() {
+      if (!started) {
+        return false;
+      }
+      jointManager.mountSource(JOINT_SOURCE_ID.SYNC, JOINT_SOURCE_PRIORITY.SYNC);
+      const resumed = jointManager.setActiveSource(JOINT_SOURCE_ID.SYNC);
+      suspended = false;
+      if (resumed && latestAngles.length === mapping.orderedJointNames.length) {
+        jointManager.updateFromSource(JOINT_SOURCE_ID.SYNC, latestAngles);
+      }
+      return resumed;
     },
 
     update(jointState: RobotJointState) {
@@ -117,11 +152,21 @@ export function createRobotJointSyncSession(
         mapping.orderedJointNames,
         mapping.axisToJointName,
       );
+      latestAngles = mapped.angles;
 
       if (!started) {
         return {
           synced: false,
           reason: 'notStarted',
+          robotId: robot.robotId,
+          axisToJointName: mapping.axisToJointName,
+        };
+      }
+
+      if (suspended) {
+        return {
+          synced: false,
+          reason: 'suspended',
           robotId: robot.robotId,
           axisToJointName: mapping.axisToJointName,
         };
@@ -142,6 +187,7 @@ export function createRobotJointSyncSession(
     stop() {
       jointManager.unmountSource(JOINT_SOURCE_ID.SYNC);
       started = false;
+      suspended = false;
     },
   };
 }

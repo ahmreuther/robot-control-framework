@@ -16,13 +16,14 @@ export interface ViewportSceneState {
 
 const DEFAULT_SETTINGS: ViewportSceneSettings = {
   effectComposer: true,
-  environment: true,
+  environment: false,
   grid: true,
-  stats: false,
+  stats: true,
 };
 
 export function useViewportSceneState(): ViewportSceneState {
-  const [settings, setSettings] = useState<ViewportSceneSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] =
+    useState<ViewportSceneSettings>(DEFAULT_SETTINGS);
   const [workspacePoints] = useState<Vector3[]>([]);
 
   return useMemo(

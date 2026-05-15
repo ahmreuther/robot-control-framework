@@ -1,4 +1,4 @@
-import type { AxisBinding, MethodBinding, MotionDeviceBinding } from '../../opcua/model/types';
+import type { AxisBinding, MethodBinding, MotionDeviceBinding } from '../../server/model/types';
 
 export type RobotConnectionStatus = 'unknown' | 'connected' | 'disconnected' | 'error';
 

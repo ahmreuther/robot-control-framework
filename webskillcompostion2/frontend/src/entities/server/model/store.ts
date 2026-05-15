@@ -3,7 +3,7 @@ import type {
   AddressSpaceNode,
   AddressSpaceNodeDetails,
   AddressSpaceReference,
-} from '../../opcua/model/types';
+} from './types';
 import type { RobotSessionInfo } from '../../robot/model/types';
 import type { ServerSessionInfo } from './types';
 

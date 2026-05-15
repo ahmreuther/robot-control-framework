@@ -3,7 +3,7 @@ import type {
   AddressSpaceNode,
   AddressSpaceNodeDetails,
   AddressSpaceReference,
-} from '../../entities/opcua/model/types';
+} from '../../entities/server/model/types';
 import type { ServerSessionInfo } from '../../entities/server/model/types';
 
 export type ClientMessage =

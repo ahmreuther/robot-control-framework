@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { MethodArgument } from "../../../entities/opcua/model/types";
+import type { MethodArgument } from "../../../entities/server/model/types";
 import { useOpcuaServer } from "../context/OpcuaServerContext";
 
 const typeMap: Record<number, string> = {
