@@ -33,6 +33,17 @@ function robot(overrides: Partial<Robot> = {}): Robot {
     useDegrees: false,
     showCollisionMap: false,
     showWorkspace: false,
+    workspaceSampleCount: 1000000,
+    workspaceGeneratedSampleCount: null,
+    workspaceGenerationPending: false,
+    workspaceProgressPercent: null,
+    workspaceProgressLabel: null,
+    workspaceGenerationVersion: 0,
+    workspaceAbortVersion: 0,
+    goalMarkerEnabled: true,
+    goalMarkerConstraintMode: 'pose' as const,
+    goalMarkerMode: 'translate' as const,
+    goalMarkerSpace: 'world' as const,
   };
 
   const { visual: visualOverrides, panel: panelOverrides, ...restOverrides } = overrides;
@@ -68,6 +79,7 @@ function robot(overrides: Partial<Robot> = {}): Robot {
       },
       unit: 'C81',
     },
+    homeAngles: null,
     ...restOverrides,
     visual: {
       ...defaultVisual,

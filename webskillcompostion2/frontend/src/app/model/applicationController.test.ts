@@ -229,6 +229,108 @@ describe('ApplicationController', () => {
     ).toBe('succeeded');
   });
 
+  it('maps visual joint angles into axis order when sending goto commands', () => {
+    const { socket, controller } = setup();
+
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [robotSession()],
+    });
+    const robotId = createBoundRobot(controller);
+    controller.updateRobotVisualBinding(robotId, {
+      orderedUrdfJointNames: ['joint_1', 'joint_2'],
+      axisToJointName: {
+        Axis_1: 'joint_2',
+        Axis_2: 'joint_1',
+      },
+    });
+    controller.getJointRuntime().getManager(robotId).setJointNames(['joint_1', 'joint_2']);
+
+    const requestId = controller.callRobotGotoForVisualAngles(robotId, [10, 20]);
+
+    expect(requestId).toBe('method-goto-1');
+    expect(JSON.parse(socket.sent[0] ?? '{}')).toEqual({
+      type: 'callRobotMethod',
+      requestId: 'method-goto-1',
+      robotId: 'robot-a',
+      method: 'goto',
+      inputs: {
+        args: ['automatic', [20, 10], 1, 0, [], []],
+      },
+    });
+  });
+
+  it('clears the sync goto flight lock when the method result arrives', () => {
+    const { socket, controller } = setup();
+
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [robotSession()],
+    });
+    const robotId = createBoundRobot(controller);
+    controller.updateRobotVisualBinding(robotId, {
+      orderedUrdfJointNames: ['joint_1', 'joint_2'],
+    });
+
+    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'method-goto-42');
+    expect(controller.getJointRuntime().hasInFlightSyncGoto(robotId)).toBe(true);
+
+    socket.receive({
+      type: 'methodResult',
+      requestId: 'method-goto-42',
+      serverUrl: SERVER_URL,
+      robotId: 'robot-a',
+      nodeId: 'ns=4;s=Go To',
+      result: { status: 'ok' },
+    });
+
+    expect(controller.getJointRuntime().hasInFlightSyncGoto(robotId)).toBe(false);
+  });
+
+  it('stops sync immediately when a robot is rebound or unbound', () => {
+    const { socket, controller } = setup();
+
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [robotSession()],
+    });
+    const robotId = createBoundRobot(controller);
+    controller.updateRobotVisualBinding(robotId, {
+      orderedUrdfJointNames: ['joint_1', 'joint_2'],
+    });
+
+    controller.startRobotSync(robotId);
+    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'method-goto-42');
+    controller.bindRobotToMotionDevice(robotId, null);
+
+    expect(controller.getJointRuntime().isSyncing(robotId)).toBe(false);
+    expect(controller.getJointRuntime().hasInFlightSyncGoto(robotId)).toBe(false);
+  });
+
+  it('stops sync immediately when disconnecting a server', () => {
+    const { socket, controller } = setup();
+
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [robotSession()],
+    });
+    const robotId = createBoundRobot(controller);
+    controller.updateRobotVisualBinding(robotId, {
+      orderedUrdfJointNames: ['joint_1', 'joint_2'],
+    });
+
+    controller.startRobotSync(robotId);
+    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'method-goto-42');
+    controller.disconnectServer(SERVER_URL);
+
+    expect(controller.getJointRuntime().isSyncing(robotId)).toBe(false);
+    expect(controller.getJointRuntime().hasInFlightSyncGoto(robotId)).toBe(false);
+  });
+
   it('validates raw method commands and tracks them as advanced calls', () => {
     const { socket, controller } = setup();
 
@@ -292,6 +394,14 @@ describe('ApplicationController', () => {
         unit: null,
       },
       mode: null,
+      homeAngles: [
+        0,
+        0,
+        -Math.PI / 2,
+        0,
+        -Math.PI / 2,
+        0,
+      ],
       visual: {
         urdfId: 'eva',
         urdfLabel: 'EVA',
@@ -309,12 +419,31 @@ describe('ApplicationController', () => {
           'joint_5',
           'joint_6',
         ],
+        allUrdfJointNames: [
+          'joint_1',
+          'joint_2',
+          'joint_3',
+          'joint_4',
+          'joint_5',
+          'joint_6',
+        ],
         axisToJointName: {},
       },
       panel: {
         useDegrees: false,
         showCollisionMap: false,
         showWorkspace: false,
+        workspaceSampleCount: 1000000,
+        workspaceGeneratedSampleCount: null,
+        workspaceGenerationPending: false,
+        workspaceProgressPercent: null,
+        workspaceProgressLabel: null,
+        workspaceGenerationVersion: 0,
+        workspaceAbortVersion: 0,
+        goalMarkerEnabled: true,
+        goalMarkerConstraintMode: 'pose',
+        goalMarkerMode: 'translate',
+        goalMarkerSpace: 'world',
       },
     });
     expect(controller.getJointRuntime().getExistingManager(robotId) !== null).toBe(true);

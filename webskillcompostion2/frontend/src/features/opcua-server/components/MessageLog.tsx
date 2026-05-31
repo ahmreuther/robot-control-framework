@@ -5,6 +5,7 @@ import type {
   ClientMessage,
   ServerMessage,
 } from "../../../shared/api/messages";
+import { onSurfaceMessageLog } from "../../../shared/api/surfaceMessageLog";
 import { useOpcuaServer } from "../context/OpcuaServerContext";
 
 function getLineColorClass(line: string) {
@@ -131,6 +132,12 @@ export function MessageLog() {
       setLogs((current) => `${current}${formatEntry(entry)}\n`);
     });
   }, [controller]);
+
+  useEffect(() => {
+    return onSurfaceMessageLog((line) => {
+      setLogs((current) => `${current}${line}\n`);
+    });
+  }, []);
 
   useEffect(() => {
     const element = scrollRef.current;

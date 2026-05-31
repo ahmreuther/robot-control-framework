@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useAppFeedback } from "../../../app/context/AppFeedbackContext";
 import { useOpcuaServer } from "../context/OpcuaServerContext";
 
 const defaultUrls = [
@@ -12,7 +13,8 @@ const defaultUrls = [
 ];
 
 function ConnectOpcUa() {
-  const { connectServer, discoverRobots } = useOpcuaServer();
+  const { connectServer, discoverRobots, snapshot } = useOpcuaServer();
+  const feedback = useAppFeedback();
   const lastUrl = localStorage.getItem("lastOpcUaUrl");
   const initialSavedUrls =
     lastUrl && !defaultUrls.includes(lastUrl)
@@ -22,11 +24,56 @@ function ConnectOpcUa() {
   const [open, setOpen] = useState(false);
   const [savedUrls] = useState<string[]>(initialSavedUrls);
   const [localUrl, setLocalUrl] = useState("");
+  const [pendingServerUrl, setPendingServerUrl] = useState<string | null>(null);
+
+  const pendingServer = useMemo(
+    () =>
+      pendingServerUrl ? snapshot.server.byUrl[pendingServerUrl] ?? null : null,
+    [pendingServerUrl, snapshot.server.byUrl],
+  );
+
+  useEffect(() => {
+    if (!pendingServerUrl || !pendingServer) {
+      return;
+    }
+
+    feedback.hideLoading(`server.connect.${pendingServerUrl}`);
+    feedback.showSuccess(
+      `Connected to ${pendingServerUrl.replace("opc.tcp://", "")}`,
+    );
+    setPendingServerUrl(null);
+  }, [feedback, pendingServer, pendingServerUrl]);
+
+  useEffect(() => {
+    if (!pendingServerUrl) {
+      return;
+    }
+
+    const matchingError = [...snapshot.server.errors]
+      .reverse()
+      .find((error) => error.serverUrl === pendingServerUrl);
+
+    if (!matchingError) {
+      return;
+    }
+
+    feedback.hideLoading(`server.connect.${pendingServerUrl}`);
+    feedback.showError("Failed to connect server", {
+      description: matchingError.message,
+      key: `server.connect.${pendingServerUrl}`,
+    });
+    setPendingServerUrl(null);
+  }, [feedback, pendingServerUrl, snapshot.server.errors]);
 
   function handleConnect() {
     const trimmedUrl = localUrl.trim();
     if (trimmedUrl) {
       localStorage.setItem("lastOpcUaUrl", trimmedUrl);
+      setPendingServerUrl(trimmedUrl);
+      feedback.showLoading(
+        `server.connect.${trimmedUrl}`,
+        `Connecting to ${trimmedUrl.replace("opc.tcp://", "")}`,
+      );
       connectServer(trimmedUrl);
       discoverRobots(trimmedUrl);
       setLocalUrl("");

@@ -38,7 +38,10 @@ export interface RobotVisualBinding {
     y: number;
     z: number;
   };
+  // Articulated joint order used for axis mapping and solver-facing arm logic.
   orderedUrdfJointNames: string[];
+  // Full movable URDF joint order used by the joint manager, home pose, and startup animation.
+  allUrdfJointNames?: string[];
   axisToJointName: Record<string, string>;
 }
 
@@ -46,6 +49,17 @@ export interface RobotPanelState {
   useDegrees: boolean;
   showCollisionMap: boolean;
   showWorkspace: boolean;
+  workspaceSampleCount: number;
+  workspaceGeneratedSampleCount: number | null;
+  workspaceGenerationPending: boolean;
+  workspaceProgressPercent: number | null;
+  workspaceProgressLabel: string | null;
+  workspaceGenerationVersion: number;
+  workspaceAbortVersion: number;
+  goalMarkerEnabled: boolean;
+  goalMarkerConstraintMode: 'pose' | 'position';
+  goalMarkerMode: 'translate' | 'rotate';
+  goalMarkerSpace: 'local' | 'world';
 }
 
 export interface Robot extends RobotSessionInfo {
@@ -54,6 +68,7 @@ export interface Robot extends RobotSessionInfo {
   mode: string | null;
   visual: RobotVisualBinding;
   panel: RobotPanelState;
+  homeAngles: number[] | null;
 }
 
 export function createRobotFromSession(session: RobotSessionInfo): Robot {
@@ -65,6 +80,7 @@ export function createRobotFromSession(session: RobotSessionInfo): Robot {
       unit: null,
     },
     mode: null,
+    homeAngles: null,
     visual: {
       urdfId: null,
       urdfLabel: null,
@@ -75,12 +91,24 @@ export function createRobotFromSession(session: RobotSessionInfo): Robot {
         z: 0,
       },
       orderedUrdfJointNames: [],
+      allUrdfJointNames: [],
       axisToJointName: {},
     },
     panel: {
       useDegrees: false,
       showCollisionMap: false,
       showWorkspace: false,
+      workspaceSampleCount: 1000000,
+      workspaceGeneratedSampleCount: null,
+      workspaceGenerationPending: false,
+      workspaceProgressPercent: null,
+      workspaceProgressLabel: null,
+      workspaceGenerationVersion: 0,
+      workspaceAbortVersion: 0,
+      goalMarkerEnabled: true,
+      goalMarkerConstraintMode: 'pose',
+      goalMarkerMode: 'translate',
+      goalMarkerSpace: 'world',
     },
   };
 }

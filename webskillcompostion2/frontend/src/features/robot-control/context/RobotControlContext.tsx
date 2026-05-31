@@ -28,6 +28,7 @@ export interface RobotControlContextValue {
   startRobotSync(robotId: string): void;
   stopRobotSync(robotId: string): void;
   updateRobotPanelState(robotId: string, panel: Partial<RobotPanelState>): void;
+  updateRobotHomeAngles(robotId: string, homeAngles: number[]): void;
   updateRobotJointAngles(robotId: string, angles: number[]): boolean;
 }
 
@@ -86,6 +87,9 @@ export function RobotControlProvider({
       },
       updateRobotPanelState: (robotId: string, panel: Partial<RobotPanelState>) => {
         controller.updateRobotPanelState(robotId, panel);
+      },
+      updateRobotHomeAngles: (robotId: string, homeAngles: number[]) => {
+        controller.updateRobotHomeAngles(robotId, homeAngles);
       },
       updateRobotJointAngles: (robotId: string, angles: number[]) =>
         controller.updateRobotJointAngles(robotId, angles),

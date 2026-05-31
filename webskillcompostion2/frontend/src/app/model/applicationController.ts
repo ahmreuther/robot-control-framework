@@ -44,6 +44,7 @@ import {
   type RobotJointRuntime,
   type RobotJointRuntimeStartResult,
 } from '../../features/robot-control/model/robotJointRuntime';
+import { mapVisualAnglesToAxisValues } from '../../features/robot-control/model/axisMapping';
 
 export interface ApplicationSnapshot {
   server: ServerStoreState;
@@ -154,6 +155,7 @@ export class ApplicationController {
   }
 
   disconnectServer(serverUrl: string): string {
+    this.removeRuntimeForServer(serverUrl);
     return this.client.disconnectServer(serverUrl);
   }
 
@@ -238,6 +240,7 @@ export class ApplicationController {
     const robotId = `manual-robot-${this.localRobotCounter}`;
     const nextRobot = {
       ...createLocalRobot(robotId, trimmedName),
+      homeAngles: model.homeAngles ? [...model.homeAngles] : null,
       visual: {
         urdfId: model.id,
         urdfLabel: model.label,
@@ -248,6 +251,7 @@ export class ApplicationController {
           z: origin.z,
         },
         orderedUrdfJointNames: [...model.orderedUrdfJointNames],
+        allUrdfJointNames: [...model.orderedUrdfJointNames],
         axisToJointName: {},
       },
     };
@@ -267,6 +271,9 @@ export class ApplicationController {
 
   bindRobotToMotionDevice(robotId: string, motionDeviceId: string | null): void {
     const robot = this.requireRobot(robotId);
+    if (robot.motionDeviceId !== motionDeviceId) {
+      this.jointRuntime.stopSync(robotId);
+    }
     const nextRobot =
       motionDeviceId === null
         ? unbindRobotFromMotionDevice(robot)
@@ -390,6 +397,23 @@ export class ApplicationController {
     this.emitState();
   }
 
+  updateRobotHomeAngles(robotId: string, homeAngles: number[]): void {
+    const robot = this.requireRobot(robotId);
+    const nextRobot = {
+      ...robot,
+      homeAngles: [...homeAngles],
+    };
+    this.robotState = {
+      ...this.robotState,
+      byId: {
+        ...this.robotState.byId,
+        [robotId]: nextRobot,
+      },
+    };
+    this.jointRuntime.configureRobot(nextRobot);
+    this.emitState();
+  }
+
   updateRobotJointAngles(robotId: string, angles: number[]): boolean {
     this.requireRobot(robotId);
     return this.jointRuntime.updateManualAngles(robotId, angles);
@@ -451,6 +475,29 @@ export class ApplicationController {
     return requestId;
   }
 
+  callRobotGotoForVisualAngles(robotId: string, visualAngles: number[]): string {
+    const robot = this.requireRobot(robotId);
+    validateJointArray(visualAngles);
+
+    const manager = this.jointRuntime.getManager(robotId);
+    const orderedJointNames =
+      manager.getOrderedJointNames().length > 0
+        ? manager.getOrderedJointNames()
+        : robot.visual.orderedUrdfJointNames;
+    const axisNames = getRobotAxisNames(robot);
+    if (axisNames.length === 0) {
+      throw new Error(`Robot "${robotId}" has no discovered axes for goto ordering.`);
+    }
+
+    const joints = mapVisualAnglesToAxisValues(
+      visualAngles,
+      orderedJointNames,
+      axisNames,
+      robot.visual.axisToJointName,
+    );
+    return this.callRobotGoto(robotId, { joints });
+  }
+
   toggleEndEffector(robotId: string, command: ToggleEndEffectorCommand = {}): string {
     const robot = this.requireRobot(robotId);
     const motionDeviceId = this.requireBoundMotionDeviceId(robotId);
@@ -497,6 +544,14 @@ export class ApplicationController {
   private handleServerMessage(message: ServerMessage): void {
     if (message.type === 'serverDisconnected') {
       this.removeRuntimeForServer(message.serverUrl);
+    }
+
+    if (message.type === 'methodResult' && typeof message.requestId === 'string') {
+      this.jointRuntime.clearSyncGotoInFlightByRequestId(message.requestId);
+    }
+
+    if (message.type === 'error' && typeof message.requestId === 'string') {
+      this.jointRuntime.clearSyncGotoInFlightByRequestId(message.requestId);
     }
 
     this.serverState = applyServerMessage(this.serverState, message);
@@ -611,6 +666,20 @@ function validateJointArray(joints: number[]): void {
       throw new Error('Goto joint values must be finite numbers.');
     }
   }
+}
+
+function getRobotAxisNames(robot: Robot): string[] {
+  const discoveredAxisNames = Object.keys(robot.opcua.axes);
+  if (discoveredAxisNames.length > 0) {
+    return discoveredAxisNames;
+  }
+
+  const reportedAxisNames = Object.keys(robot.joints.axisValues);
+  if (reportedAxisNames.length > 0) {
+    return reportedAxisNames;
+  }
+
+  return Object.keys(robot.visual.axisToJointName);
 }
 
 function assertNonEmpty(name: string, value: string): void {

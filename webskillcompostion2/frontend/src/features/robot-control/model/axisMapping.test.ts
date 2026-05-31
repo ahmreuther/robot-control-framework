@@ -116,6 +116,7 @@ describe('axis mapping', () => {
         unit: 'rad',
       },
       mode: null,
+      homeAngles: null,
       visual: {
         origin: {
           x: 0,
@@ -129,6 +130,17 @@ describe('axis mapping', () => {
         useDegrees: false,
         showCollisionMap: false,
         showWorkspace: false,
+        workspaceSampleCount: 1000000,
+        workspaceGeneratedSampleCount: null,
+        workspaceGenerationPending: false,
+        workspaceProgressPercent: null,
+        workspaceProgressLabel: null,
+        workspaceGenerationVersion: 0,
+        workspaceAbortVersion: 0,
+        goalMarkerEnabled: true,
+        goalMarkerConstraintMode: 'pose',
+        goalMarkerMode: 'translate',
+        goalMarkerSpace: 'world',
       },
     };
 

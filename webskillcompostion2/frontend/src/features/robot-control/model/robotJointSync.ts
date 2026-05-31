@@ -30,6 +30,7 @@ export interface RobotJointSyncSession {
   readonly mapping: RobotJointMapping;
   isStarted(): boolean;
   isSuspended(): boolean;
+  setLatestAngles(angles: number[]): void;
   start(): boolean;
   suspend(): void;
   resume(): boolean;
@@ -111,6 +112,10 @@ export function createRobotJointSyncSession(
 
     isSuspended() {
       return suspended;
+    },
+
+    setLatestAngles(angles) {
+      latestAngles = [...angles];
     },
 
     start() {

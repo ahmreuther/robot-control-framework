@@ -1,5 +1,6 @@
 from wsc2_backend.models.opcua import MotionDeviceBinding
 from wsc2_backend.models.robot import RobotSessionInfo
+from wsc2_backend.models.surface import SurfaceProcessingConfig
 from wsc2_backend.runtime.robot_session import RobotSession
 from wsc2_backend.services.runtime_registry import RuntimeRegistry
 
@@ -39,3 +40,25 @@ def test_removing_server_removes_its_robots_from_global_lookup() -> None:
     assert removed is server
     assert registry.get_server(server.server_url) is None
     assert registry.get_robot(robot.robot_id) is None
+
+
+def test_registry_tracks_surface_jobs() -> None:
+    registry = RuntimeRegistry()
+
+    first = registry.create_surface_job(
+        owner_id="socket-1",
+        config=SurfaceProcessingConfig(),
+    )
+    second = registry.create_surface_job(
+        owner_id="socket-1",
+        config=SurfaceProcessingConfig(voxel_size=0.02),
+    )
+
+    assert first.job_id == "surface-job-1"
+    assert second.job_id == "surface-job-2"
+    assert registry.get_surface_job(first.job_id) is first
+
+    removed = registry.remove_surface_job(first.job_id)
+
+    assert removed is first
+    assert registry.get_surface_job(first.job_id) is None

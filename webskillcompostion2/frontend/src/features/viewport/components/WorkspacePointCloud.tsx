@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import * as THREE from "three";
 
 interface WorkspacePointCloudProps {
@@ -29,7 +29,7 @@ function makeCircleSpriteTexture(size = 64) {
   return texture;
 }
 
-export default function WorkspacePointCloud({
+function WorkspacePointCloud({
   points,
   visible,
 }: WorkspacePointCloudProps) {
@@ -49,7 +49,7 @@ export default function WorkspacePointCloud({
   if (!visible || !points.length) return null;
 
   return (
-    <points renderOrder={1}>
+    <points renderOrder={1} raycast={() => null}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
@@ -67,3 +67,5 @@ export default function WorkspacePointCloud({
     </points>
   );
 }
+
+export default memo(WorkspacePointCloud);

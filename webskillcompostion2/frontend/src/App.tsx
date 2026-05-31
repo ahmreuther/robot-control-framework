@@ -1,9 +1,12 @@
 import logoSrc from "./assets/plcm-logo.svg";
+import MethodCallFeedbackBridge from "./app/components/MethodCallFeedbackBridge";
+import { AppFeedbackProvider } from "./app/context/AppFeedbackContext";
 import { DesktopLayout } from "./app/layout/DesktopLayout";
 import {
   createApplicationController,
   type ApplicationSnapshot,
 } from "./app/model/applicationController";
+import { SolverConfigProvider } from "./features/viewport/context/SolverConfigContext";
 import {
   WscWebSocketClient,
   type WebSocketClientStatus,
@@ -37,12 +40,17 @@ function App() {
   }, [controller]);
 
   return (
-    <DesktopLayout
-      controller={controller}
-      logoSrc={logoSrc}
-      snapshot={snapshot}
-      socketStatus={socketStatus}
-    />
+    <AppFeedbackProvider>
+      <SolverConfigProvider>
+        <MethodCallFeedbackBridge snapshot={snapshot} />
+        <DesktopLayout
+          controller={controller}
+          logoSrc={logoSrc}
+          snapshot={snapshot}
+          socketStatus={socketStatus}
+        />
+      </SolverConfigProvider>
+    </AppFeedbackProvider>
   );
 }
 

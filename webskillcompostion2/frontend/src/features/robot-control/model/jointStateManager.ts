@@ -15,12 +15,26 @@ export const JOINT_SOURCE_PRIORITY = {
   IK: 3,
   DRAG: 2,
   MANUAL: 1,
-  FK: 1,
+  FK: 0,
 } as const;
 
 export type JointSourceId =
   | (typeof JOINT_SOURCE_ID)[keyof typeof JOINT_SOURCE_ID]
   | string;
+
+export type JointType =
+  | "revolute"
+  | "prismatic"
+  | "fixed"
+  | "continuous"
+  | "planar"
+  | "floating";
+
+export interface JointProperty {
+  min: number;
+  max: number;
+  jointType: JointType;
+}
 
 export interface JointStateSource {
   id: JointSourceId;
@@ -32,6 +46,7 @@ export interface JointStateSnapshot {
   angles: number[];
   activeSourceId: JointSourceId | null;
   jointNames: string[];
+  jointPropertiesByName: Record<string, JointProperty | null>;
 }
 
 export type JointStateListener = (snapshot: JointStateSnapshot) => void;
@@ -40,12 +55,15 @@ export interface JointStateManager {
   mountSource(id: JointSourceId, priority: number): void;
   unmountSource(id: JointSourceId): void;
   setActiveSource(id: JointSourceId | null): boolean;
+  canSourceTakeControl(id: JointSourceId, priority: number): boolean;
   updateFromSource(id: JointSourceId, angles: number[]): boolean;
+  hasSource(id: JointSourceId): boolean;
   subscribe(listener: JointStateListener): () => void;
   getState(): JointStateSnapshot;
   getAngles(): number[];
   getActiveSource(): JointStateSource | null;
   setJointNames(jointNames: string[]): void;
+  setJointProperties(propertiesByName: Record<string, JointProperty | null>): void;
   getOrderedJointNames(): string[];
   getJointNameToIndexMap(): Record<string, number>;
 }
@@ -54,6 +72,7 @@ export function createJointStateManager(): JointStateManager {
   let angles: number[] = [];
   let activeSourceId: JointSourceId | null = null;
   let jointNames: string[] = [];
+  let jointPropertiesByName: Record<string, JointProperty | null> = {};
   const sources = new Map<JointSourceId, JointStateSource>();
   const listeners = new Set<JointStateListener>();
 
@@ -74,6 +93,7 @@ export function createJointStateManager(): JointStateManager {
         angles: [...angles],
         activeSourceId,
         jointNames: [...jointNames],
+        jointPropertiesByName: { ...jointPropertiesByName },
       });
     }
   }
@@ -124,14 +144,32 @@ export function createJointStateManager(): JointStateManager {
       return true;
     },
 
+    canSourceTakeControl(id: JointSourceId, priority: number) {
+      const activeSource = activeSourceId ? sources.get(activeSourceId) ?? null : null;
+      if (!activeSource) {
+        return true;
+      }
+      if (activeSource.id === id) {
+        return true;
+      }
+      return priority >= activeSource.priority;
+    },
+
     updateFromSource(id: JointSourceId, nextAngles: number[]) {
-      if (!sources.has(id) || activeSourceId !== id) {
+      if (!sources.has(id)) {
+        return false;
+      }
+      if (activeSourceId !== id) {
         return false;
       }
 
       angles = [...nextAngles];
       notifyListeners();
       return true;
+    },
+
+    hasSource(id: JointSourceId) {
+      return sources.has(id);
     },
 
     subscribe(listener: JointStateListener) {
@@ -144,6 +182,7 @@ export function createJointStateManager(): JointStateManager {
         angles: [...angles],
         activeSourceId,
         jointNames: [...jointNames],
+        jointPropertiesByName: { ...jointPropertiesByName },
       };
     },
 
@@ -157,6 +196,11 @@ export function createJointStateManager(): JointStateManager {
 
     setJointNames(nextJointNames: string[]) {
       jointNames = [...nextJointNames];
+      notifyListeners();
+    },
+
+    setJointProperties(nextJointPropertiesByName: Record<string, JointProperty | null>) {
+      jointPropertiesByName = { ...nextJointPropertiesByName };
       notifyListeners();
     },
 

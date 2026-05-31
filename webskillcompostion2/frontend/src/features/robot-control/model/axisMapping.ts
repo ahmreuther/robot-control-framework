@@ -7,6 +7,35 @@ export interface AxisToJointMappingResult {
   angles: number[];
 }
 
+export function mapVisualAnglesToAxisValues(
+  angles: number[],
+  orderedJointNames: string[],
+  axisNames: string[],
+  axisToJointName?: Record<string, string>,
+): number[] {
+  const mapping =
+    axisToJointName && Object.keys(axisToJointName).length
+      ? axisToJointName
+      : buildAxisToJointMap(axisNames, orderedJointNames);
+  const jointNameToIndex = Object.fromEntries(
+    orderedJointNames.map((jointName, index) => [jointName, index]),
+  );
+
+  return sortAxisNames(axisNames).map((axisName) => {
+    const jointName = mapping[axisName];
+    if (!jointName) {
+      return 0;
+    }
+
+    const jointIndex = jointNameToIndex[jointName];
+    if (jointIndex === undefined) {
+      return 0;
+    }
+
+    return angles[jointIndex] ?? 0;
+  });
+}
+
 function trailingNumber(value: string): number {
   return Number.parseInt(value.match(/(\d+)$/)?.[1] ?? '0', 10);
 }
@@ -88,6 +117,7 @@ export function mapAxisValuesToJointAngles(
 }
 
 export function mapRobotJointStateToVisualAngles(robot: Robot): AxisToJointMappingResult {
+  // Live axis mapping follows the articulated visual order, not the full manager/home joint list.
   return mapAxisValuesToJointAngles(
     robot.joints,
     robot.visual.orderedUrdfJointNames,

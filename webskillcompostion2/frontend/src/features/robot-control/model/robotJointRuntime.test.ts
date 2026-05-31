@@ -35,6 +35,7 @@ function robot(robotId: string, offset = 0): Robot {
       unit: 'C81',
     },
     mode: null,
+    homeAngles: null,
     visual: {
       urdfId: null,
       urdfLabel: null,
@@ -54,6 +55,17 @@ function robot(robotId: string, offset = 0): Robot {
       useDegrees: false,
       showCollisionMap: false,
       showWorkspace: false,
+      workspaceSampleCount: 1000000,
+      workspaceGeneratedSampleCount: null,
+      workspaceGenerationPending: false,
+      workspaceProgressPercent: null,
+      workspaceProgressLabel: null,
+      workspaceGenerationVersion: 0,
+      workspaceAbortVersion: 0,
+      goalMarkerEnabled: true,
+      goalMarkerConstraintMode: 'pose',
+      goalMarkerMode: 'translate',
+      goalMarkerSpace: 'world',
     },
   };
 }
@@ -88,14 +100,33 @@ describe('RobotJointRuntime', () => {
     expect(runtime.getManager('robot-a').getAngles()).toEqual([1, 2]);
   });
 
-  it('configures a manual source and joint names for a robot manager', () => {
+  it('configures an FK base source and joint names for a robot manager', () => {
     const runtime = createRobotJointRuntime();
 
     const manager = runtime.configureRobot(robot('robot-a'));
 
     expect(manager.getOrderedJointNames()).toEqual(['joint_1', 'joint_2']);
-    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.MANUAL);
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.FK);
     expect(manager.getAngles()).toEqual([0.1, 0.2]);
+  });
+
+  it('runs a one-shot animation source to target angles and releases back to FK', () => {
+    const runtime = createRobotJointRuntime();
+    const manager = runtime.configureRobot(robot('robot-a'));
+
+    const started = runtime.startAnimationToAngles('robot-a', [1, 2], {
+      durationMs: 100,
+    });
+
+    expect(started).toBe(true);
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.ANIMATION);
+
+    runtime.advanceAnimation('robot-a', performance.now() + 50);
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.ANIMATION);
+
+    runtime.advanceAnimation('robot-a', performance.now() + 200);
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.FK);
+    expect(manager.getAngles()).toEqual([1, 2]);
   });
 
   it('does not apply updates when no sync session exists', () => {
@@ -122,7 +153,7 @@ describe('RobotJointRuntime', () => {
     runtime.stopSync('robot-a');
 
     expect(runtime.isSyncing('robot-a')).toBe(false);
-    expect(runtime.getManager('robot-a').getActiveSource()?.id).toBe(JOINT_SOURCE_ID.MANUAL);
+    expect(runtime.getManager('robot-a').getActiveSource()?.id).toBe(JOINT_SOURCE_ID.FK);
     expect(runtime.update('robot-a', { axisValues: { Axis_1: 1 } }).reason).toBe('noSession');
   });
 
@@ -171,4 +202,120 @@ describe('RobotJointRuntime', () => {
     expect(runtime.isSyncing('robot-a')).toBe(true);
     expect(runtime.startActiveRobotSync({ byId: {}, activeRobotId: null })).toBe(null);
   });
+
+  it('preserves manipulated angles when resuming sync after a committed drag', () => {
+    const runtime = createRobotJointRuntime();
+    runtime.startSync(robot('robot-a'));
+    runtime.update('robot-a', {
+      axisValues: {
+        Axis_1: 1,
+        Axis_2: 2,
+      },
+      unit: 'C81',
+    });
+
+    const manager = runtime.getManager('robot-a');
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.DRAG);
+    manager.updateFromSource(JOINT_SOURCE_ID.DRAG, [3, 4]);
+    runtime.endManipulation('robot-a', JOINT_SOURCE_ID.DRAG, {
+      preserveAnglesOnResume: true,
+    });
+
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.SYNC);
+    expect(manager.getAngles()).toEqual([3, 4]);
+  });
+
+  it('continues from the current shared pose when switching between local manipulation sources', () => {
+    const runtime = createRobotJointRuntime();
+    const manager = runtime.configureRobot(robot('robot-a'));
+
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.MANUAL);
+    manager.updateFromSource(JOINT_SOURCE_ID.MANUAL, [1, 2]);
+    runtime.endManipulation('robot-a', JOINT_SOURCE_ID.MANUAL);
+
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.IK);
+    manager.updateFromSource(JOINT_SOURCE_ID.IK, [3, 4]);
+    runtime.endManipulation('robot-a', JOINT_SOURCE_ID.IK);
+
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.MANUAL);
+
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.MANUAL);
+    expect(manager.getAngles()).toEqual([3, 4]);
+  });
+
+  it('restores the manipulation checkpoint when a local manipulation is canceled', () => {
+    const runtime = createRobotJointRuntime();
+    const manager = runtime.configureRobot(robot('robot-a'));
+
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.MANUAL);
+    manager.updateFromSource(JOINT_SOURCE_ID.MANUAL, [1, 2]);
+    runtime.endManipulation('robot-a', JOINT_SOURCE_ID.MANUAL);
+
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.IK);
+    manager.updateFromSource(JOINT_SOURCE_ID.IK, [3, 4]);
+    runtime.endManipulation('robot-a', JOINT_SOURCE_ID.IK, {
+      cancel: true,
+    });
+
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.FK);
+    expect(manager.getAngles()).toEqual([1, 2]);
+  });
+
+  it('keeps the higher priority manipulation active when a lower priority source tries to take over', () => {
+    const runtime = createRobotJointRuntime();
+    const manager = runtime.configureRobot(robot('robot-a'));
+
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.IK);
+    manager.updateFromSource(JOINT_SOURCE_ID.IK, [3, 4]);
+
+    const result = runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.DRAG);
+
+    expect(result?.sourceId).toBe(JOINT_SOURCE_ID.IK);
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.IK);
+    expect(manager.getAngles()).toEqual([3, 4]);
+  });
+
+  it('reverts to the latest sync state when a sync manipulation is canceled', () => {
+    const runtime = createRobotJointRuntime();
+    runtime.startSync(robot('robot-a'));
+    runtime.update('robot-a', {
+      axisValues: {
+        Axis_1: 1,
+        Axis_2: 2,
+      },
+      unit: 'C81',
+    });
+
+    const manager = runtime.getManager('robot-a');
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.DRAG);
+    manager.updateFromSource(JOINT_SOURCE_ID.DRAG, [3, 4]);
+    runtime.endManipulation('robot-a', JOINT_SOURCE_ID.DRAG, {
+      cancel: true,
+    });
+
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.SYNC);
+    expect(manager.getAngles()).toEqual([1, 2]);
+  });
+
+  it('tracks one in-flight sync goto per robot', () => {
+    const runtime = createRobotJointRuntime();
+
+    expect(runtime.hasInFlightSyncGoto('robot-a')).toBe(false);
+    runtime.markSyncGotoInFlight('robot-a', 'request-1');
+    expect(runtime.hasInFlightSyncGoto('robot-a')).toBe(true);
+    expect(runtime.clearSyncGotoInFlightByRequestId('request-1')).toBe('robot-a');
+    expect(runtime.hasInFlightSyncGoto('robot-a')).toBe(false);
+  });
+
+  it('clears in-flight sync goto state when sync stops', () => {
+    const runtime = createRobotJointRuntime();
+
+    runtime.startSync(robot('robot-a'));
+    runtime.markSyncGotoInFlight('robot-a', 'request-1');
+    runtime.stopSync('robot-a');
+
+    expect(runtime.hasInFlightSyncGoto('robot-a')).toBe(false);
+    expect(runtime.isSyncing('robot-a')).toBe(false);
+  });
+
 });

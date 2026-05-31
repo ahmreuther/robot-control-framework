@@ -4,12 +4,14 @@ from fastapi import FastAPI
 
 from wsc2_backend.services.runtime_registry import RuntimeRegistry
 from wsc2_backend.websocket.router import websocket_endpoint
+from wsc2_backend.websocket.surface_router import websocket_surface_endpoint
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="WebSkillComposition 2 Backend")
     app.state.registry = RuntimeRegistry()
     app.add_api_websocket_route("/ws", websocket_endpoint)
+    app.add_api_websocket_route("/ws/surface", websocket_surface_endpoint)
     return app
 
 

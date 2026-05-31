@@ -2,6 +2,12 @@ import { useState } from "react";
 
 import type { ViewportSceneState } from "../model/sceneState";
 
+type ToggleableViewportSettingKey =
+  | "effectComposer"
+  | "environment"
+  | "grid"
+  | "stats";
+
 interface ViewportSettingsButtonProps {
   sceneState: ViewportSceneState;
 }
@@ -12,7 +18,7 @@ export default function ViewportSettingsButton({
   const [open, setOpen] = useState(false);
 
   const entries: Array<{
-    key: keyof typeof sceneState.settings;
+    key: ToggleableViewportSettingKey;
     label: string;
   }> = [
     { key: "effectComposer", label: "Effect Composer" },

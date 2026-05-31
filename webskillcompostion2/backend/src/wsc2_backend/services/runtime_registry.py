@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from wsc2_backend.runtime.robot_session import RobotSession
 from wsc2_backend.runtime.server_session import ServerSession
+from wsc2_backend.runtime.surface_job import SurfaceJob
+from wsc2_backend.models.surface import SurfaceProcessingConfig
 
 
 class RuntimeRegistry:
@@ -10,6 +12,8 @@ class RuntimeRegistry:
     def __init__(self) -> None:
         self._servers_by_url: dict[str, ServerSession] = {}
         self._robots_by_id: dict[str, RobotSession] = {}
+        self._surface_jobs_by_id: dict[str, SurfaceJob] = {}
+        self._next_surface_job_id = 1
 
     def add_server(self, server: ServerSession) -> None:
         self._servers_by_url[server.server_url] = server
@@ -57,9 +61,33 @@ class RuntimeRegistry:
     def get_robot(self, robot_id: str) -> RobotSession | None:
         return self._robots_by_id.get(robot_id)
 
+    def create_surface_job(
+        self,
+        *,
+        owner_id: str | None,
+        config: SurfaceProcessingConfig,
+    ) -> SurfaceJob:
+        job_index = self._next_surface_job_id
+        self._next_surface_job_id += 1
+        job = SurfaceJob(
+            job_id=f"surface-job-{job_index}",
+            stream_seq_id=job_index,
+            owner_id=owner_id,
+            config=config,
+        )
+        self._surface_jobs_by_id[job.job_id] = job
+        return job
+
+    def get_surface_job(self, job_id: str) -> SurfaceJob | None:
+        return self._surface_jobs_by_id.get(job_id)
+
+    def remove_surface_job(self, job_id: str) -> SurfaceJob | None:
+        return self._surface_jobs_by_id.pop(job_id, None)
+
     def clear(self) -> None:
         self._servers_by_url.clear()
         self._robots_by_id.clear()
+        self._surface_jobs_by_id.clear()
 
     @property
     def servers(self) -> dict[str, ServerSession]:
@@ -68,3 +96,7 @@ class RuntimeRegistry:
     @property
     def robots(self) -> dict[str, RobotSession]:
         return self._robots_by_id.copy()
+
+    @property
+    def surface_jobs(self) -> dict[str, SurfaceJob]:
+        return self._surface_jobs_by_id.copy()

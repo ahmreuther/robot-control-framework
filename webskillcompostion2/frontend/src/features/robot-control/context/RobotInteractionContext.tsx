@@ -4,16 +4,17 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useAppFeedback } from "../../../app/context/AppFeedbackContext";
 import { useRobotControl } from "./RobotControlContext";
 import { JOINT_SOURCE_ID, type JointSourceId } from "../model/jointStateManager";
 
 interface RobotManipulationState {
   robotId: string;
   sourceId: JointSourceId;
-  initialAngles: number[];
   syncMode: boolean;
 }
 
@@ -22,6 +23,8 @@ interface RobotInteractionContextValue {
   setHighlightedJointName(robotId: string, jointName: string | null): void;
   manipulation: RobotManipulationState | null;
   isAbortAreaHovered: boolean;
+  dragCancelSequence: number;
+  ikCancelSequence: number;
   beginManipulation(robotId: string, sourceId: JointSourceId): void;
   endManipulation(options?: { cancel?: boolean }): void;
   setAbortAreaHovered(hovered: boolean): void;
@@ -37,6 +40,7 @@ export interface RobotInteractionProviderProps {
 export function RobotInteractionProvider({
   children,
 }: RobotInteractionProviderProps) {
+  const feedback = useAppFeedback();
   const { controller, getJointManager, isSyncing } = useRobotControl();
   const [highlightedJointNameByRobotId, setHighlightedJointNameByRobotId] =
     useState<Record<string, string | null>>({});
@@ -44,6 +48,9 @@ export function RobotInteractionProvider({
     null,
   );
   const [isAbortAreaHovered, setAbortAreaHovered] = useState(false);
+  const [dragCancelSequence, setDragCancelSequence] = useState(0);
+  const [ikCancelSequence, setIkCancelSequence] = useState(0);
+  const manipulationEndInProgressRef = useRef(false);
 
   const setHighlightedJointName = useCallback(
     (robotId: string, jointName: string | null) => {
@@ -66,17 +73,22 @@ export function RobotInteractionProvider({
         if (current?.robotId === robotId && current.sourceId === sourceId) {
           return current;
         }
+        if (current && current.robotId !== robotId) {
+          return current;
+        }
         const manager = getJointManager(robotId);
         if (!manager) {
           return current;
         }
 
-        controller.getJointRuntime().beginManipulation(robotId, sourceId);
+        const next = controller.getJointRuntime().beginManipulation(robotId, sourceId);
+        if (!next) {
+          return current;
+        }
         return {
-          robotId,
-          sourceId,
-          initialAngles: manager.getAngles(),
-          syncMode: isSyncing(robotId),
+          robotId: next.robotId,
+          sourceId: next.sourceId,
+          syncMode: isSyncing(next.robotId),
         };
       });
     },
@@ -85,19 +97,62 @@ export function RobotInteractionProvider({
 
   const endManipulation = useCallback(
     (options?: { cancel?: boolean }) => {
+      if (manipulationEndInProgressRef.current) {
+        return;
+      }
+      manipulationEndInProgressRef.current = true;
       setManipulation((current) => {
         if (!current) {
           return current;
         }
-        controller.getJointRuntime().endManipulation(current.robotId, current.sourceId, {
-          cancel: options?.cancel,
-          restoreAngles: current.initialAngles,
+        const runtime = controller.getJointRuntime();
+        let cancel = options?.cancel ?? false;
+        let preserveAnglesOnResume = false;
+
+        if (current.syncMode && !cancel) {
+          const manager = getJointManager(current.robotId);
+          if (!manager) {
+            cancel = true;
+          } else if (runtime.hasInFlightSyncGoto(current.robotId)) {
+            cancel = true;
+          } else {
+            try {
+              const requestId = controller.callRobotGotoForVisualAngles(
+                current.robotId,
+                manager.getAngles(),
+              );
+              runtime.markSyncGotoInFlight(current.robotId, requestId);
+              preserveAnglesOnResume = true;
+            } catch (error) {
+              cancel = true;
+              feedback.showError("Failed to send robot joints", {
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : "Unknown joint command error.",
+              });
+            }
+          }
+        }
+
+        runtime.endManipulation(current.robotId, current.sourceId, {
+          cancel,
+          preserveAnglesOnResume,
         });
+        if (cancel && current.sourceId === JOINT_SOURCE_ID.DRAG) {
+          setDragCancelSequence((value) => value + 1);
+        }
+        if (cancel && current.sourceId === JOINT_SOURCE_ID.IK) {
+          setIkCancelSequence((value) => value + 1);
+        }
         setAbortAreaHovered(false);
         return null;
       });
+      queueMicrotask(() => {
+        manipulationEndInProgressRef.current = false;
+      });
     },
-    [controller],
+    [controller, feedback, getJointManager],
   );
 
   useEffect(() => {
@@ -105,7 +160,11 @@ export function RobotInteractionProvider({
       if (event.key !== "Escape") {
         return;
       }
-      if (!manipulation?.syncMode) {
+      if (
+        !manipulation ||
+        (manipulation.sourceId !== JOINT_SOURCE_ID.DRAG &&
+          manipulation.sourceId !== JOINT_SOURCE_ID.IK)
+      ) {
         return;
       }
       endManipulation({ cancel: true });
@@ -125,6 +184,8 @@ export function RobotInteractionProvider({
       setHighlightedJointName,
       manipulation,
       isAbortAreaHovered,
+      dragCancelSequence,
+      ikCancelSequence,
       beginManipulation,
       endManipulation,
       setAbortAreaHovered,
@@ -132,6 +193,8 @@ export function RobotInteractionProvider({
     [
       beginManipulation,
       endManipulation,
+      dragCancelSequence,
+      ikCancelSequence,
       highlightedJointNameByRobotId,
       isAbortAreaHovered,
       manipulation,

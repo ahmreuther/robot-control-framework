@@ -6,6 +6,7 @@ import type { URDFRobot } from "urdf-loader/src/URDFClasses.js";
 interface DragControlsProps {
   robot: URDFRobot;
   enabled: boolean;
+  cancelSequence?: number;
   onDragStart?: (joint: unknown) => void;
   onDragEnd?: (joint: unknown) => void;
   onHover?: (joint: unknown) => void;
@@ -56,6 +57,7 @@ function clampJointValue(joint: unknown, value: number): number {
 export default function DragControls({
   robot,
   enabled,
+  cancelSequence = 0,
   onDragStart,
   onDragEnd,
   onHover,
@@ -69,6 +71,7 @@ export default function DragControls({
   const dragStartValueRef = useRef<number>(0);
   const dragStartPointRef = useRef<THREE.Vector3 | null>(null);
   const dragPlaneRef = useRef<THREE.Plane | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const domElement = gl.domElement;
@@ -210,12 +213,16 @@ export default function DragControls({
       const pointer = getPointer(event);
       raycasterRef.current.setFromCamera(new THREE.Vector2(pointer.x, pointer.y), camera);
       const intersections = raycasterRef.current.intersectObject(robot, true);
-      const joint =
+      let joint =
         intersections.length > 0
           ? findNearestJoint(intersections[0]?.object ?? null)
           : null;
 
-      if (!joint || intersections.length === 0) {
+      if (!joint && hoveredRef.current) {
+        joint = hoveredRef.current;
+      }
+
+      if (!joint) {
         return;
       }
 
@@ -232,7 +239,9 @@ export default function DragControls({
         typeof candidate.angle === "number"
           ? candidate.angle
           : candidate.jointValue?.[0] ?? 0;
-      dragStartPointRef.current = intersections[0]!.point.clone();
+      dragStartPointRef.current =
+        intersections[0]?.point.clone() ??
+        new THREE.Vector3().set(0, 0, 0).applyMatrix4(candidate.matrixWorld);
 
       const axis = new THREE.Vector3()
         .copy(candidate.axis)
@@ -261,6 +270,7 @@ export default function DragControls({
 
       setCursor("grabbing");
       onDragStart?.(joint);
+      activePointerIdRef.current = event.pointerId;
       domElement.setPointerCapture(event.pointerId);
     }
 
@@ -271,13 +281,14 @@ export default function DragControls({
         dragStartPointRef.current = null;
         dragPlaneRef.current = null;
       }
+      activePointerIdRef.current = null;
       setCursor(hoveredRef.current ? "grab" : "");
       domElement.releasePointerCapture(event.pointerId);
     }
 
     domElement.addEventListener("pointermove", pointerMove);
-    domElement.addEventListener("pointerdown", pointerDown);
-    domElement.addEventListener("pointerup", pointerUp);
+    domElement.addEventListener("pointerdown", pointerDown, true);
+    domElement.addEventListener("pointerup", pointerUp, true);
 
     return () => {
       if (draggingRef.current) {
@@ -285,8 +296,8 @@ export default function DragControls({
         draggingRef.current = null;
       }
       domElement.removeEventListener("pointermove", pointerMove);
-      domElement.removeEventListener("pointerdown", pointerDown);
-      domElement.removeEventListener("pointerup", pointerUp);
+      domElement.removeEventListener("pointerdown", pointerDown, true);
+      domElement.removeEventListener("pointerup", pointerUp, true);
       domElement.style.cursor = "";
     };
   }, [
@@ -300,6 +311,29 @@ export default function DragControls({
     onUpdateJoint,
     robot,
   ]);
+
+  useEffect(() => {
+    const domElement = gl.domElement;
+    if (!draggingRef.current) {
+      return;
+    }
+
+    draggingRef.current = null;
+    dragStartPointRef.current = null;
+    dragPlaneRef.current = null;
+
+    const pointerId = activePointerIdRef.current;
+    activePointerIdRef.current = null;
+    if (pointerId !== null) {
+      try {
+        domElement.releasePointerCapture(pointerId);
+      } catch {
+        // ignore - capture may already be gone
+      }
+    }
+
+    domElement.style.cursor = hoveredRef.current ? "grab" : "";
+  }, [cancelSequence, gl.domElement]);
 
   return null;
 }

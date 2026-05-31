@@ -31,10 +31,30 @@ describe('createJointStateManager', () => {
     const manager = createJointStateManager();
 
     manager.mountSource(JOINT_SOURCE_ID.FK, JOINT_SOURCE_PRIORITY.FK);
+    manager.updateFromSource(JOINT_SOURCE_ID.FK, [0.1, 0.2]);
     manager.mountSource(JOINT_SOURCE_ID.DRAG, JOINT_SOURCE_PRIORITY.DRAG);
+    manager.updateFromSource(JOINT_SOURCE_ID.DRAG, [1, 2]);
     manager.unmountSource(JOINT_SOURCE_ID.DRAG);
 
     expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.FK);
+    expect(manager.getAngles()).toEqual([1, 2]);
+  });
+
+  it('does not let lower priority sources overwrite the shared pose while inactive', () => {
+    const manager = createJointStateManager();
+
+    manager.mountSource(JOINT_SOURCE_ID.FK, JOINT_SOURCE_PRIORITY.FK);
+    manager.updateFromSource(JOINT_SOURCE_ID.FK, [0.1, 0.2]);
+    manager.mountSource(JOINT_SOURCE_ID.IK, JOINT_SOURCE_PRIORITY.IK);
+    manager.updateFromSource(JOINT_SOURCE_ID.IK, [1, 2]);
+    manager.updateFromSource(JOINT_SOURCE_ID.FK, [0.3, 0.4]);
+
+    expect(manager.getAngles()).toEqual([1, 2]);
+
+    manager.unmountSource(JOINT_SOURCE_ID.IK);
+
+    expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.FK);
+    expect(manager.getAngles()).toEqual([1, 2]);
   });
 
   it('notifies and unsubscribes listeners', () => {
@@ -65,6 +85,22 @@ describe('createJointStateManager', () => {
 
     expect(manager.setActiveSource(JOINT_SOURCE_ID.FK)).toBe(false);
     expect(manager.getActiveSource()?.id).toBe(JOINT_SOURCE_ID.SYNC);
+  });
+
+  it('reports whether a source is allowed to take control based on priority', () => {
+    const manager = createJointStateManager();
+
+    manager.mountSource(JOINT_SOURCE_ID.IK, JOINT_SOURCE_PRIORITY.IK);
+
+    expect(manager.canSourceTakeControl(JOINT_SOURCE_ID.DRAG, JOINT_SOURCE_PRIORITY.DRAG)).toBe(
+      false,
+    );
+    expect(manager.canSourceTakeControl(JOINT_SOURCE_ID.IK, JOINT_SOURCE_PRIORITY.IK)).toBe(
+      true,
+    );
+    expect(
+      manager.canSourceTakeControl(JOINT_SOURCE_ID.SYNC, JOINT_SOURCE_PRIORITY.SYNC),
+    ).toBe(true);
   });
 
   it('tracks ordered joint names and indexes', () => {

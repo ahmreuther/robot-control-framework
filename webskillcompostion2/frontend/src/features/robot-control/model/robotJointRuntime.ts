@@ -34,7 +34,20 @@ export interface RobotJointRuntimeUpdateResult {
 interface RobotJointManipulationState {
   robotId: string;
   sourceId: JointSourceId;
-  initialAngles: number[];
+  syncWasActive: boolean;
+  checkpointAngles: number[];
+}
+
+interface InFlightSyncGotoRequest {
+  requestId: string;
+}
+
+interface JointAnimationState {
+  robotId: string;
+  fromAngles: number[];
+  targetAngles: number[];
+  startedAtMs: number;
+  durationMs: number;
   syncWasActive: boolean;
 }
 
@@ -42,6 +55,8 @@ export class RobotJointRuntime {
   private readonly managersByRobotId = new Map<string, JointStateManager>();
   private readonly sessionsByRobotId = new Map<string, RobotJointSyncSession>();
   private readonly manipulationsByRobotId = new Map<string, RobotJointManipulationState>();
+  private readonly syncGotoRequestByRobotId = new Map<string, InFlightSyncGotoRequest>();
+  private readonly animationsByRobotId = new Map<string, JointAnimationState>();
 
   private sourcePriority(sourceId: JointSourceId): number {
     switch (sourceId) {
@@ -49,6 +64,8 @@ export class RobotJointRuntime {
         return JOINT_SOURCE_PRIORITY.DRAG;
       case JOINT_SOURCE_ID.IK:
         return JOINT_SOURCE_PRIORITY.IK;
+      case JOINT_SOURCE_ID.FK:
+        return JOINT_SOURCE_PRIORITY.FK;
       case JOINT_SOURCE_ID.MANUAL:
       default:
         return JOINT_SOURCE_PRIORITY.MANUAL;
@@ -76,13 +93,117 @@ export class RobotJointRuntime {
     return this.sessionsByRobotId.get(robotId)?.isStarted() ?? false;
   }
 
+  hasInFlightSyncGoto(robotId: string): boolean {
+    return this.syncGotoRequestByRobotId.has(robotId);
+  }
+
+  markSyncGotoInFlight(robotId: string, requestId: string): void {
+    this.syncGotoRequestByRobotId.set(robotId, {
+      requestId,
+    });
+  }
+
+  clearSyncGotoInFlightByRequestId(requestId: string): string | null {
+    for (const [robotId, activeRequest] of this.syncGotoRequestByRobotId.entries()) {
+      if (activeRequest.requestId !== requestId) {
+        continue;
+      }
+      this.syncGotoRequestByRobotId.delete(robotId);
+      return robotId;
+    }
+
+    return null;
+  }
+
+  startAnimationToAngles(
+    robotId: string,
+    targetAngles: number[],
+    options?: { durationMs?: number; fromAngles?: number[] },
+  ): boolean {
+    const manager = this.getManager(robotId);
+    const currentAngles = manager.getAngles();
+    const fromAngles = options?.fromAngles ?? currentAngles;
+    manager.mountSource(
+      JOINT_SOURCE_ID.ANIMATION,
+      JOINT_SOURCE_PRIORITY.ANIMATION,
+    );
+    manager.setActiveSource(JOINT_SOURCE_ID.ANIMATION);
+
+    if (targetAngles.length === 0 || fromAngles.length !== targetAngles.length) {
+      manager.unmountSource(JOINT_SOURCE_ID.ANIMATION);
+      return false;
+    }
+
+    const alreadyAtTarget = fromAngles.every(
+      (angle, index) => Math.abs(angle - targetAngles[index]) <= 1e-6,
+    );
+    if (alreadyAtTarget) {
+      manager.unmountSource(JOINT_SOURCE_ID.ANIMATION);
+      return false;
+    }
+
+    const session = this.sessionsByRobotId.get(robotId);
+    const syncWasActive = session?.isStarted() ?? false;
+    if (syncWasActive) {
+      session?.suspend();
+    }
+    manager.updateFromSource(JOINT_SOURCE_ID.ANIMATION, fromAngles);
+
+    this.animationsByRobotId.set(robotId, {
+      robotId,
+      fromAngles: [...fromAngles],
+      targetAngles: [...targetAngles],
+      startedAtMs: performance.now(),
+      durationMs: options?.durationMs ?? 400,
+      syncWasActive,
+    });
+    return true;
+  }
+
+  advanceAnimation(robotId: string, nowMs = performance.now()): boolean {
+    const animation = this.animationsByRobotId.get(robotId);
+    if (!animation) {
+      return false;
+    }
+
+    const manager = this.getManager(robotId);
+    const durationMs = Math.max(animation.durationMs, 1);
+    const rawProgress = Math.min(
+      Math.max((nowMs - animation.startedAtMs) / durationMs, 0),
+      1,
+    );
+    const easedProgress = 1 - Math.pow(1 - rawProgress, 3);
+    const nextAngles = animation.fromAngles.map((fromAngle, index) => {
+      const targetAngle = animation.targetAngles[index] ?? fromAngle;
+      return fromAngle + (targetAngle - fromAngle) * easedProgress;
+    });
+
+    manager.updateFromSource(JOINT_SOURCE_ID.ANIMATION, nextAngles);
+
+    if (rawProgress < 1) {
+      return true;
+    }
+
+    manager.unmountSource(JOINT_SOURCE_ID.ANIMATION);
+    this.animationsByRobotId.delete(robotId);
+    if (animation.syncWasActive) {
+      this.sessionsByRobotId.get(robotId)?.resume();
+    }
+    return false;
+  }
+
   configureRobot(robot: Robot): JointStateManager {
     const manager = this.getManager(robot.robotId);
     const mapping = createRobotJointMapping(robot);
-    const jointNames = mapping?.orderedJointNames ?? robot.visual.orderedUrdfJointNames;
+    // The manager owns the full movable URDF joint state. Solver / axis mapping can use narrower lists.
+    const managerJointNames = robot.visual.allUrdfJointNames ?? [];
+    const jointNames =
+      managerJointNames.length > 0
+        ? managerJointNames
+        : mapping?.orderedJointNames ?? robot.visual.orderedUrdfJointNames;
 
     manager.setJointNames(jointNames);
-    manager.mountSource(JOINT_SOURCE_ID.MANUAL, JOINT_SOURCE_PRIORITY.MANUAL);
+    manager.mountSource(JOINT_SOURCE_ID.FK, JOINT_SOURCE_PRIORITY.FK);
 
     if (jointNames.length === 0) {
       return manager;
@@ -97,25 +218,39 @@ export class RobotJointRuntime {
       Object.keys(robot.joints.axisValues).length > 0
         ? mapRobotJointStateToVisualAngles(robot).angles
         : jointNames.map(() => 0);
-    manager.updateFromSource(JOINT_SOURCE_ID.MANUAL, initialAngles);
+    manager.updateFromSource(JOINT_SOURCE_ID.FK, initialAngles);
     return manager;
   }
 
   updateManualAngles(robotId: string, angles: number[]): boolean {
-    return this.getManager(robotId).updateFromSource(JOINT_SOURCE_ID.MANUAL, angles);
+    const manager = this.getManager(robotId);
+    const sourceId = manager.hasSource(JOINT_SOURCE_ID.MANUAL)
+      ? JOINT_SOURCE_ID.MANUAL
+      : JOINT_SOURCE_ID.FK;
+    return manager.updateFromSource(sourceId, angles);
   }
 
-  beginManipulation(robotId: string, sourceId: JointSourceId): RobotJointManipulationState {
+  beginManipulation(robotId: string, sourceId: JointSourceId): RobotJointManipulationState | null {
     const manager = this.getManager(robotId);
     const existing = this.manipulationsByRobotId.get(robotId);
     if (existing) {
-      if (sourceId !== JOINT_SOURCE_ID.MANUAL) {
-        manager.mountSource(sourceId, this.sourcePriority(sourceId));
-        manager.setActiveSource(sourceId);
-      } else {
-        manager.setActiveSource(JOINT_SOURCE_ID.MANUAL);
+      if (!manager.canSourceTakeControl(sourceId, this.sourcePriority(sourceId))) {
+        return existing;
       }
-      return existing;
+      const checkpointAngles = manager.getAngles();
+      if (existing.sourceId !== sourceId) {
+        manager.unmountSource(existing.sourceId);
+      }
+      manager.mountSource(sourceId, this.sourcePriority(sourceId));
+      manager.setActiveSource(sourceId);
+      const nextState: RobotJointManipulationState = {
+        robotId,
+        sourceId,
+        syncWasActive: existing.syncWasActive,
+        checkpointAngles,
+      };
+      this.manipulationsByRobotId.set(robotId, nextState);
+      return nextState;
     }
 
     const session = this.sessionsByRobotId.get(robotId);
@@ -123,17 +258,22 @@ export class RobotJointRuntime {
     if (syncWasActive) {
       session?.suspend();
     }
-
-    if (sourceId !== JOINT_SOURCE_ID.MANUAL) {
-      manager.mountSource(sourceId, this.sourcePriority(sourceId));
+    if (!manager.canSourceTakeControl(sourceId, this.sourcePriority(sourceId))) {
+      if (syncWasActive) {
+        session?.resume();
+      }
+      return null;
     }
+    const checkpointAngles = manager.getAngles();
+
+    manager.mountSource(sourceId, this.sourcePriority(sourceId));
     manager.setActiveSource(sourceId);
 
     const state: RobotJointManipulationState = {
       robotId,
       sourceId,
-      initialAngles: manager.getAngles(),
       syncWasActive,
+      checkpointAngles,
     };
     this.manipulationsByRobotId.set(robotId, state);
     return state;
@@ -142,24 +282,27 @@ export class RobotJointRuntime {
   endManipulation(
     robotId: string,
     sourceId: JointSourceId,
-    options?: { cancel?: boolean; restoreAngles?: number[] },
+    options?: {
+      cancel?: boolean;
+      preserveAnglesOnResume?: boolean;
+    },
   ): void {
     const manager = this.getManager(robotId);
     const state = this.manipulationsByRobotId.get(robotId);
+    const committedAngles = manager.getAngles();
 
-    if (options?.cancel) {
-      const restoreAngles = options.restoreAngles ?? state?.initialAngles;
-      if (restoreAngles) {
-        manager.updateFromSource(sourceId, restoreAngles);
-      }
+    if (options?.cancel && state && !state.syncWasActive) {
+      manager.updateFromSource(sourceId, state.checkpointAngles);
     }
 
-    if (sourceId !== JOINT_SOURCE_ID.MANUAL) {
-      manager.unmountSource(sourceId);
-    }
+    manager.unmountSource(sourceId);
 
     if (state?.syncWasActive) {
-      this.sessionsByRobotId.get(robotId)?.resume();
+      const session = this.sessionsByRobotId.get(robotId);
+      if (session && options?.preserveAnglesOnResume) {
+        session.setLatestAngles(committedAngles);
+      }
+      session?.resume();
     }
 
     this.manipulationsByRobotId.delete(robotId);
@@ -207,7 +350,8 @@ export class RobotJointRuntime {
       };
     }
 
-    return session.update(jointState);
+    const result = session.update(jointState);
+    return result;
   }
 
   stopSync(robotId: string): void {
@@ -217,12 +361,15 @@ export class RobotJointRuntime {
     session.stop();
     this.sessionsByRobotId.delete(robotId);
     this.manipulationsByRobotId.delete(robotId);
+    this.syncGotoRequestByRobotId.delete(robotId);
   }
 
   removeRobot(robotId: string): void {
     this.stopSync(robotId);
+    this.animationsByRobotId.delete(robotId);
     this.managersByRobotId.delete(robotId);
     this.manipulationsByRobotId.delete(robotId);
+    this.syncGotoRequestByRobotId.delete(robotId);
   }
 
   clear(): void {
@@ -230,6 +377,8 @@ export class RobotJointRuntime {
       this.stopSync(robotId);
     }
     this.managersByRobotId.clear();
+    this.animationsByRobotId.clear();
+    this.syncGotoRequestByRobotId.clear();
   }
 }
 

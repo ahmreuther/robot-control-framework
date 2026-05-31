@@ -6,6 +6,13 @@ from .messages import (
     parse_client_message_json,
     parse_server_message_json,
 )
+from .surface import (
+    SurfaceClientMessage,
+    SurfaceProcessingConfig,
+    SurfaceServerMessage,
+    parse_surface_client_message_json,
+    parse_surface_server_message_json,
+)
 from .opcua import AxisBinding, MotionDeviceBinding, NodeBinding
 from .robot import (
     RobotInfo,
@@ -28,8 +35,12 @@ __all__ = [
     "ServerMessage",
     "ServerSessionInfo",
     "ServerStatus",
+    "SurfaceClientMessage",
+    "SurfaceProcessingConfig",
+    "SurfaceServerMessage",
     "make_robot_id",
     "parse_client_message_json",
     "parse_server_message_json",
+    "parse_surface_client_message_json",
+    "parse_surface_server_message_json",
 ]
-
