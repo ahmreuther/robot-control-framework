@@ -60,6 +60,8 @@ class ServerSession:
         return self.robots_by_id.get(robot_id)
 
     async def disconnect(self) -> None:
+        for robot in self.robots_by_id.values():
+            robot.cancel_all_action_watch_tasks()
         if self.connection is not None:
             await self.connection.disconnect()
         self.status = ServerStatus.DISCONNECTED

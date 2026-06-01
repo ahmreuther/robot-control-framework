@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 import logging
 
@@ -41,7 +42,7 @@ from backend.models.messages import (
     UnsubscribeRobotJointsCommand,
     UnsubscribeRobotModeCommand,
 )
-from backend.models.robot import RobotConnectionStatus, RobotJointState
+from backend.models.robot import RobotActionState, RobotConnectionStatus, RobotJointState
 from backend.opcua.method_calls import MethodInputError
 from backend.opcua.server_connection import AsyncUaServerConnection
 from backend.opcua.discovery import ServerDiscoveryResult
@@ -128,6 +129,72 @@ def ensure_connection(
     if server.connection is None:
         server.connection = (connection_factory or DEFAULT_CONNECTION_FACTORY)(server_url)
     return server.connection
+
+
+def _map_skill_current_state_to_status(current_state: str | None) -> str:
+    normalized = (current_state or "").strip().lower()
+    if normalized in {"ready", "idle"}:
+        return "idle"
+    if normalized in {"halted", "aborted", "stopped"}:
+        return "halted"
+    if normalized in {"reset", "resetting"}:
+        return "reset"
+    if normalized in {"failed", "error"}:
+        return "failed"
+    return "running"
+
+
+async def _watch_skill_action_state(
+    *,
+    robot: RobotSession,
+    action_name: str,
+    connection: AsyncUaServerConnection,
+    emit_event: EventEmitter,
+    poll_interval_s: float = 0.25,
+) -> None:
+    action = robot.info.actions.get(action_name)
+    if action is None or action.current_state_node_id is None:
+        return
+
+    last_current_state: str | None = None
+    try:
+        while True:
+            raw_value = await connection.read_node_value(action.current_state_node_id)
+            current_state = str(raw_value) if raw_value is not None else None
+            if current_state != last_current_state:
+                state = RobotActionState(
+                    action_name=action_name,
+                    kind=action.kind,
+                    status=_map_skill_current_state_to_status(current_state),
+                    current_state=current_state,
+                )
+                robot.update_action_state(state)
+                await emit_event(
+                    RobotActionStateEvent(
+                        type="robotActionState",
+                        server_url=robot.server_url,
+                        robot_id=robot.robot_id,
+                        data=state,
+                    )
+                )
+                last_current_state = current_state
+
+            if _map_skill_current_state_to_status(current_state) == "idle":
+                break
+
+            await asyncio.sleep(poll_interval_s)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "action state watch failed for %s (%s) action %s: %s",
+            robot.info.display_name,
+            robot.robot_id,
+            action_name,
+            exc,
+        )
+    finally:
+        robot.action_watch_tasks.pop(action_name, None)
 
 
 async def discover_and_register(
@@ -783,6 +850,24 @@ async def handle_client_message(
             ]
 
         robot.update_action_state(executed.state)
+        action = robot.info.actions.get(message.action_name)
+        if (
+            emit_event is not None
+            and action is not None
+            and action.kind == "skill"
+            and action.current_state_node_id is not None
+        ):
+            robot.replace_action_watch_task(
+                message.action_name,
+                asyncio.create_task(
+                    _watch_skill_action_state(
+                        robot=robot,
+                        action_name=message.action_name,
+                        connection=connection,
+                        emit_event=emit_event,
+                    )
+                ),
+            )
         return [
             MethodResultEvent(
                 type="methodResult",
@@ -814,6 +899,7 @@ async def handle_client_message(
             ]
 
         transition = "halt" if isinstance(message, HaltRobotActionCommand) else "reset"
+        robot.clear_action_watch_task(message.action_name)
         try:
             connection = ensure_connection(
                 server_url=robot.server_url,

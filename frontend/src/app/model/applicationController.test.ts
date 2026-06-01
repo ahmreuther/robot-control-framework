@@ -294,7 +294,7 @@ describe('ApplicationController', () => {
     });
   });
 
-  it('clears the sync goto flight lock when the method result arrives', () => {
+  it('clears the sync goto flight lock when the goto skill returns to Ready', () => {
     const { socket, controller } = setup();
 
     socket.receive({
@@ -311,15 +311,52 @@ describe('ApplicationController', () => {
     expect(controller.getJointRuntime().hasInFlightSyncGoto(robotId)).toBe(true);
 
     socket.receive({
-      type: 'methodResult',
-      requestId: 'action-goto-42',
+      type: 'robotActionState',
       serverUrl: SERVER_URL,
       robotId: 'robot-a',
-      nodeId: 'ns=4;s=Go To Skill',
-      result: { status: 'ok' },
+      data: {
+        actionName: 'goto',
+        kind: 'skill',
+        status: 'idle',
+        currentState: 'Ready',
+      },
     });
 
     expect(controller.getJointRuntime().hasInFlightSyncGoto(robotId)).toBe(false);
+  });
+
+  it('blocks sending another goto while the goto skill is still active', () => {
+    const { socket, controller } = setup();
+
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [robotSession()],
+    });
+    const robotId = createBoundRobot(controller);
+    socket.receive({
+      type: 'robotActionState',
+      serverUrl: SERVER_URL,
+      robotId: 'robot-a',
+      data: {
+        actionName: 'goto',
+        kind: 'skill',
+        status: 'running',
+        currentState: 'Running',
+      },
+    });
+
+    let caught: unknown = null;
+    try {
+      controller.callRobotGoto(robotId, {
+        joints: [0, 0.1],
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught instanceof Error).toBe(true);
+    expect((caught as Error).message.includes('goto skill is still active')).toBe(true);
   });
 
   it('stops sync immediately when a robot is rebound or unbound', () => {

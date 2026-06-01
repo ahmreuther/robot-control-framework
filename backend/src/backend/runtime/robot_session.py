@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 
 from backend.models.robot import (
@@ -17,6 +18,7 @@ class RobotSession:
     info: RobotSessionInfo
     joint_state: RobotJointState = field(default_factory=RobotJointState)
     action_states: dict[str, RobotActionState] = field(default_factory=dict)
+    action_watch_tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     joints_subscription_active: bool = False
 
     @property
@@ -38,6 +40,22 @@ class RobotSession:
 
     def update_action_state(self, action_state: RobotActionState) -> None:
         self.action_states[action_state.action_name] = action_state
+
+    def replace_action_watch_task(self, action_name: str, task: asyncio.Task[None]) -> None:
+        existing = self.action_watch_tasks.get(action_name)
+        if existing is not None:
+            existing.cancel()
+        self.action_watch_tasks[action_name] = task
+
+    def clear_action_watch_task(self, action_name: str) -> None:
+        existing = self.action_watch_tasks.pop(action_name, None)
+        if existing is not None:
+            existing.cancel()
+
+    def cancel_all_action_watch_tasks(self) -> None:
+        for task in self.action_watch_tasks.values():
+            task.cancel()
+        self.action_watch_tasks.clear()
 
     def get_method_node_id(self, method_name: str) -> str | None:
         method = self.info.opcua.methods.get(method_name)

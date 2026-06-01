@@ -462,6 +462,11 @@ export class ApplicationController {
   callRobotGoto(robotId: string, command: RobotGotoCommand): string {
     const robot = this.requireRobot(robotId);
     validateJointArray(command.joints);
+    if (!isGotoReadyForDispatch(robot)) {
+      throw new Error(
+        `Robot "${robot.robotId}" goto skill is still active. Wait until it returns to Ready/Idle before sending the next goto.`,
+      );
+    }
     if (robot.actions?.goto || robot.opcua.skills?.go_to) {
       return this.executeRobotAction(robotId, 'goto', buildGotoActionInputs(robot, command));
     }
@@ -590,10 +595,6 @@ export class ApplicationController {
       this.removeRuntimeForServer(message.serverUrl);
     }
 
-    if (message.type === 'methodResult' && typeof message.requestId === 'string') {
-      this.jointRuntime.clearSyncGotoInFlightByRequestId(message.requestId);
-    }
-
     if (message.type === 'error' && typeof message.requestId === 'string') {
       this.jointRuntime.clearSyncGotoInFlightByRequestId(message.requestId);
     }
@@ -605,6 +606,13 @@ export class ApplicationController {
       const localRobotId = this.findRobotInstanceIdByMotionDeviceId(message.robotId);
       if (localRobotId) {
         this.jointRuntime.update(localRobotId, message.data);
+      }
+    }
+
+    if (message.type === 'robotActionState' && message.data.actionName === 'goto') {
+      const localRobotId = this.findRobotInstanceIdByMotionDeviceId(message.robotId);
+      if (localRobotId && isGotoStateReady(message.data)) {
+        this.jointRuntime.clearSyncGotoInFlight(localRobotId);
       }
     }
 
@@ -707,6 +715,23 @@ function serializeGotoOptionalString(value: unknown): string {
     return value;
   }
   return JSON.stringify(value);
+}
+
+function isGotoReadyForDispatch(robot: Robot): boolean {
+  return isGotoStateReady(robot.actionStates.goto);
+}
+
+function isGotoStateReady(
+  state: { status?: string | null; currentState?: string | null } | null | undefined,
+): boolean {
+  if (!state) {
+    return true;
+  }
+  const currentState = (state.currentState ?? '').trim().toLowerCase();
+  if (currentState === 'ready' || currentState === 'idle') {
+    return true;
+  }
+  return state.status !== 'running';
 }
 
 function validateJointArray(joints: number[]): void {

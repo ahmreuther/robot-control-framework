@@ -115,6 +115,10 @@ export class RobotJointRuntime {
     return null;
   }
 
+  clearSyncGotoInFlight(robotId: string): void {
+    this.syncGotoRequestByRobotId.delete(robotId);
+  }
+
   startAnimationToAngles(
     robotId: string,
     targetAngles: number[],

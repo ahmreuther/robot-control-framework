@@ -82,6 +82,7 @@ export default function AddressSpaceTree() {
           <div className="text-xs text-[rgb(var(--fg-muted))]"></div>
         ) : (
           <Tree
+            key={activeServerUrl ?? "no-server"}
             className="address-space-tree"
             treeData={treeData}
             selectedKeys={selectedKeys}
