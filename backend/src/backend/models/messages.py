@@ -6,7 +6,7 @@ from pydantic import Field, TypeAdapter
 
 from .address_space import AddressSpaceNode, AddressSpaceNodeDetails, AddressSpaceReference
 from .base import ContractModel
-from .robot import RobotJointState, RobotSessionInfo
+from .robot import RobotActionState, RobotJointState, RobotSessionInfo
 from .server import ServerSessionInfo
 
 
@@ -46,6 +46,28 @@ class CallRobotMethodCommand(ContractModel):
     robot_id: str
     method: str
     inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExecuteRobotActionCommand(ContractModel):
+    type: Literal["executeRobotAction"]
+    request_id: str
+    robot_id: str
+    action_name: str
+    inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class HaltRobotActionCommand(ContractModel):
+    type: Literal["haltRobotAction"]
+    request_id: str
+    robot_id: str
+    action_name: str
+
+
+class ResetRobotActionCommand(ContractModel):
+    type: Literal["resetRobotAction"]
+    request_id: str
+    robot_id: str
+    action_name: str
 
 
 class SubscribeNodeCommand(ContractModel):
@@ -130,6 +152,9 @@ ClientMessage = Annotated[
     | SubscribeRobotJointsCommand
     | UnsubscribeRobotJointsCommand
     | CallRobotMethodCommand
+    | ExecuteRobotActionCommand
+    | HaltRobotActionCommand
+    | ResetRobotActionCommand
     | SubscribeNodeCommand
     | UnsubscribeNodeCommand
     | SubscribeEventCommand
@@ -184,6 +209,14 @@ class RobotModeChangedEvent(ContractModel):
     server_url: str
     robot_id: str
     mode: str
+
+
+class RobotActionStateEvent(ContractModel):
+    type: Literal["robotActionState"]
+    request_id: str | None = None
+    server_url: str
+    robot_id: str
+    data: RobotActionState
 
 
 class MethodResultEvent(ContractModel):
@@ -257,6 +290,7 @@ ServerMessage = Annotated[
     | RobotInfoEvent
     | RobotJointStateEvent
     | RobotModeChangedEvent
+    | RobotActionStateEvent
     | MethodResultEvent
     | NodeValueChangedEvent
     | OpcUaEventNotificationEvent

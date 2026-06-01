@@ -1,4 +1,8 @@
-import type { RobotJointState, RobotSessionInfo } from '../../entities/robot/model/types';
+import type {
+  RobotActionState,
+  RobotJointState,
+  RobotSessionInfo,
+} from '../../entities/robot/model/types';
 import type {
   AddressSpaceNode,
   AddressSpaceNodeDetails,
@@ -38,6 +42,19 @@ export type ClientMessage =
       robotId: string;
       method: string;
       inputs: Record<string, unknown>;
+    }
+  | {
+      type: 'executeRobotAction';
+      requestId: string;
+      robotId: string;
+      actionName: string;
+      inputs: Record<string, unknown>;
+    }
+  | {
+      type: 'haltRobotAction' | 'resetRobotAction';
+      requestId: string;
+      robotId: string;
+      actionName: string;
     }
   | {
       type: 'subscribeNode' | 'unsubscribeNode' | 'subscribeEvent' | 'unsubscribeEvent';
@@ -111,6 +128,13 @@ export type ServerMessage =
       serverUrl: string;
       robotId: string;
       mode: string;
+    }
+  | {
+      type: 'robotActionState';
+      requestId?: string | null;
+      serverUrl: string;
+      robotId: string;
+      data: RobotActionState;
     }
   | {
       type: 'methodResult';

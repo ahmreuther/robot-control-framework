@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+import logging
 
 from backend.models.messages import (
     AddressSpaceChildrenEvent,
@@ -18,7 +19,11 @@ from backend.models.messages import (
     DisconnectServerCommand,
     DiscoverRobotsCommand,
     ErrorEvent,
+    ExecuteRobotActionCommand,
+    HaltRobotActionCommand,
     MethodResultEvent,
+    ResetRobotActionCommand,
+    RobotActionStateEvent,
     RobotJointStateEvent,
     RobotModeChangedEvent,
     NodeValueChangedEvent,
@@ -42,7 +47,14 @@ from backend.opcua.server_connection import AsyncUaServerConnection
 from backend.opcua.discovery import ServerDiscoveryResult
 from backend.services.runtime_registry import RuntimeRegistry
 
+from .action_execution import (
+    RobotActionExecutionError,
+    execute_robot_action,
+    transition_robot_action,
+)
 from .robot_session import RobotSession
+
+logger = logging.getLogger(__name__)
 
 ConnectionFactory = Callable[[str], AsyncUaServerConnection]
 DEFAULT_CONNECTION_FACTORY: ConnectionFactory = AsyncUaServerConnection
@@ -82,6 +94,19 @@ def register_discovery_result(
     for robot in robot_sessions:
         robot.set_status(RobotConnectionStatus.CONNECTED)
     registry.replace_server_robots(server, robot_sessions)
+
+    for robot in robot_sessions:
+        logger.info(
+            "discovered robot %s (%s): actions=%s skills=%s methods=%s actionNames=%s skillNames=%s methodNames=%s",
+            robot.info.display_name,
+            robot.info.robot_id,
+            len(robot.info.actions),
+            len(robot.info.opcua.skills),
+            len(robot.info.opcua.methods),
+            sorted(robot.info.actions.keys()),
+            sorted(robot.info.opcua.skills.keys()),
+            sorted(robot.info.opcua.methods.keys()),
+        )
 
     return (
         ServerConnectedEvent(type="serverConnected", server=server.to_info()),
@@ -700,6 +725,145 @@ async def handle_client_message(
                 node_id=method_node_id,
                 result=result,
             )
+        ]
+
+    if isinstance(message, ExecuteRobotActionCommand):
+        robot = registry.get_robot(message.robot_id)
+        if robot is None:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    robot_id=message.robot_id,
+                    message=f"No robot found for robotId {message.robot_id}",
+                    code="robotNotFound",
+                )
+            ]
+
+        try:
+            connection = ensure_connection(
+                server_url=robot.server_url,
+                registry=registry,
+                connection_factory=connection_factory,
+            )
+            executed = await execute_robot_action(
+                robot=robot,
+                action_name=message.action_name,
+                inputs=message.inputs,
+                connection=connection,
+            )
+        except MethodInputError as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=robot.server_url,
+                    robot_id=robot.robot_id,
+                    message=str(exc),
+                    code="invalidActionInputs",
+                )
+            ]
+        except RobotActionExecutionError as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=robot.server_url,
+                    robot_id=robot.robot_id,
+                    message=str(exc),
+                    code="actionExecutionFailed",
+                )
+            ]
+        except Exception as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=robot.server_url,
+                    robot_id=robot.robot_id,
+                    message=f"Failed to execute robot action {message.action_name!r}: {exc}",
+                    code="actionExecutionFailed",
+                )
+            ]
+
+        robot.update_action_state(executed.state)
+        return [
+            MethodResultEvent(
+                type="methodResult",
+                request_id=message.request_id,
+                server_url=robot.server_url,
+                robot_id=robot.robot_id,
+                node_id=executed.node_id,
+                result=executed.result,
+            ),
+            RobotActionStateEvent(
+                type="robotActionState",
+                request_id=message.request_id,
+                server_url=robot.server_url,
+                robot_id=robot.robot_id,
+                data=executed.state,
+            ),
+        ]
+
+    if isinstance(message, HaltRobotActionCommand) or isinstance(message, ResetRobotActionCommand):
+        robot = registry.get_robot(message.robot_id)
+        if robot is None:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    robot_id=message.robot_id,
+                    message=f"No robot found for robotId {message.robot_id}",
+                    code="robotNotFound",
+                )
+            ]
+
+        transition = "halt" if isinstance(message, HaltRobotActionCommand) else "reset"
+        try:
+            connection = ensure_connection(
+                server_url=robot.server_url,
+                registry=registry,
+                connection_factory=connection_factory,
+            )
+            executed = await transition_robot_action(
+                robot=robot,
+                action_name=message.action_name,
+                transition=transition,
+                connection=connection,
+            )
+        except RobotActionExecutionError as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=robot.server_url,
+                    robot_id=robot.robot_id,
+                    message=str(exc),
+                    code="actionExecutionFailed",
+                )
+            ]
+        except Exception as exc:
+            return [
+                error_event(
+                    request_id=message.request_id,
+                    server_url=robot.server_url,
+                    robot_id=robot.robot_id,
+                    message=f"Failed to {transition} robot action {message.action_name!r}: {exc}",
+                    code="actionExecutionFailed",
+                )
+            ]
+
+        robot.update_action_state(executed.state)
+        return [
+            MethodResultEvent(
+                type="methodResult",
+                request_id=message.request_id,
+                server_url=robot.server_url,
+                robot_id=robot.robot_id,
+                node_id=executed.node_id,
+                result=executed.result,
+            ),
+            RobotActionStateEvent(
+                type="robotActionState",
+                request_id=message.request_id,
+                server_url=robot.server_url,
+                robot_id=robot.robot_id,
+                data=executed.state,
+            ),
         ]
 
     if isinstance(message, CallRawMethodCommand):

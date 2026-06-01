@@ -66,6 +66,11 @@ function describeClientMessage(message: ClientMessage): string {
       return `${message.type} -> ${message.robotId}`;
     case "callRobotMethod":
       return `callRobotMethod ${message.method} -> ${message.robotId}`;
+    case "executeRobotAction":
+      return `executeRobotAction ${message.actionName} -> ${message.robotId}`;
+    case "haltRobotAction":
+    case "resetRobotAction":
+      return `${message.type} ${message.actionName} -> ${message.robotId}`;
     case "subscribeNode":
     case "unsubscribeNode":
     case "subscribeEvent":
@@ -100,6 +105,8 @@ function describeServerMessage(message: ServerMessage): string {
       return `robotJointState <- ${message.robotId}`;
     case "robotModeChanged":
       return `robotModeChanged <- ${message.robotId}: ${message.mode}`;
+    case "robotActionState":
+      return `robotActionState <- ${message.robotId}: ${message.data.actionName} ${message.data.status}`;
     case "methodResult":
       return `methodResult <- ${message.nodeId ?? message.robotId ?? "unknown"}`;
     case "nodeValueChanged":

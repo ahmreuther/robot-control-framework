@@ -58,6 +58,7 @@ function robot(overrides: Partial<Robot> = {}): Robot {
     opcua: {
       variables: {},
       methods: {},
+      skills: {},
       axes: {
         Axis_1: {
           axisName: 'Axis_1',
@@ -71,6 +72,7 @@ function robot(overrides: Partial<Robot> = {}): Robot {
         },
       },
     },
+    actions: {},
     status: 'connected',
     joints: {
       axisValues: {
@@ -80,6 +82,7 @@ function robot(overrides: Partial<Robot> = {}): Robot {
       unit: 'C81',
     },
     homeAngles: null,
+    actionStates: {},
     ...restOverrides,
     visual: {
       ...defaultVisual,

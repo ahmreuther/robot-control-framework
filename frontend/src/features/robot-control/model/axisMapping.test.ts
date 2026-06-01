@@ -106,7 +106,8 @@ describe('axis mapping', () => {
       displayName: 'Robot A',
       motionDevice: { nodeId: 'ns=4;s=robot-a' },
       info: {},
-      opcua: { variables: {}, methods: {}, axes: {} },
+      opcua: { variables: {}, methods: {}, skills: {}, axes: {} },
+      actions: {},
       status: 'connected',
       joints: {
         axisValues: {
@@ -115,6 +116,7 @@ describe('axis mapping', () => {
         },
         unit: 'rad',
       },
+      actionStates: {},
       mode: null,
       homeAngles: null,
       visual: {

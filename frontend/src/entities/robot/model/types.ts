@@ -1,4 +1,9 @@
-import type { AxisBinding, MethodBinding, MotionDeviceBinding } from '../../server/model/types';
+import type {
+  AxisBinding,
+  MethodBinding,
+  MotionDeviceBinding,
+  SkillBinding,
+} from '../../server/model/types';
 
 export type RobotConnectionStatus = 'unknown' | 'connected' | 'disconnected' | 'error';
 
@@ -11,7 +16,34 @@ export interface RobotInfo {
 export interface RobotOpcUaInterface {
   variables: Record<string, string>;
   methods: Record<string, MethodBinding>;
+  skills?: Record<string, SkillBinding>;
   axes: Record<string, AxisBinding>;
+}
+
+export interface RobotActionBinding {
+  kind: 'method' | 'skill';
+  targetName: string;
+  displayName?: string | null;
+  methodNodeId?: string | null;
+  skillNodeId?: string | null;
+  parameterSetNodeId?: string | null;
+  resultSetNodeId?: string | null;
+  currentStateNodeId?: string | null;
+  startNodeId?: string | null;
+  haltNodeId?: string | null;
+  resetNodeId?: string | null;
+  suspendNodeId?: string | null;
+  resumeNodeId?: string | null;
+  parameterNames: string[];
+  resultNames: string[];
+}
+
+export interface RobotActionState {
+  actionName: string;
+  kind: 'method' | 'skill';
+  status: 'idle' | 'running' | 'succeeded' | 'failed' | 'halted' | 'reset';
+  currentState?: string | null;
+  message?: string | null;
 }
 
 export interface RobotJointState {
@@ -26,6 +58,7 @@ export interface RobotSessionInfo {
   motionDevice: MotionDeviceBinding;
   info: RobotInfo;
   opcua: RobotOpcUaInterface;
+  actions?: Record<string, RobotActionBinding>;
   status: RobotConnectionStatus;
 }
 
@@ -65,6 +98,7 @@ export interface RobotPanelState {
 export interface Robot extends RobotSessionInfo {
   motionDeviceId: string | null;
   joints: RobotJointState;
+  actionStates: Record<string, RobotActionState>;
   mode: string | null;
   visual: RobotVisualBinding;
   panel: RobotPanelState;
@@ -79,6 +113,7 @@ export function createRobotFromSession(session: RobotSessionInfo): Robot {
       axisValues: {},
       unit: null,
     },
+    actionStates: {},
     mode: null,
     homeAngles: null,
     visual: {
@@ -131,8 +166,10 @@ export function createLocalRobot(
       opcua: {
         variables: {},
         methods: {},
+        skills: {},
         axes: {},
       },
+      actions: {},
       status: 'unknown',
     }),
     motionDeviceId: null,
@@ -150,6 +187,7 @@ export function bindRobotToMotionDevice(
     motionDevice: motionDevice.motionDevice,
     info: motionDevice.info,
     opcua: motionDevice.opcua,
+    actions: motionDevice.actions,
     status: motionDevice.status,
   };
 }
@@ -168,9 +206,12 @@ export function unbindRobotFromMotionDevice(robot: Robot): Robot {
     opcua: {
       variables: {},
       methods: {},
+      skills: {},
       axes: {},
     },
+    actions: {},
     status: 'unknown',
     mode: null,
+    actionStates: {},
   };
 }

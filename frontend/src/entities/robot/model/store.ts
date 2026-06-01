@@ -1,10 +1,6 @@
 import type { ServerMessage } from '../../../shared/api/messages';
 import type { Robot } from './types';
-import {
-  bindRobotToMotionDevice,
-  createRobotFromSession,
-  unbindRobotFromMotionDevice,
-} from './types';
+import { bindRobotToMotionDevice, unbindRobotFromMotionDevice } from './types';
 
 export interface RobotStoreState {
   byId: Record<string, Robot>;
@@ -33,8 +29,32 @@ export function applyRobotMessage(
   message: ServerMessage,
 ): RobotStoreState {
   switch (message.type) {
-    case 'robotsDiscovered':
-      return state;
+    case 'robotsDiscovered': {
+      let changed = false;
+      const nextById = { ...state.byId };
+      const discoveredByMotionDeviceId = Object.fromEntries(
+        message.robots.map((robot) => [robot.robotId, robot]),
+      );
+
+      for (const [localRobotId, robot] of Object.entries(state.byId)) {
+        if (!robot.motionDeviceId) {
+          continue;
+        }
+        const discovered = discoveredByMotionDeviceId[robot.motionDeviceId];
+        if (!discovered) {
+          continue;
+        }
+        nextById[localRobotId] = bindRobotToMotionDevice(robot, discovered);
+        changed = true;
+      }
+
+      return changed
+        ? {
+            ...state,
+            byId: nextById,
+          }
+        : state;
+    }
 
     case 'robotInfo': {
       const localRobotId = findRobotInstanceIdByMotionDeviceId(state, message.robotId);
@@ -63,6 +83,27 @@ export function applyRobotMessage(
           [localRobotId]: {
             ...current,
             joints: message.data,
+          },
+        },
+      };
+    }
+
+    case 'robotActionState': {
+      const localRobotId = findRobotInstanceIdByMotionDeviceId(state, message.robotId);
+      if (!localRobotId) return state;
+      const current = state.byId[localRobotId];
+      if (!current) return state;
+
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [localRobotId]: {
+            ...current,
+            actionStates: {
+              ...current.actionStates,
+              [message.data.actionName]: message.data,
+            },
           },
         },
       };

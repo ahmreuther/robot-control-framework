@@ -64,3 +64,16 @@ export interface MethodBinding extends NodeBinding {
   inputArguments: MethodArgument[];
   outputArguments: MethodArgument[];
 }
+
+export interface SkillBinding extends NodeBinding {
+  parameterSetNodeId?: string | null;
+  resultSetNodeId?: string | null;
+  currentStateNodeId?: string | null;
+  startNodeId?: string | null;
+  haltNodeId?: string | null;
+  resetNodeId?: string | null;
+  suspendNodeId?: string | null;
+  resumeNodeId?: string | null;
+  parameters: Record<string, NodeBinding>;
+  results: Record<string, NodeBinding>;
+}

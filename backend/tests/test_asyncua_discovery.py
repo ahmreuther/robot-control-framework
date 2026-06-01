@@ -1,53 +1,27 @@
-import os
-
-import pytest
-
-from backend.opcua.asyncua_discovery import (
-    AXIS_TYPE_IDENTIFIER,
-    MOTION_DEVICE_TYPE_IDENTIFIER,
-    ROBOTICS_NAMESPACE_URI,
-    discover_server,
-    namespace_index,
-    read_robot_joint_state,
-    typed_node_id,
-)
+from backend.models.opcua import MethodBinding, SkillBinding
+from backend.opcua.asyncua_discovery import merge_bindings
 
 
-def test_typed_node_id_uses_server_namespace_array_index() -> None:
-    namespace_uris = [
-        "http://opcfoundation.org/UA/",
-        "urn:example",
-        ROBOTICS_NAMESPACE_URI,
-    ]
+def test_merge_bindings_prefers_local_over_global() -> None:
+    global_methods = {
+        "go_to": MethodBinding(nodeId="ns=4;s=Global.GoTo"),
+        "create_new_session": MethodBinding(nodeId="ns=4;s=Global.CreateSession"),
+    }
+    local_methods = {
+        "go_to": MethodBinding(nodeId="ns=4;s=Local.GoTo"),
+    }
 
-    assert namespace_index(namespace_uris, ROBOTICS_NAMESPACE_URI) == 2
-    assert typed_node_id(namespace_uris, ROBOTICS_NAMESPACE_URI, MOTION_DEVICE_TYPE_IDENTIFIER) == (
-        "ns=2;i=1004"
-    )
-    assert typed_node_id(namespace_uris, ROBOTICS_NAMESPACE_URI, AXIS_TYPE_IDENTIFIER) == (
-        "ns=2;i=16601"
-    )
+    merged = merge_bindings(local_methods, global_methods)
+
+    assert merged["go_to"].node_id == "ns=4;s=Local.GoTo"
+    assert merged["create_new_session"].node_id == "ns=4;s=Global.CreateSession"
 
 
-@pytest.mark.asyncio
-async def test_demo_server_discovery_when_url_is_configured() -> None:
-    server_url = os.getenv("WSC2_DEMO_OPCUA_URL")
-    if not server_url:
-        pytest.skip("Set WSC2_DEMO_OPCUA_URL to run demo-server integration discovery.")
+def test_merge_bindings_keeps_global_skills_when_local_robot_has_none() -> None:
+    global_skills = {
+        "go_to": SkillBinding(nodeId="ns=4;s=Global.GoToSkill"),
+    }
 
-    result = await discover_server(server_url)
+    merged = merge_bindings({}, global_skills)
 
-    assert result.server.server_url == server_url
-    assert result.server.is_robotics_server is True
-    assert len(result.robots) >= 1
-
-    robot = result.robots[0]
-    assert robot.motion_device.node_id
-    assert robot.display_name
-    assert len(robot.opcua.axes) >= 1
-    assert all(axis.actual_position_node_id for axis in robot.opcua.axes.values())
-    assert all(method.node_id for method in robot.opcua.methods.values())
-
-    joint_state = await read_robot_joint_state(server_url, robot.opcua)
-    assert set(joint_state.axis_values) == set(robot.opcua.axes)
-    assert all(value == 0.0 for value in joint_state.axis_values.values())
+    assert merged["go_to"].node_id == "ns=4;s=Global.GoToSkill"

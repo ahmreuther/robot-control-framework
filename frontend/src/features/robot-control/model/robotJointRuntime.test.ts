@@ -15,6 +15,7 @@ function robot(robotId: string, offset = 0): Robot {
     opcua: {
       variables: {},
       methods: {},
+      skills: {},
       axes: {
         Axis_1: {
           axisName: 'Axis_1',
@@ -26,6 +27,7 @@ function robot(robotId: string, offset = 0): Robot {
         },
       },
     },
+    actions: {},
     status: 'connected',
     joints: {
       axisValues: {
@@ -34,6 +36,7 @@ function robot(robotId: string, offset = 0): Robot {
       },
       unit: 'C81',
     },
+    actionStates: {},
     mode: null,
     homeAngles: null,
     visual: {

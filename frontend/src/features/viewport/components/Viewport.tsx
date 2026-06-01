@@ -37,6 +37,7 @@ import DragControls from "./DragControls";
 import EnvironmentErrorBoundary from "./EnvironmentErrorBoundary";
 import EnvironmentLoader from "./EnvironmentLoader";
 import GoalMarker from "./GoalMarker";
+import RobotActionsPanel from "./RobotActionsPanel";
 import SolverStatusPanel, {
   type SolverStatusSnapshot,
 } from "./SolverStatusPanel";
@@ -1176,7 +1177,7 @@ function ViewportRobot({
 }
 
 export default function Viewport({ sceneState }: ViewportProps) {
-  const { robots, activeRobotId } = useRobotControl();
+  const { activeRobot, robots, activeRobotId } = useRobotControl();
   const { manipulation, isAbortAreaHovered, setAbortAreaHovered } =
     useRobotInteraction();
   const [dragging, setDragging] = useState(false);
@@ -1243,6 +1244,9 @@ export default function Viewport({ sceneState }: ViewportProps) {
           status={solverStatus}
           movedDistance={movedDistance}
         />
+      </div>
+      <div className="absolute right-2 top-2 z-10">
+        <RobotActionsPanel robot={activeRobot} />
       </div>
       {manipulation?.syncMode &&
         (manipulation.sourceId === JOINT_SOURCE_ID.DRAG ||

@@ -2,11 +2,19 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from typing import Any
+import re
 
 from asyncua import Client, ua
 from asyncua.common.node import Node
 
-from backend.models.opcua import AxisBinding, MethodArgument, MethodBinding, MotionDeviceBinding
+from backend.models.opcua import (
+    AxisBinding,
+    MethodArgument,
+    MethodBinding,
+    MotionDeviceBinding,
+    NodeBinding,
+    SkillBinding,
+)
 from backend.models.robot import RobotInfo, RobotJointState, RobotOpcUaInterface
 from backend.models.server import ServerSessionInfo, ServerStatus
 
@@ -243,6 +251,52 @@ async def build_method_binding(method_node: Node) -> MethodBinding:
     )
 
 
+def normalize_capability_name(value: str) -> str:
+    with_underscores = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
+    normalized = re.sub(r"[^a-zA-Z0-9]+", "_", with_underscores).strip("_")
+    return normalized.lower()
+
+
+async def discover_named_variable_bindings(parent_node: Node | None) -> dict[str, NodeBinding]:
+    if parent_node is None:
+        return {}
+
+    bindings: dict[str, NodeBinding] = {}
+    try:
+        children = await parent_node.get_children()
+    except Exception:
+        return bindings
+
+    for child in children:
+        try:
+            node_class = await child.read_node_class()
+        except Exception:
+            continue
+        if node_class != ua.NodeClass.Variable:
+            continue
+
+        display_name = await read_display_name(child)
+        browse_name = await read_browse_name(child)
+        key = normalize_capability_name(browse_name or display_name)
+        if not key:
+            continue
+
+        bindings[key] = NodeBinding(
+            node_id=child.nodeid.to_string(),
+            display_name=display_name,
+            browse_name=browse_name,
+            node_class=await read_node_class_name(child),
+        )
+
+    return bindings
+
+
+def merge_bindings[T](primary: dict[str, T], fallback: dict[str, T]) -> dict[str, T]:
+    merged = dict(fallback)
+    merged.update(primary)
+    return merged
+
+
 async def discover_method_bindings(motion_device_node: Node) -> dict[str, MethodBinding]:
     methods: dict[str, MethodBinding] = {}
 
@@ -254,17 +308,79 @@ async def discover_method_bindings(motion_device_node: Node) -> dict[str, Method
         if node_class != ua.NodeClass.Method:
             continue
 
-        display = (await read_display_name(node)).lower()
-        browse = (await read_browse_name(node)).lower()
-        names = f"{display} {browse}"
-
         binding = await build_method_binding(node)
-        if any(token in names for token in ["jointptp", "linmove", "goto", "go to", "move"]):
-            methods.setdefault("goto", binding)
+        key = normalize_capability_name(binding.browse_name or binding.display_name or "")
+        if not key:
+            continue
+        methods.setdefault(key, binding)
+
+        names = f"{(binding.display_name or '').lower()} {(binding.browse_name or '').lower()}"
         if any(token in names for token in ["endeff", "end_eff", "endeffector", "gripper"]):
             methods.setdefault("toggleEndEffector", binding)
 
     return methods
+
+
+async def discover_skill_bindings(motion_device_node: Node) -> dict[str, SkillBinding]:
+    skills: dict[str, SkillBinding] = {}
+
+    async for node in iter_descendants(motion_device_node):
+        try:
+            node_class = await node.read_node_class()
+        except Exception:
+            continue
+        if node_class != ua.NodeClass.Object:
+            continue
+
+        parameter_set = await child_by_name(node, "ParameterSet")
+        result_set = await child_by_name(node, "ResultSet")
+        current_state = await child_by_name(node, "CurrentState")
+
+        if parameter_set is None and result_set is None and current_state is None:
+            continue
+
+        start = await child_by_name(node, "Start")
+        halt = await child_by_name(node, "Halt")
+        reset = await child_by_name(node, "Reset")
+        suspend = await child_by_name(node, "Suspend")
+        resume = await child_by_name(node, "Resume")
+
+        if start is None and halt is None and reset is None and suspend is None and resume is None:
+            continue
+
+        display_name = await read_display_name(node)
+        browse_name = await read_browse_name(node)
+        key = normalize_capability_name(browse_name or display_name)
+        if not key:
+            continue
+
+        skills.setdefault(
+            key,
+            SkillBinding(
+                node_id=node.nodeid.to_string(),
+                display_name=display_name,
+                browse_name=browse_name,
+                node_class=await read_node_class_name(node),
+                parameter_set_node_id=parameter_set.nodeid.to_string()
+                if parameter_set is not None
+                else None,
+                result_set_node_id=result_set.nodeid.to_string()
+                if result_set is not None
+                else None,
+                current_state_node_id=current_state.nodeid.to_string()
+                if current_state is not None
+                else None,
+                start_node_id=start.nodeid.to_string() if start is not None else None,
+                halt_node_id=halt.nodeid.to_string() if halt is not None else None,
+                reset_node_id=reset.nodeid.to_string() if reset is not None else None,
+                suspend_node_id=suspend.nodeid.to_string() if suspend is not None else None,
+                resume_node_id=resume.nodeid.to_string() if resume is not None else None,
+                parameters=await discover_named_variable_bindings(parameter_set),
+                results=await discover_named_variable_bindings(result_set),
+            ),
+        )
+
+    return skills
 
 
 async def discover_variable_bindings(motion_device_node: Node) -> dict[str, str]:
@@ -297,6 +413,8 @@ async def discover_motion_device_descriptors(
     if device_set is None:
         return []
 
+    objects_node = client.nodes.objects
+
     motion_device_nodes = await discover_motion_device_nodes(
         start_node=device_set,
         namespace_uris=namespace_uris,
@@ -304,19 +422,29 @@ async def discover_motion_device_descriptors(
     robotics_namespace_index = namespace_index(namespace_uris, ROBOTICS_NAMESPACE_URI)
 
     descriptors: list[MotionDeviceDescriptor] = []
+    global_variables = await discover_variable_bindings(objects_node)
+    global_methods = await discover_method_bindings(objects_node)
+    global_skills = await discover_skill_bindings(objects_node)
+
     for motion_device_node in motion_device_nodes:
+        local_variables = await discover_variable_bindings(motion_device_node)
+        local_axes = await discover_axis_bindings(
+            motion_device_node=motion_device_node,
+            namespace_uris=namespace_uris,
+        )
+        local_methods = await discover_method_bindings(motion_device_node)
+        local_skills = await discover_skill_bindings(motion_device_node)
+
         info = RobotInfo(
             manufacturer=await read_text_child(motion_device_node, "Manufacturer"),
             model=await read_text_child(motion_device_node, "Model"),
             serial_number=await read_text_child(motion_device_node, "SerialNumber"),
         )
         opcua = RobotOpcUaInterface(
-            variables=await discover_variable_bindings(motion_device_node),
-            axes=await discover_axis_bindings(
-                motion_device_node=motion_device_node,
-                namespace_uris=namespace_uris,
-            ),
-            methods=await discover_method_bindings(motion_device_node),
+            variables=merge_bindings(local_variables, global_variables),
+            axes=local_axes,
+            methods=merge_bindings(local_methods, global_methods),
+            skills=merge_bindings(local_skills, global_skills),
         )
 
         descriptors.append(
@@ -380,7 +508,11 @@ async def read_connected_robot_joint_state(
             continue
 
         value = await client.get_node(axis.actual_position_node_id).read_value()
-        axis_values[axis_name] = float(value)
+        if value is not None:
+            try:
+                axis_values[axis_name] = float(value)
+            except (TypeError, ValueError):
+                pass
 
         if unit is None and axis.engineering_units_node_id is not None:
             try:

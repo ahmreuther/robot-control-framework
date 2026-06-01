@@ -149,6 +149,28 @@ export class WscWebSocketClient {
     return requestId;
   }
 
+  executeRobotAction(
+    robotId: string,
+    actionName: string,
+    inputs: Record<string, unknown> = {},
+  ): string {
+    const requestId = this.nextRequestId(`action-${actionName}`);
+    this.sendOrQueue({ type: 'executeRobotAction', requestId, robotId, actionName, inputs });
+    return requestId;
+  }
+
+  haltRobotAction(robotId: string, actionName: string): string {
+    const requestId = this.nextRequestId(`halt-action-${actionName}`);
+    this.sendOrQueue({ type: 'haltRobotAction', requestId, robotId, actionName });
+    return requestId;
+  }
+
+  resetRobotAction(robotId: string, actionName: string): string {
+    const requestId = this.nextRequestId(`reset-action-${actionName}`);
+    this.sendOrQueue({ type: 'resetRobotAction', requestId, robotId, actionName });
+    return requestId;
+  }
+
   subscribeNode(serverUrl: string, nodeId: string): string {
     const requestId = this.nextRequestId('subscribe-node');
     this.sendOrQueue({ type: 'subscribeNode', requestId, serverUrl, nodeId });

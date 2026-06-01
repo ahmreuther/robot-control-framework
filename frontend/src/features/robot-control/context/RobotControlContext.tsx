@@ -27,6 +27,13 @@ export interface RobotControlContextValue {
   bindRobotToMotionDevice(robotId: string, motionDeviceId: string | null): void;
   startRobotSync(robotId: string): void;
   stopRobotSync(robotId: string): void;
+  executeRobotAction(
+    robotId: string,
+    actionName: string,
+    inputs?: Record<string, unknown>,
+  ): string;
+  haltRobotAction(robotId: string, actionName: string): string;
+  resetRobotAction(robotId: string, actionName: string): string;
   updateRobotPanelState(robotId: string, panel: Partial<RobotPanelState>): void;
   updateRobotHomeAngles(robotId: string, homeAngles: number[]): void;
   updateRobotJointAngles(robotId: string, angles: number[]): boolean;
@@ -85,6 +92,15 @@ export function RobotControlProvider({
       stopRobotSync: (robotId: string) => {
         controller.stopRobotSync(robotId);
       },
+      executeRobotAction: (
+        robotId: string,
+        actionName: string,
+        inputs: Record<string, unknown> = {},
+      ) => controller.executeRobotAction(robotId, actionName, inputs),
+      haltRobotAction: (robotId: string, actionName: string) =>
+        controller.haltRobotAction(robotId, actionName),
+      resetRobotAction: (robotId: string, actionName: string) =>
+        controller.resetRobotAction(robotId, actionName),
       updateRobotPanelState: (robotId: string, panel: Partial<RobotPanelState>) => {
         controller.updateRobotPanelState(robotId, panel);
       },

@@ -12,8 +12,13 @@ from backend.models.messages import (
     parse_client_message_json,
     parse_server_message_json,
 )
-from backend.models.opcua import AxisBinding, MethodBinding, MotionDeviceBinding
-from backend.models.robot import RobotJointState, RobotOpcUaInterface, RobotSessionInfo
+from backend.models.opcua import AxisBinding, MethodBinding, MotionDeviceBinding, NodeBinding, SkillBinding
+from backend.models.robot import (
+    RobotActionBinding,
+    RobotJointState,
+    RobotOpcUaInterface,
+    RobotSessionInfo,
+)
 from backend.models.server import ServerSessionInfo, ServerStatus
 from backend.opcua.discovery import ServerDiscoveryResult
 from backend.opcua.method_calls import normalize_method_inputs
@@ -43,7 +48,30 @@ def fake_robot(
                     displayName="JointPTPMoveSkill",
                     inputArguments=[],
                     outputArguments=[],
-                )
+                ),
+                "create_new_session": MethodBinding(
+                    nodeId=f"{node_id}.CreateSession",
+                    displayName="Create Session",
+                    inputArguments=[],
+                    outputArguments=[],
+                ),
+            },
+            skills={
+                "go_to": SkillBinding(
+                    nodeId=f"{node_id}.GoToSkill",
+                    displayName="Go To Skill",
+                    parameterSetNodeId=f"{node_id}.GoToSkill.ParameterSet",
+                    resultSetNodeId=f"{node_id}.GoToSkill.ResultSet",
+                    currentStateNodeId=f"{node_id}.GoToSkill.CurrentState",
+                    startNodeId=f"{node_id}.GoToSkill.Start",
+                    haltNodeId=f"{node_id}.GoToSkill.Halt",
+                    resetNodeId=f"{node_id}.GoToSkill.Reset",
+                    parameters={
+                        "mode": NodeBinding(nodeId=f"{node_id}.GoToSkill.ParameterSet.Mode"),
+                        "joints": NodeBinding(nodeId=f"{node_id}.GoToSkill.ParameterSet.Joints"),
+                    },
+                    results={},
+                ),
             },
             axes={
                 "Axis1": AxisBinding(
@@ -53,6 +81,28 @@ def fake_robot(
                 )
             },
         ),
+        actions={
+            "goto": RobotActionBinding(
+                kind="skill",
+                targetName="go_to",
+                skillNodeId=f"{node_id}.GoToSkill",
+                parameterSetNodeId=f"{node_id}.GoToSkill.ParameterSet",
+                resultSetNodeId=f"{node_id}.GoToSkill.ResultSet",
+                currentStateNodeId=f"{node_id}.GoToSkill.CurrentState",
+                startNodeId=f"{node_id}.GoToSkill.Start",
+                haltNodeId=f"{node_id}.GoToSkill.Halt",
+                resetNodeId=f"{node_id}.GoToSkill.Reset",
+                parameterNames=["mode", "joints"],
+                resultNames=[],
+            ),
+            "createSession": RobotActionBinding(
+                kind="method",
+                targetName="create_new_session",
+                methodNodeId=f"{node_id}.CreateSession",
+                parameterNames=[],
+                resultNames=[],
+            ),
+        },
     )
 
 
@@ -96,6 +146,11 @@ class FakeConnection:
         self.subscribed_modes: list[str] = []
         self.unsubscribed_modes: list[str] = []
         self.raw_method_calls: list[dict[str, object]] = []
+        self.node_values: dict[str, object] = {
+            "ns=4;s=MotionDevice_1.GoToSkill.CurrentState": "Ready",
+            "ns=4;s=MotionDevice_2.GoToSkill.CurrentState": "Ready",
+        }
+        self.written_node_values: dict[str, object] = {}
         self.browse_root_count = 0
         self.browse_children_calls: list[str] = []
         self.browse_references_calls: list[str] = []
@@ -184,6 +239,12 @@ class FakeConnection:
     async def call_raw_method(self, *, method_node_id: str, inputs: dict[str, object]) -> dict[str, object]:
         args = normalize_method_inputs(inputs)
         self.raw_method_calls.append({"methodNodeId": method_node_id, "inputs": inputs, "args": args})
+        if method_node_id.endswith(".GoToSkill.Start"):
+            self.node_values[method_node_id.replace(".Start", ".CurrentState")] = "Running"
+        elif method_node_id.endswith(".GoToSkill.Halt"):
+            self.node_values[method_node_id.replace(".Halt", ".CurrentState")] = "Halted"
+        elif method_node_id.endswith(".GoToSkill.Reset"):
+            self.node_values[method_node_id.replace(".Reset", ".CurrentState")] = "Ready"
         return {
             "methodNodeId": method_node_id,
             "inputs": inputs,
@@ -191,6 +252,12 @@ class FakeConnection:
             "output": None,
             "status": "ok",
         }
+
+    async def read_node_value(self, node_id: str):
+        return self.node_values.get(node_id)
+
+    async def write_node_value(self, node_id: str, value: object) -> None:
+        self.written_node_values[node_id] = value
 
     async def browse_address_space_root(self):
         self.browse_root_count += 1
@@ -567,6 +634,144 @@ async def test_call_robot_method_reports_connection_failure() -> None:
 
     assert isinstance(events[0], ErrorEvent)
     assert events[0].code == "methodCallFailed"
+
+
+@pytest.mark.asyncio
+async def test_execute_robot_action_dispatches_skill_and_emits_runtime_state() -> None:
+    registry = RuntimeRegistry()
+    discover = parse_client_message_json(
+        '{"type":"discoverRobots","requestId":"req-discover","serverUrl":"' + SERVER_URL + '"}'
+    )
+    discovered = await handle_client_message(
+        discover,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+    robot_id = discovered[0].robots[0].robot_id
+
+    command = parse_client_message_json(
+        '{"type":"executeRobotAction","requestId":"req-action","robotId":"'
+        + robot_id
+        + '","actionName":"goto","inputs":{"mode":"automatic","joints":[0,1,2]}}'
+    )
+    events = await handle_client_message(
+        command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert events[0].type == "methodResult"
+    assert events[1].type == "robotActionState"
+    assert events[1].data.action_name == "goto"
+    assert events[1].data.kind == "skill"
+    assert events[1].data.status == "running"
+    assert events[1].data.current_state == "Running"
+    assert FakeConnection.created[0].written_node_values == {
+        "ns=4;s=MotionDevice_1.GoToSkill.ParameterSet.Mode": "automatic",
+        "ns=4;s=MotionDevice_1.GoToSkill.ParameterSet.Joints": [0, 1, 2],
+    }
+    assert FakeConnection.created[0].raw_method_calls[-1] == {
+        "methodNodeId": "ns=4;s=MotionDevice_1.GoToSkill.Start",
+        "inputs": {"args": []},
+        "args": [],
+    }
+
+
+@pytest.mark.asyncio
+async def test_halt_robot_action_dispatches_skill_transition() -> None:
+    registry = RuntimeRegistry()
+    discover = parse_client_message_json(
+        '{"type":"discoverRobots","requestId":"req-discover","serverUrl":"' + SERVER_URL + '"}'
+    )
+    discovered = await handle_client_message(
+        discover,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+    robot_id = discovered[0].robots[0].robot_id
+
+    command = parse_client_message_json(
+        '{"type":"haltRobotAction","requestId":"req-halt","robotId":"'
+        + robot_id
+        + '","actionName":"goto"}'
+    )
+    events = await handle_client_message(
+        command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert events[0].type == "methodResult"
+    assert events[1].type == "robotActionState"
+    assert events[1].data.status == "halted"
+    assert events[1].data.current_state == "Halted"
+    assert FakeConnection.created[0].raw_method_calls[-1]["methodNodeId"] == (
+        "ns=4;s=MotionDevice_1.GoToSkill.Halt"
+    )
+
+
+@pytest.mark.asyncio
+async def test_reset_robot_action_dispatches_skill_transition() -> None:
+    registry = RuntimeRegistry()
+    discover = parse_client_message_json(
+        '{"type":"discoverRobots","requestId":"req-discover","serverUrl":"' + SERVER_URL + '"}'
+    )
+    discovered = await handle_client_message(
+        discover,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+    robot_id = discovered[0].robots[0].robot_id
+
+    command = parse_client_message_json(
+        '{"type":"resetRobotAction","requestId":"req-reset","robotId":"'
+        + robot_id
+        + '","actionName":"goto"}'
+    )
+    events = await handle_client_message(
+        command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert events[0].type == "methodResult"
+    assert events[1].type == "robotActionState"
+    assert events[1].data.status == "reset"
+    assert events[1].data.current_state == "Ready"
+    assert FakeConnection.created[0].raw_method_calls[-1]["methodNodeId"] == (
+        "ns=4;s=MotionDevice_1.GoToSkill.Reset"
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_robot_action_dispatches_method_actions_too() -> None:
+    registry = RuntimeRegistry()
+    discover = parse_client_message_json(
+        '{"type":"discoverRobots","requestId":"req-discover","serverUrl":"' + SERVER_URL + '"}'
+    )
+    discovered = await handle_client_message(
+        discover,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+    robot_id = discovered[0].robots[0].robot_id
+
+    command = parse_client_message_json(
+        '{"type":"executeRobotAction","requestId":"req-action","robotId":"'
+        + robot_id
+        + '","actionName":"createSession","inputs":{"args":[]}}'
+    )
+    events = await handle_client_message(
+        command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert events[0].type == "methodResult"
+    assert events[1].type == "robotActionState"
+    assert events[1].data.kind == "method"
+    assert events[1].data.status == "succeeded"
+    assert FakeConnection.created[0].method_calls[-1]["method"] == "create_new_session"
 
 
 @pytest.mark.asyncio

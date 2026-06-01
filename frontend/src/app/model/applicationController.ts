@@ -83,8 +83,8 @@ export interface ApplicationControllerOptions {
 }
 
 const DEFAULT_GOTO_MODE = 'automatic';
-const DEFAULT_GOTO_SPEED = 1;
-const DEFAULT_GOTO_TIME = 0;
+const DEFAULT_GOTO_SPEED = -1.0;
+const DEFAULT_GOTO_TIME = -1.0;
 
 export class ApplicationController {
   private serverState = initialServerStoreState;
@@ -461,18 +461,13 @@ export class ApplicationController {
 
   callRobotGoto(robotId: string, command: RobotGotoCommand): string {
     const robot = this.requireRobot(robotId);
-    const motionDeviceId = this.requireBoundMotionDeviceId(robotId);
     validateJointArray(command.joints);
-    const inputs = buildGotoInputs(robot, command);
-    const requestId = this.client.callRobotMethod(motionDeviceId, 'goto', inputs);
-    this.trackPendingMethodCall({
-      requestId,
-      serverUrl: robot.serverUrl,
-      motionDeviceId,
-      method: 'goto',
-      nodeId: robot.opcua.methods.goto?.nodeId,
-    });
-    return requestId;
+    if (robot.actions?.goto || robot.opcua.skills?.go_to) {
+      return this.executeRobotAction(robotId, 'goto', buildGotoActionInputs(robot, command));
+    }
+    throw new Error(
+      `Robot "${robot.robotId}" has no discovered goto action or go_to skill.`,
+    );
   }
 
   callRobotGotoForVisualAngles(robotId: string, visualAngles: number[]): string {
@@ -519,6 +514,55 @@ export class ApplicationController {
       motionDeviceId,
       method: 'toggleEndEffector',
       nodeId: method.nodeId,
+    });
+    return requestId;
+  }
+
+  executeRobotAction(
+    robotId: string,
+    actionName: string,
+    inputs: Record<string, unknown> = {},
+  ): string {
+    const robot = this.requireRobot(robotId);
+    const motionDeviceId = this.requireBoundMotionDeviceId(robotId);
+    const action = robot.actions?.[actionName];
+    const requestId = this.client.executeRobotAction(motionDeviceId, actionName, inputs);
+    this.trackPendingMethodCall({
+      requestId,
+      serverUrl: robot.serverUrl,
+      motionDeviceId,
+      method: `action:${actionName}`,
+      nodeId: action?.skillNodeId ?? action?.methodNodeId ?? undefined,
+    });
+    return requestId;
+  }
+
+  haltRobotAction(robotId: string, actionName: string): string {
+    const robot = this.requireRobot(robotId);
+    const motionDeviceId = this.requireBoundMotionDeviceId(robotId);
+    const action = robot.actions?.[actionName];
+    const requestId = this.client.haltRobotAction(motionDeviceId, actionName);
+    this.trackPendingMethodCall({
+      requestId,
+      serverUrl: robot.serverUrl,
+      motionDeviceId,
+      method: `halt:${actionName}`,
+      nodeId: action?.haltNodeId ?? action?.skillNodeId ?? undefined,
+    });
+    return requestId;
+  }
+
+  resetRobotAction(robotId: string, actionName: string): string {
+    const robot = this.requireRobot(robotId);
+    const motionDeviceId = this.requireBoundMotionDeviceId(robotId);
+    const action = robot.actions?.[actionName];
+    const requestId = this.client.resetRobotAction(motionDeviceId, actionName);
+    this.trackPendingMethodCall({
+      requestId,
+      serverUrl: robot.serverUrl,
+      motionDeviceId,
+      method: `reset:${actionName}`,
+      nodeId: action?.resetNodeId ?? action?.skillNodeId ?? undefined,
     });
     return requestId;
   }
@@ -621,39 +665,48 @@ export function createApplicationController(
   return new ApplicationController(options);
 }
 
-function buildGotoInputs(
+function buildGotoActionInputs(
   robot: Robot,
   command: RobotGotoCommand,
 ): Record<string, unknown> {
-  const method = robot.opcua.methods.goto;
-  if (!method) {
-    throw new Error(`Robot "${robot.robotId}" has no discovered goto method.`);
+  const allowedParameterNames = new Set(
+    robot.actions?.goto?.parameterNames.length
+      ? robot.actions.goto.parameterNames
+      : Object.keys(robot.opcua.skills?.go_to?.parameters ?? {}),
+  );
+  const inputs: Record<string, unknown> = {
+    mode: command.mode ?? DEFAULT_GOTO_MODE,
+    joints: command.joints.map((value) => Number(value)),
+  };
+
+  const hasTime = command.time !== undefined;
+  const hasMaxSpeed = command.maxSpeed !== undefined;
+  inputs.max_speed = hasTime
+    ? DEFAULT_GOTO_SPEED
+    : Number(command.maxSpeed ?? DEFAULT_GOTO_SPEED);
+  inputs.time = hasMaxSpeed
+    ? DEFAULT_GOTO_TIME
+    : Number(command.time ?? DEFAULT_GOTO_TIME);
+  inputs.tcp_config = serializeGotoOptionalString(command.tcpConfig);
+  inputs.avoidance_zones = serializeGotoOptionalString(command.avoidanceZones);
+
+  if (allowedParameterNames.size === 0) {
+    return inputs;
   }
-  if (method.inputArguments.length === 0) {
-    throw new Error(
-      `Robot "${robot.robotId}" goto method has no discovered input signature.`,
-    );
-  }
 
-  const args = method.inputArguments.map((argument) => {
-    const name = normalizeArgumentName(argument.name ?? '');
-    if (name === 'mode') return command.mode ?? DEFAULT_GOTO_MODE;
-    if (name.includes('joint')) return command.joints;
-    if (name.includes('speed')) return command.maxSpeed ?? DEFAULT_GOTO_SPEED;
-    if (name === 'time') return command.time ?? DEFAULT_GOTO_TIME;
-    if (name === 'tcpconfig') return command.tcpConfig ?? [];
-    if (name === 'avoidancezones') return command.avoidanceZones ?? [];
-
-    throw new Error(
-      `Cannot build goto input for unsupported argument "${argument.name ?? name}".`,
-    );
-  });
-
-  return { args };
+  return Object.fromEntries(
+    Object.entries(inputs).filter(([name]) => allowedParameterNames.has(name)),
+  );
 }
 
-function normalizeArgumentName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+function serializeGotoOptionalString(value: unknown): string {
+  if (value === undefined || value === null) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  return JSON.stringify(value);
 }
 
 function validateJointArray(joints: number[]): void {

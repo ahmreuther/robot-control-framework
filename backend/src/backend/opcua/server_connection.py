@@ -27,6 +27,37 @@ NodeValueCallback = Callable[[object], Awaitable[None]]
 EventCallback = Callable[[object], Awaitable[None]]
 
 
+def _coerce_scalar_like_existing(value: object, existing: object) -> object:
+    if isinstance(existing, bool):
+        return bool(value)
+    if isinstance(existing, float):
+        return float(value)
+    if isinstance(existing, int) and not isinstance(existing, bool):
+        return int(value)
+    if isinstance(existing, str):
+        return str(value)
+    return value
+
+
+def _coerce_value_like_existing(value: object, existing: object) -> object:
+    if existing is None:
+        return value
+
+    if isinstance(existing, list):
+        if not isinstance(value, list):
+            return value
+        if not existing:
+            if all(isinstance(item, (int, float)) for item in value):
+                return [float(item) for item in value]
+            return value
+        exemplar = next((item for item in existing if item is not None), None)
+        if exemplar is None:
+            return value
+        return [_coerce_scalar_like_existing(item, exemplar) for item in value]
+
+    return _coerce_scalar_like_existing(value, existing)
+
+
 @dataclass
 class RobotJointSubscription:
     subscription: Any
@@ -52,7 +83,14 @@ class RobotJointSubscriptionHandler:
         if axis_name is None:
             return
 
-        self.axis_values[axis_name] = float(value)
+        if value is None:
+            return
+
+        try:
+            self.axis_values[axis_name] = float(value)
+        except (TypeError, ValueError):
+            return
+
         await self.on_state(
             RobotJointState(
                 axis_values=self.axis_values.copy(),
@@ -275,6 +313,25 @@ class AsyncUaServerConnection:
             method_node_id=method_node_id,
             inputs=inputs,
         )
+
+    async def read_node_value(self, node_id: str) -> object:
+        await self.connect()
+        node = self.client.get_node(node_id)
+        return to_jsonable(await node.read_value())
+
+    async def write_node_value(
+        self,
+        node_id: str,
+        value: object,
+        *,
+        coerce_to_existing: bool = False,
+    ) -> None:
+        await self.connect()
+        node = self.client.get_node(node_id)
+        if coerce_to_existing:
+            existing_value = await node.read_value()
+            value = _coerce_value_like_existing(value, existing_value)
+        await node.write_value(value)
 
     async def browse_address_space_root(self) -> list[AddressSpaceNode]:
         await self.connect()

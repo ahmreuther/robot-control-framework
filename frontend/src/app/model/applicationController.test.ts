@@ -48,22 +48,23 @@ function robotSession(robotId = 'robot-a'): RobotSessionInfo {
         mode: 'ns=4;s=mode',
       },
       methods: {
-        goto: {
-          nodeId: 'ns=4;s=Go To',
-          inputArguments: [
-            { name: 'mode', arrayDimensions: [] },
-            { name: 'joints', arrayDimensions: [] },
-            { name: 'max-Speed', arrayDimensions: [] },
-            { name: 'time', arrayDimensions: [] },
-            { name: 'tcp_config', arrayDimensions: [] },
-            { name: 'avoidance_zones', arrayDimensions: [] },
-          ],
-          outputArguments: [],
-        },
         toggleEndEffector: {
           nodeId: 'ns=5;s=toggleEndEff',
           inputArguments: [],
           outputArguments: [],
+        },
+      },
+      skills: {
+        go_to: {
+          nodeId: 'ns=4;s=Go To Skill',
+          parameterSetNodeId: 'ns=4;s=Go To Skill.ParameterSet',
+          resultSetNodeId: 'ns=4;s=Go To Skill.ResultSet',
+          currentStateNodeId: 'ns=4;s=Go To Skill.CurrentState',
+          startNodeId: 'ns=4;s=Go To Skill.Start',
+          haltNodeId: 'ns=4;s=Go To Skill.Halt',
+          resetNodeId: 'ns=4;s=Go To Skill.Reset',
+          parameters: {},
+          results: {},
         },
       },
       axes: {
@@ -75,6 +76,28 @@ function robotSession(robotId = 'robot-a'): RobotSessionInfo {
           axisName: 'Axis_2',
           axisNodeId: 'ns=4;s=Axis_2',
         },
+      },
+    },
+    actions: {
+      goto: {
+        kind: 'skill',
+        targetName: 'go_to',
+        skillNodeId: 'ns=4;s=Go To Skill',
+        parameterSetNodeId: 'ns=4;s=Go To Skill.ParameterSet',
+        resultSetNodeId: 'ns=4;s=Go To Skill.ResultSet',
+        currentStateNodeId: 'ns=4;s=Go To Skill.CurrentState',
+        startNodeId: 'ns=4;s=Go To Skill.Start',
+        haltNodeId: 'ns=4;s=Go To Skill.Halt',
+        resetNodeId: 'ns=4;s=Go To Skill.Reset',
+        parameterNames: [
+          'mode',
+          'joints',
+          'max_speed',
+          'time',
+          'tcp_config',
+          'avoidance_zones',
+        ],
+        resultNames: [],
       },
     },
     status: 'connected',
@@ -199,18 +222,23 @@ describe('ApplicationController', () => {
       requestId: gotoRequestId,
       serverUrl: SERVER_URL,
       robotId: 'robot-a',
-      nodeId: 'ns=4;s=Go To',
+      nodeId: 'ns=4;s=Go To Skill',
       result: { status: 'ok' },
     });
 
     expect(socket.sent.map((raw) => JSON.parse(raw))).toEqual([
       {
-        type: 'callRobotMethod',
-        requestId: 'method-goto-1',
+        type: 'executeRobotAction',
+        requestId: 'action-goto-1',
         robotId: 'robot-a',
-        method: 'goto',
+        actionName: 'goto',
         inputs: {
-          args: ['automatic', [0, 0.1], 0.5, 0, [], []],
+          mode: 'automatic',
+          joints: [0, 0.1],
+          max_speed: 0.5,
+          time: -1,
+          tcp_config: '',
+          avoidance_zones: '',
         },
       },
       {
@@ -249,14 +277,19 @@ describe('ApplicationController', () => {
 
     const requestId = controller.callRobotGotoForVisualAngles(robotId, [10, 20]);
 
-    expect(requestId).toBe('method-goto-1');
+    expect(requestId).toBe('action-goto-1');
     expect(JSON.parse(socket.sent[0] ?? '{}')).toEqual({
-      type: 'callRobotMethod',
-      requestId: 'method-goto-1',
+      type: 'executeRobotAction',
+      requestId: 'action-goto-1',
       robotId: 'robot-a',
-      method: 'goto',
+      actionName: 'goto',
       inputs: {
-        args: ['automatic', [20, 10], 1, 0, [], []],
+        mode: 'automatic',
+        joints: [20, 10],
+        max_speed: -1,
+        time: -1,
+        tcp_config: '',
+        avoidance_zones: '',
       },
     });
   });
@@ -274,15 +307,15 @@ describe('ApplicationController', () => {
       orderedUrdfJointNames: ['joint_1', 'joint_2'],
     });
 
-    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'method-goto-42');
+    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'action-goto-42');
     expect(controller.getJointRuntime().hasInFlightSyncGoto(robotId)).toBe(true);
 
     socket.receive({
       type: 'methodResult',
-      requestId: 'method-goto-42',
+      requestId: 'action-goto-42',
       serverUrl: SERVER_URL,
       robotId: 'robot-a',
-      nodeId: 'ns=4;s=Go To',
+      nodeId: 'ns=4;s=Go To Skill',
       result: { status: 'ok' },
     });
 
@@ -303,7 +336,7 @@ describe('ApplicationController', () => {
     });
 
     controller.startRobotSync(robotId);
-    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'method-goto-42');
+    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'action-goto-42');
     controller.bindRobotToMotionDevice(robotId, null);
 
     expect(controller.getJointRuntime().isSyncing(robotId)).toBe(false);
@@ -324,7 +357,7 @@ describe('ApplicationController', () => {
     });
 
     controller.startRobotSync(robotId);
-    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'method-goto-42');
+    controller.getJointRuntime().markSyncGotoInFlight(robotId, 'action-goto-42');
     controller.disconnectServer(SERVER_URL);
 
     expect(controller.getJointRuntime().isSyncing(robotId)).toBe(false);
@@ -361,6 +394,71 @@ describe('ApplicationController', () => {
     });
   });
 
+  it('sends generic action commands and stores robot action state updates', () => {
+    const { socket, controller } = setup();
+
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [robotSession()],
+    });
+    const robotId = createBoundRobot(controller);
+
+    const executeRequestId = controller.executeRobotAction(robotId, 'goto', {
+      mode: 'automatic',
+      joints: [0, 0.1],
+    });
+    const haltRequestId = controller.haltRobotAction(robotId, 'goto');
+    const resetRequestId = controller.resetRobotAction(robotId, 'goto');
+    socket.receive({
+      type: 'robotActionState',
+      requestId: executeRequestId,
+      serverUrl: SERVER_URL,
+      robotId: 'robot-a',
+      data: {
+        actionName: 'goto',
+        kind: 'skill',
+        status: 'running',
+        currentState: 'Running',
+      },
+    });
+
+    expect(socket.sent.slice(-3).map((raw) => JSON.parse(raw))).toEqual([
+      {
+        type: 'executeRobotAction',
+        requestId: 'action-goto-1',
+        robotId: 'robot-a',
+        actionName: 'goto',
+        inputs: {
+          mode: 'automatic',
+          joints: [0, 0.1],
+        },
+      },
+      {
+        type: 'haltRobotAction',
+        requestId: 'halt-action-goto-2',
+        robotId: 'robot-a',
+        actionName: 'goto',
+      },
+      {
+        type: 'resetRobotAction',
+        requestId: 'reset-action-goto-3',
+        robotId: 'robot-a',
+        actionName: 'goto',
+      },
+    ]);
+    expect(haltRequestId).toBe('halt-action-goto-2');
+    expect(resetRequestId).toBe('reset-action-goto-3');
+    expect(
+      controller.getSnapshot().robot.byId[robotId]?.actionStates.goto,
+    ).toEqual({
+      actionName: 'goto',
+      kind: 'skill',
+      status: 'running',
+      currentState: 'Running',
+    });
+  });
+
   it('creates a local robot instance and selects it', () => {
     const { controller } = setup();
 
@@ -386,13 +484,16 @@ describe('ApplicationController', () => {
       opcua: {
         variables: {},
         methods: {},
+        skills: {},
         axes: {},
       },
+      actions: {},
       status: 'unknown',
       joints: {
         axisValues: {},
         unit: null,
       },
+      actionStates: {},
       mode: null,
       homeAngles: [
         0,

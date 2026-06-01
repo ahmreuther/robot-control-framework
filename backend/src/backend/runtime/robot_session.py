@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from backend.models.robot import RobotConnectionStatus, RobotJointState, RobotSessionInfo
+from backend.models.robot import (
+    RobotActionState,
+    RobotConnectionStatus,
+    RobotJointState,
+    RobotSessionInfo,
+)
 
 
 @dataclass
@@ -11,6 +16,7 @@ class RobotSession:
 
     info: RobotSessionInfo
     joint_state: RobotJointState = field(default_factory=RobotJointState)
+    action_states: dict[str, RobotActionState] = field(default_factory=dict)
     joints_subscription_active: bool = False
 
     @property
@@ -29,6 +35,9 @@ class RobotSession:
 
     def update_joint_state(self, joint_state: RobotJointState) -> None:
         self.joint_state = joint_state
+
+    def update_action_state(self, action_state: RobotActionState) -> None:
+        self.action_states[action_state.action_name] = action_state
 
     def get_method_node_id(self, method_name: str) -> str | None:
         method = self.info.opcua.methods.get(method_name)

@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from backend.models.messages import (
+    RobotActionStateEvent,
     RobotJointStateEvent,
     parse_client_message_json,
     parse_server_message_json,
@@ -31,6 +32,18 @@ def test_client_message_accepts_camel_case_json() -> None:
     assert msg.robot_id == "robot-1"
 
 
+def test_execute_action_message_accepts_camel_case_json() -> None:
+    msg = parse_client_message_json(
+        '{"type":"executeRobotAction","requestId":"req-2","robotId":"robot-1",'
+        '"actionName":"goto","inputs":{"joints":[0,1,2]}}',
+    )
+
+    assert msg.type == "executeRobotAction"
+    assert msg.request_id == "req-2"
+    assert msg.robot_id == "robot-1"
+    assert msg.action_name == "goto"
+
+
 def test_robot_joint_event_round_trips_with_robot_id() -> None:
     event = RobotJointStateEvent(
         type="robotJointState",
@@ -45,6 +58,29 @@ def test_robot_joint_event_round_trips_with_robot_id() -> None:
     assert parsed.type == "robotJointState"
     assert parsed.robot_id == "robot-1"
     assert parsed.data.axis_values == {"Axis1": 1.25}
+
+
+def test_robot_action_state_event_round_trips() -> None:
+    event = RobotActionStateEvent(
+        type="robotActionState",
+        request_id="req-3",
+        server_url="opc.tcp://127.0.0.1:4840",
+        robot_id="robot-1",
+        data={
+            "action_name": "goto",
+            "kind": "skill",
+            "status": "running",
+            "current_state": "Running",
+        },
+    )
+
+    raw = event.model_dump_json(by_alias=True)
+    parsed = parse_server_message_json(raw)
+
+    assert parsed.type == "robotActionState"
+    assert parsed.request_id == "req-3"
+    assert parsed.data.action_name == "goto"
+    assert parsed.data.status == "running"
 
 
 def test_surface_client_message_accepts_camel_case_json() -> None:

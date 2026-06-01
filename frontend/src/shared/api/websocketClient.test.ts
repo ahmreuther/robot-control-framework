@@ -96,6 +96,9 @@ describe('WscWebSocketClient', () => {
     client.callRawMethod('opc.tcp://127.0.0.1:4840', 'ns=4;s=Go To', {
       args: ['joint', [0, 0, 0, 0, 0, 0]],
     });
+    client.executeRobotAction('robot-a', 'goto', { joints: [0, 0, 0, 0, 0, 0] });
+    client.haltRobotAction('robot-a', 'goto');
+    client.resetRobotAction('robot-a', 'goto');
 
     expect(socket.sent.map((raw: string) => JSON.parse(raw))).toEqual([
       {
@@ -163,6 +166,27 @@ describe('WscWebSocketClient', () => {
         inputs: {
           args: ['joint', [0, 0, 0, 0, 0, 0]],
         },
+      },
+      {
+        type: 'executeRobotAction',
+        requestId: 'action-goto-12',
+        robotId: 'robot-a',
+        actionName: 'goto',
+        inputs: {
+          joints: [0, 0, 0, 0, 0, 0],
+        },
+      },
+      {
+        type: 'haltRobotAction',
+        requestId: 'halt-action-goto-13',
+        robotId: 'robot-a',
+        actionName: 'goto',
+      },
+      {
+        type: 'resetRobotAction',
+        requestId: 'reset-action-goto-14',
+        robotId: 'robot-a',
+        actionName: 'goto',
       },
     ]);
   });
