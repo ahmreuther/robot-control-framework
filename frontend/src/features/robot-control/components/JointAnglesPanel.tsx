@@ -93,12 +93,52 @@ const EMPTY_MANAGER_STATE: JointStateSnapshot = {
   jointPropertiesByName: {},
 };
 
+type OriginPoseInput = {
+  x: string;
+  y: string;
+  z: string;
+  roll: string;
+  pitch: string;
+  yaw: string;
+};
+
+function formatOriginPositionValue(value: number): string {
+  return value.toFixed(3);
+}
+
+function formatOriginRotationValue(value: number, useDegrees: boolean): string {
+  const displayValue = useDegrees ? value * DEGREE_FACTOR : value;
+  return displayValue.toFixed(useDegrees ? 1 : 3);
+}
+
+function toOriginPoseInput(
+  origin: {
+  x: number;
+  y: number;
+  z: number;
+  roll: number;
+  pitch: number;
+  yaw: number;
+  },
+  useDegrees: boolean,
+): OriginPoseInput {
+  return {
+    x: formatOriginPositionValue(origin.x),
+    y: formatOriginPositionValue(origin.y),
+    z: formatOriginPositionValue(origin.z),
+    roll: formatOriginRotationValue(origin.roll, useDegrees),
+    pitch: formatOriginRotationValue(origin.pitch, useDegrees),
+    yaw: formatOriginRotationValue(origin.yaw, useDegrees),
+  };
+}
+
 export default function JointAnglesPanel() {
   const {
     activeRobot,
     getActiveJointManager,
     isSyncing,
     updateRobotJointAngles,
+    updateRobotVisualBinding,
     updateRobotPanelState,
   } = useRobotControl();
   const {
@@ -114,6 +154,15 @@ export default function JointAnglesPanel() {
   const [isSliderAbortHovered, setIsSliderAbortHovered] = useState(false);
   const [workspaceSampleInput, setWorkspaceSampleInput] = useState("");
   const [workspaceOptionsOpen, setWorkspaceOptionsOpen] = useState(false);
+  const [originPoseOpen, setOriginPoseOpen] = useState(false);
+  const [originPoseInput, setOriginPoseInput] = useState<OriginPoseInput>({
+    x: "0",
+    y: "0",
+    z: "0",
+    roll: "0",
+    pitch: "0",
+    yaw: "0",
+  });
   const sliderAbortRef = useRef<HTMLDivElement | null>(null);
   const sliderPointerActiveRef = useRef(false);
   const sliderAbortHoveredRef = useRef(false);
@@ -137,6 +186,9 @@ export default function JointAnglesPanel() {
       return;
     }
     setWorkspaceSampleInput(String(activeRobot.panel.workspaceSampleCount));
+    setOriginPoseInput(
+      toOriginPoseInput(activeRobot.visual.origin, activeRobot.panel.useDegrees),
+    );
   }, [activeRobot]);
 
   useEffect(() => {
@@ -327,6 +379,37 @@ export default function JointAnglesPanel() {
     updateRobotJointAngles(robotId, nextAngles);
   }
 
+  function updateOriginPoseFieldInput(
+    field: keyof typeof currentRobot.visual.origin,
+    value: string,
+  ) {
+    setOriginPoseInput((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function commitOriginPoseField(
+    field: keyof typeof currentRobot.visual.origin,
+  ) {
+    const parsed = Number.parseFloat(originPoseInput[field]);
+    const isRotationField =
+      field === "roll" || field === "pitch" || field === "yaw";
+    const nextValue = Number.isFinite(parsed)
+      ? isRotationField && useDegrees
+        ? parsed * RADIAN_FACTOR
+        : parsed
+      : currentRobot.visual.origin[field];
+    const nextOrigin = {
+      ...currentRobot.visual.origin,
+      [field]: nextValue,
+    };
+    setOriginPoseInput(toOriginPoseInput(nextOrigin, useDegrees));
+    updateRobotVisualBinding(robotId, {
+      origin: nextOrigin,
+    });
+  }
+
   return (
     <div className="flex min-h-0 flex-col panel-body gap-2 overflow-hidden">
       <div className="panel panel-body flex flex-col gap-2">
@@ -352,6 +435,91 @@ export default function JointAnglesPanel() {
             }
           />
         </label>
+        <DisclosureSection
+          title="Origin Pose"
+          open={originPoseOpen}
+          onToggle={() => setOriginPoseOpen((current) => !current)}
+        >
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            {(["x", "y", "z"] as const).map((field) => (
+              <label key={field} className="flex min-w-0 items-center gap-2">
+                <span className="text-[rgb(var(--fg-muted))] uppercase">
+                  {field}
+                </span>
+                <input
+                  className="input-ghost min-w-0 w-full text-right"
+                  type="number"
+                  step="0.1"
+                  value={originPoseInput[field]}
+                  onChange={(event) =>
+                    updateOriginPoseFieldInput(field, event.target.value)
+                  }
+                  onBlur={() => commitOriginPoseField(field)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                      commitOriginPoseField(field);
+                    }
+                    if (event.key === "Escape") {
+                      setOriginPoseInput(
+                        toOriginPoseInput(
+                          currentRobot.visual.origin,
+                          useDegrees,
+                        ),
+                      );
+                      event.currentTarget.blur();
+                    }
+                  }}
+                />
+                <span className="text-[rgb(var(--fg-muted))]">m</span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+            {(
+              [
+                ["roll", "R"],
+                ["pitch", "P"],
+                ["yaw", "Y"],
+              ] as const
+            ).map(([field, label]) => (
+              <label key={field} className="flex min-w-0 items-center gap-2">
+                <span className="text-[rgb(var(--fg-muted))] uppercase">
+                  {label}
+                </span>
+                <input
+                  className="input-ghost min-w-0 w-full text-right"
+                  type="number"
+                  step="0.1"
+                  value={originPoseInput[field]}
+                  onChange={(event) =>
+                    updateOriginPoseFieldInput(field, event.target.value)
+                  }
+                  onBlur={() => commitOriginPoseField(field)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                      commitOriginPoseField(field);
+                    }
+                    if (event.key === "Escape") {
+                      setOriginPoseInput(
+                        toOriginPoseInput(
+                          currentRobot.visual.origin,
+                          useDegrees,
+                        ),
+                      );
+                      event.currentTarget.blur();
+                    }
+                  }}
+                />
+                <span className="text-[rgb(var(--fg-muted))]">
+                  {useDegrees ? "°" : "rad"}
+                </span>
+              </label>
+            ))}
+          </div>
+        </DisclosureSection>
+
         <DisclosureSection
           title="Workspace"
           open={workspaceOptionsOpen}

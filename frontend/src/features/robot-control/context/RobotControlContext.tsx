@@ -7,6 +7,7 @@ import type {
 import type { Robot } from "../../../entities/robot/model/types";
 import type {
   RobotPanelState,
+  RobotVisualBinding,
   RobotSessionInfo,
 } from "../../../entities/robot/model/types";
 import type { JointStateManager } from "../model/jointStateManager";
@@ -34,6 +35,10 @@ export interface RobotControlContextValue {
   ): string;
   haltRobotAction(robotId: string, actionName: string): string;
   resetRobotAction(robotId: string, actionName: string): string;
+  updateRobotVisualBinding(
+    robotId: string,
+    visual: Partial<RobotVisualBinding>,
+  ): void;
   updateRobotPanelState(robotId: string, panel: Partial<RobotPanelState>): void;
   updateRobotHomeAngles(robotId: string, homeAngles: number[]): void;
   updateRobotJointAngles(robotId: string, angles: number[]): boolean;
@@ -101,6 +106,12 @@ export function RobotControlProvider({
         controller.haltRobotAction(robotId, actionName),
       resetRobotAction: (robotId: string, actionName: string) =>
         controller.resetRobotAction(robotId, actionName),
+      updateRobotVisualBinding: (
+        robotId: string,
+        visual: Partial<RobotVisualBinding>,
+      ) => {
+        controller.updateRobotVisualBinding(robotId, visual);
+      },
       updateRobotPanelState: (robotId: string, panel: Partial<RobotPanelState>) => {
         controller.updateRobotPanelState(robotId, panel);
       },

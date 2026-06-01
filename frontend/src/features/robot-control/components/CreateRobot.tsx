@@ -12,6 +12,9 @@ const DEFAULT_ORIGIN: RobotOrigin = {
   x: 0,
   y: 0,
   z: 0,
+  roll: 0,
+  pitch: 0,
+  yaw: 0,
 };
 
 export default function CreateRobot() {
@@ -22,6 +25,9 @@ export default function CreateRobot() {
     x: String(DEFAULT_ORIGIN.x),
     y: String(DEFAULT_ORIGIN.y),
     z: String(DEFAULT_ORIGIN.z),
+    roll: String(DEFAULT_ORIGIN.roll),
+    pitch: String(DEFAULT_ORIGIN.pitch),
+    yaw: String(DEFAULT_ORIGIN.yaw),
   });
   const [selectedModel, setSelectedModel] = useState<RobotModelConfig | null>(
     null,
@@ -35,6 +41,9 @@ export default function CreateRobot() {
       x: Number.parseFloat(originInput.x) || 0,
       y: Number.parseFloat(originInput.y) || 0,
       z: Number.parseFloat(originInput.z) || 0,
+      roll: Number.parseFloat(originInput.roll) || 0,
+      pitch: Number.parseFloat(originInput.pitch) || 0,
+      yaw: Number.parseFloat(originInput.yaw) || 0,
     };
 
     createRobot(trimmedName, selectedModel, origin);
@@ -43,6 +52,9 @@ export default function CreateRobot() {
       x: String(DEFAULT_ORIGIN.x),
       y: String(DEFAULT_ORIGIN.y),
       z: String(DEFAULT_ORIGIN.z),
+      roll: String(DEFAULT_ORIGIN.roll),
+      pitch: String(DEFAULT_ORIGIN.pitch),
+      yaw: String(DEFAULT_ORIGIN.yaw),
     });
     setSelectedModel(null);
     setOpen(false);

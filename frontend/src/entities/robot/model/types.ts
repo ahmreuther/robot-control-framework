@@ -70,6 +70,9 @@ export interface RobotVisualBinding {
     x: number;
     y: number;
     z: number;
+    roll: number;
+    pitch: number;
+    yaw: number;
   };
   // Articulated joint order used for axis mapping and solver-facing arm logic.
   orderedUrdfJointNames: string[];
@@ -124,6 +127,9 @@ export function createRobotFromSession(session: RobotSessionInfo): Robot {
         x: 0,
         y: 0,
         z: 0,
+        roll: 0,
+        pitch: 0,
+        yaw: 0,
       },
       orderedUrdfJointNames: [],
       allUrdfJointNames: [],

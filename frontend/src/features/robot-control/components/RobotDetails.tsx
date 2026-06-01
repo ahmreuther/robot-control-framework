@@ -40,7 +40,7 @@ export default function RobotDetails({
     ["Motion Device Axes", motionDeviceAxisCount ? String(motionDeviceAxisCount) : ""],
     [
       "Origin",
-      `${robot.visual.origin.x.toFixed(2)}, ${robot.visual.origin.y.toFixed(2)}, ${robot.visual.origin.z.toFixed(2)}`,
+      `${robot.visual.origin.x.toFixed(2)}, ${robot.visual.origin.y.toFixed(2)}, ${robot.visual.origin.z.toFixed(2)} | ${robot.visual.origin.roll.toFixed(2)}, ${robot.visual.origin.pitch.toFixed(2)}, ${robot.visual.origin.yaw.toFixed(2)}`,
     ],
     ["Server", robot.serverUrl === "local://manual" ? "offline" : robot.serverUrl],
     ["Joints", jointsText],

@@ -120,6 +120,9 @@ function createBoundRobot(controller: ReturnType<typeof createApplicationControl
     x: 0,
     y: 0,
     z: 0,
+    roll: 0,
+    pitch: 0,
+    yaw: 0,
   });
   controller.bindRobotToMotionDevice(robotId, 'robot-a');
   return robotId;
@@ -503,6 +506,9 @@ describe('ApplicationController', () => {
       x: 1,
       y: 2,
       z: 3,
+      roll: 0,
+      pitch: 0,
+      yaw: 0,
     });
     const snapshot = controller.getSnapshot();
 
@@ -548,6 +554,9 @@ describe('ApplicationController', () => {
           x: 1,
           y: 2,
           z: 3,
+          roll: 0,
+          pitch: 0,
+          yaw: 0,
         },
         orderedUrdfJointNames: [
           'joint_1',

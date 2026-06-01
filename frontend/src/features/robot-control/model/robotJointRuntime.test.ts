@@ -47,6 +47,9 @@ function robot(robotId: string, offset = 0): Robot {
         x: 0,
         y: 0,
         z: 0,
+        roll: 0,
+        pitch: 0,
+        yaw: 0,
       },
       orderedUrdfJointNames: ['joint_1', 'joint_2'],
       axisToJointName: {

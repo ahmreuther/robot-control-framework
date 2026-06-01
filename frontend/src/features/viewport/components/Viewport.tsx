@@ -1140,6 +1140,7 @@ function ViewportRobot({
       <group
         ref={groupRef}
         position={[origin.x, origin.y, origin.z]}
+        rotation={[origin.roll, origin.pitch, origin.yaw]}
         onClick={handleSelectRobot}
       >
         {isSelected && <axesHelper args={[0.2]} />}

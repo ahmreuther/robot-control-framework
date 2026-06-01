@@ -10,6 +10,9 @@ export interface RobotOrigin {
   x: number;
   y: number;
   z: number;
+  roll: number;
+  pitch: number;
+  yaw: number;
 }
 
 const DEGREE_TO_RADIAN = Math.PI / 180;
