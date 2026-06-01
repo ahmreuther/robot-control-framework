@@ -102,6 +102,8 @@ def build_robot_action_bindings(
     add_method_action("createSession", "create_new_session")
     add_method_action("invalidateSession", "invalidate_session")
     add_method_action("renewSession", "renew_session")
+    add_method_action("initLock", "init_lock")
+    add_method_action("exitLock", "exit_lock")
     add_method_action("resetErrors", "reset_errors")
     add_method_action("pause", "pause")
     add_method_action("resume", "resume")

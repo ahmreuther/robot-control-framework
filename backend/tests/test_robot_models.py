@@ -55,6 +55,18 @@ def test_robot_actions_are_normalized_from_raw_bindings() -> None:
                 displayName="create_new_session",
                 inputArguments=[],
                 outputArguments=[],
+            ),
+            "init_lock": MethodBinding(
+                nodeId="ns=4;s=MotionDevice_1.init_lock",
+                displayName="init_lock",
+                inputArguments=[],
+                outputArguments=[],
+            ),
+            "exit_lock": MethodBinding(
+                nodeId="ns=4;s=MotionDevice_1.exit_lock",
+                displayName="exit_lock",
+                inputArguments=[],
+                outputArguments=[],
             )
         },
         skills={
@@ -79,3 +91,7 @@ def test_robot_actions_are_normalized_from_raw_bindings() -> None:
     assert actions["goto"].parameter_names == ["mode"]
     assert actions["createSession"].kind == "method"
     assert actions["createSession"].target_name == "create_new_session"
+    assert actions["initLock"].kind == "method"
+    assert actions["initLock"].target_name == "init_lock"
+    assert actions["exitLock"].kind == "method"
+    assert actions["exitLock"].target_name == "exit_lock"
