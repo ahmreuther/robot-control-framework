@@ -106,6 +106,7 @@ export default function JointAnglesPanel() {
     endManipulation,
     getHighlightedJointName,
     manipulation,
+    setHighlightedJointName,
   } = useRobotInteraction();
   const manager = getActiveJointManager();
   const [managerState, setManagerState] =
@@ -474,6 +475,14 @@ export default function JointAnglesPanel() {
                             ? "bg-[rgb(var(--panel-border)/0.05)]"
                             : undefined
                         }
+                        onMouseEnter={() =>
+                          setHighlightedJointName(robotId, row.jointName)
+                        }
+                        onMouseLeave={() => {
+                          if (getHighlightedJointName(robotId) === row.jointName) {
+                            setHighlightedJointName(robotId, null);
+                          }
+                        }}
                       >
                         <td colSpan={2}>
                           <div className="mb-2 mr-1 ml-1 mt-1 flex flex-col gap-2 rounded-sm px-1 py-1">

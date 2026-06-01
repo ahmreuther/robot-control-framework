@@ -415,6 +415,7 @@ function ViewportRobot({
     beginManipulation,
     dragCancelSequence,
     endManipulation,
+    getHighlightedJointName,
     ikCancelSequence,
     isAbortAreaHovered,
     setHighlightedJointName,
@@ -436,6 +437,9 @@ function ViewportRobot({
   const [workspaceGenerationState, setWorkspaceGenerationState] = useState<
     "idle" | "generating" | "ready"
   >("idle");
+  const sharedHighlightedJointName = isSelected
+    ? getHighlightedJointName(robot.robotId)
+    : null;
   const groupRef = useRef<THREE.Group>(null);
   const loadedRobotRef = useRef<URDFRobot | null>(null);
   const ikModelRef = useRef<RobotIkModel | null>(null);
@@ -692,8 +696,12 @@ function ViewportRobot({
     const loadedRobot = loadedRobotRef.current;
     if (!loadedRobot) return;
 
-    applyJointHighlightState(loadedRobot, hoveredJointName, draggedJointName);
-  }, [draggedJointName, hoveredJointName]);
+    applyJointHighlightState(
+      loadedRobot,
+      sharedHighlightedJointName,
+      draggedJointName,
+    );
+  }, [draggedJointName, sharedHighlightedJointName]);
 
   useEffect(() => {
     setWorkspacePoints([]);
