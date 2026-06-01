@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import FeedbackPopupContent from "../components/FeedbackPopupContent";
 
 export interface AppFeedbackErrorOptions {
   description?: string;
@@ -89,9 +90,17 @@ function AppFeedbackProviderInner({
       }
       apis.message.open({
         key,
-        content,
+        content:
+          typeof content === "string" ? (
+            <FeedbackPopupContent
+              variant="loading"
+              title={content}
+              showSpinner={options?.spinner !== false}
+            />
+          ) : (
+            content
+          ),
         duration: 0,
-        ...(options?.spinner === false ? {} : { type: "loading" as const }),
       });
       loadingKeysRef.current.add(key);
     },
@@ -103,7 +112,11 @@ function AppFeedbackProviderInner({
       if (!apis) {
         return;
       }
-      apis.message.success(content, 2);
+      apis.message.open({
+        key: `success.${content}`,
+        content: <FeedbackPopupContent variant="success" title={content} />,
+        duration: 2,
+      });
     },
     [apis],
   );
@@ -113,12 +126,16 @@ function AppFeedbackProviderInner({
       if (!apis) {
         return;
       }
-      apis.notification.error({
-        message: title,
-        description: options?.description,
+      apis.message.open({
         key: options?.key,
+        content: (
+          <FeedbackPopupContent
+            variant="error"
+            title={title}
+            description={options?.description}
+          />
+        ),
         duration: options?.duration ?? 5,
-        placement: "topRight",
       });
     },
     [apis],

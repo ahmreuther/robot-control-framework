@@ -78,6 +78,12 @@
     backdrop-filter: blur(14px);
   }
 
+  .ant-message .ant-message-notice-content {
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
   .panel-header {
     @apply flex min-h-10 items-center justify-between gap-2 border-b px-2 py-2;
     border-color: rgb(var(--panel-border) / 0.1);
@@ -86,6 +92,104 @@
   .panel-title {
     @apply text-xs font-semibold uppercase tracking-wider;
     color: rgb(var(--fg) / 0.85);
+  }
+
+  .feedback-popup {
+    min-width: 260px;
+    max-width: min(380px, calc(100vw - 32px));
+    border: 1px solid rgb(var(--panel-border) / 0.12);
+    background: rgb(var(--panel));
+    box-shadow: 0 14px 36px rgb(0 0 0 / 0.28);
+    backdrop-filter: blur(14px);
+    padding: 10px 12px;
+  }
+
+  .feedback-popup-header {
+    @apply flex items-start gap-3;
+  }
+
+  .feedback-popup-copy {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .feedback-popup-title {
+    @apply text-xs font-semibold uppercase tracking-wider;
+    color: rgb(var(--fg) / 0.85);
+  }
+
+  .feedback-popup-description {
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: rgb(var(--fg-muted));
+  }
+
+  .feedback-popup-icon,
+  .feedback-popup-spinner,
+  .feedback-popup-dot {
+    margin-top: 1px;
+    flex: 0 0 auto;
+  }
+
+  .feedback-popup-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    font-size: 15px;
+    line-height: 1;
+    overflow: visible;
+    vertical-align: middle;
+  }
+
+  .feedback-popup-spinner .ant-spin-dot-item {
+    background-color: rgb(var(--brand)) !important;
+  }
+
+  .feedback-popup-spinner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    color: rgb(var(--brand));
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .feedback-popup-spinner .anticon {
+    animation: loadingCircle 1s infinite linear;
+  }
+
+  .feedback-popup-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: rgb(var(--brand) / 0.75);
+    box-shadow: 0 0 8px rgb(var(--brand) / 0.3);
+  }
+
+  .feedback-popup-progress {
+    margin-top: 10px;
+  }
+
+  .feedback-popup-progress .ant-progress-inner {
+    background: rgb(var(--panel-border) / 0.12) !important;
+    border-radius: 0 !important;
+  }
+
+  .feedback-popup-progress .ant-progress-outer {
+    border-radius: 0 !important;
+  }
+
+  .feedback-popup-body {
+    margin-top: 8px;
   }
 
   .panel-body {

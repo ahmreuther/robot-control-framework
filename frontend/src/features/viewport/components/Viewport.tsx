@@ -1,7 +1,6 @@
 import { Environment, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
-import { Progress } from "antd";
 import {
   Suspense,
   type ReactNode,
@@ -15,6 +14,7 @@ import * as THREE from "three";
 import type { URDFRobot } from "urdf-loader/src/URDFClasses";
 
 import { useAppFeedback } from "../../../app/context/AppFeedbackContext";
+import FeedbackPopupContent from "../../../app/components/FeedbackPopupContent";
 import type { Robot } from "../../../entities/robot/model/types";
 import { useRobotControl } from "../../robot-control/context/RobotControlContext";
 import { useRobotInteraction } from "../../robot-control/context/RobotInteractionContext";
@@ -179,17 +179,14 @@ function renderWorkspaceLoadingContent(
   label: string,
   percent: number,
 ): ReactNode {
-  const clampedPercent = Math.max(0, Math.min(100, Math.round(percent)));
   return (
-    <div style={{ minWidth: 260 }}>
-      <div style={{ marginBottom: 8, fontSize: 12 }}>{label}</div>
-      <Progress
-        percent={clampedPercent}
-        size="small"
-        status="active"
-        showInfo
-      />
-    </div>
+    <FeedbackPopupContent
+      variant="progress"
+      title="Generating Workspace"
+      description={label}
+      progressPercent={percent}
+      showSpinner={false}
+    />
   );
 }
 

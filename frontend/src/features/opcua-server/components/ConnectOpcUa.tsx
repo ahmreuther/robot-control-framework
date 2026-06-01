@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useAppFeedback } from "../../../app/context/AppFeedbackContext";
@@ -13,7 +13,7 @@ const defaultUrls = [
 ];
 
 function ConnectOpcUa() {
-  const { connectServer, discoverRobots, snapshot } = useOpcuaServer();
+  const { connectServer, controller, discoverRobots } = useOpcuaServer();
   const feedback = useAppFeedback();
   const lastUrl = localStorage.getItem("lastOpcUaUrl");
   const initialSavedUrls =
@@ -25,57 +25,73 @@ function ConnectOpcUa() {
   const [savedUrls] = useState<string[]>(initialSavedUrls);
   const [localUrl, setLocalUrl] = useState("");
   const [pendingServerUrl, setPendingServerUrl] = useState<string | null>(null);
-
-  const pendingServer = useMemo(
-    () =>
-      pendingServerUrl ? snapshot.server.byUrl[pendingServerUrl] ?? null : null,
-    [pendingServerUrl, snapshot.server.byUrl],
-  );
+  const [pendingDiscoveryRequestId, setPendingDiscoveryRequestId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
-    if (!pendingServerUrl || !pendingServer) {
-      return;
-    }
+    return controller.onWebSocketMessageLog((entry) => {
+      if (entry.direction !== "incoming" || !pendingServerUrl) {
+        return;
+      }
 
-    feedback.hideLoading(`server.connect.${pendingServerUrl}`);
-    feedback.showSuccess(
-      `Connected to ${pendingServerUrl.replace("opc.tcp://", "")}`,
-    );
-    setPendingServerUrl(null);
-  }, [feedback, pendingServer, pendingServerUrl]);
+      const message = entry.message;
+      const trimmedLabel = pendingServerUrl.replace("opc.tcp://", "");
 
-  useEffect(() => {
-    if (!pendingServerUrl) {
-      return;
-    }
+      if (
+        message.type === "serverConnected" &&
+        message.server.serverUrl === pendingServerUrl
+      ) {
+        feedback.hideLoading(`server.connect.${pendingServerUrl}`);
+        feedback.showLoading(
+          `server.discover.${pendingServerUrl}`,
+          `Discovering robots and actions from ${trimmedLabel}`,
+        );
+        return;
+      }
 
-    const matchingError = [...snapshot.server.errors]
-      .reverse()
-      .find((error) => error.serverUrl === pendingServerUrl);
+      if (
+        message.type === "robotsDiscovered" &&
+        message.serverUrl === pendingServerUrl &&
+        (!pendingDiscoveryRequestId ||
+          !message.requestId ||
+          message.requestId === pendingDiscoveryRequestId)
+      ) {
+        feedback.hideLoading(`server.connect.${pendingServerUrl}`);
+        feedback.hideLoading(`server.discover.${pendingServerUrl}`);
+        feedback.showSuccess(
+          `Discovered ${message.robots.length} robot(s) from ${trimmedLabel}`,
+        );
+        setPendingServerUrl(null);
+        setPendingDiscoveryRequestId(null);
+        return;
+      }
 
-    if (!matchingError) {
-      return;
-    }
-
-    feedback.hideLoading(`server.connect.${pendingServerUrl}`);
-    feedback.showError("Failed to connect server", {
-      description: matchingError.message,
-      key: `server.connect.${pendingServerUrl}`,
+      if (message.type === "error" && message.serverUrl === pendingServerUrl) {
+        feedback.hideLoading(`server.connect.${pendingServerUrl}`);
+        feedback.hideLoading(`server.discover.${pendingServerUrl}`);
+        feedback.showError("Failed to discover server capabilities", {
+          description: message.message,
+          key: `server.connect.${pendingServerUrl}`,
+        });
+        setPendingServerUrl(null);
+        setPendingDiscoveryRequestId(null);
+      }
     });
-    setPendingServerUrl(null);
-  }, [feedback, pendingServerUrl, snapshot.server.errors]);
+  }, [controller, feedback, pendingDiscoveryRequestId, pendingServerUrl]);
 
   function handleConnect() {
     const trimmedUrl = localUrl.trim();
     if (trimmedUrl) {
       localStorage.setItem("lastOpcUaUrl", trimmedUrl);
       setPendingServerUrl(trimmedUrl);
+      setPendingDiscoveryRequestId(null);
       feedback.showLoading(
         `server.connect.${trimmedUrl}`,
         `Connecting to ${trimmedUrl.replace("opc.tcp://", "")}`,
       );
       connectServer(trimmedUrl);
-      discoverRobots(trimmedUrl);
+      setPendingDiscoveryRequestId(discoverRobots(trimmedUrl));
       setLocalUrl("");
     }
     setOpen(false);
