@@ -8,15 +8,17 @@ WebSkillComposition is a web-based system for skill-based control of industrial 
 
 ## User Workflows
 
-### Offline Simulation
-
-The frontend supports the URDF models **Franka Research 3**, **EVA Automata**, and **UR5e**. A robot can be inspected and manipulated in the 3D scene without a robotics server connection.
-
-In offline mode, movements only affect the digital twin. The user can adjust joints with FK sliders or typed values, (drag joints in the 3D view), or move and rotate the TCP with IK controls. This is useful for planning, testing, and checking motion before connecting to a physical robot or digital twin server.
-
-### Online Control
+### Connect
 
 The user connects to an OPC UA Robotics Server. Discovered motion devices are turned into robot entries automatically. The backend opens or reuses the OPC UA client, discovers methods and skills for each motion device, subscribes to relevant robot data, and streams updates back to the frontend.
+
+### Simulation
+
+The frontend supports the URDF models **Franka Research 3**, **EVA Automata**, and **UR5e**. A robot can be inspected and manipulated in the 3D scene.
+
+Movements only affect the digital twin. The user can adjust joints with FK sliders or typed values, (drag joints in the 3D view), or move and rotate the TCP with IK controls. This is useful for planning, testing, and checking motion before synchronize to a physical robot or digital twin server.
+
+### Sync Control
 
 With synchronization enabled, changes from the physical robot are shown in the digital twin, and changes made in the digital twin are sent back to the robotics server. The same IK and FK controls are used in online and offline mode, so a movement can be tested first and then executed live.
 
