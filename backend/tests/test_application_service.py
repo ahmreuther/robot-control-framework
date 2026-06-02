@@ -361,6 +361,47 @@ async def test_discover_command_registers_multiple_robot_sessions() -> None:
 
 
 @pytest.mark.asyncio
+async def test_discover_command_reuses_cached_result_after_disconnect() -> None:
+    registry = RuntimeRegistry()
+    discover_command = parse_client_message_json(
+        '{"type":"discoverRobots","requestId":"req-discover-1","serverUrl":"' + SERVER_URL + '"}'
+    )
+
+    first_events = await handle_client_message(
+        discover_command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert len(first_events) == 1
+    assert isinstance(first_events[0], RobotsDiscoveredEvent)
+    assert len(FakeConnection.created) == 1
+    assert FakeConnection.created[0].discovery_count == 1
+
+    disconnect_command = parse_client_message_json(
+        '{"type":"disconnectServer","requestId":"req-disconnect","serverUrl":"' + SERVER_URL + '"}'
+    )
+    await handle_client_message(
+        disconnect_command,
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    second_events = await handle_client_message(
+        parse_client_message_json(
+            '{"type":"discoverRobots","requestId":"req-discover-2","serverUrl":"' + SERVER_URL + '"}'
+        ),
+        registry=registry,
+        connection_factory=FakeConnection,
+    )
+
+    assert len(second_events) == 1
+    assert isinstance(second_events[0], RobotsDiscoveredEvent)
+    assert len(FakeConnection.created) == 1
+    assert FakeConnection.created[0].discovery_count == 1
+
+
+@pytest.mark.asyncio
 async def test_browse_address_space_root_returns_nodes() -> None:
     registry = RuntimeRegistry()
     command = parse_client_message_json(

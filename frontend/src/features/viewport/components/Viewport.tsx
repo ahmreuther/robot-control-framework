@@ -21,7 +21,7 @@ import { useRobotInteraction } from "../../robot-control/context/RobotInteractio
 import {
   JOINT_SOURCE_ID,
   type JointProperty,
-  type JointStateSnapshot,
+  type JointSourceId,
   type JointType,
 } from "../../robot-control/model/jointStateManager";
 import { resolveHomeAnglesForModel } from "../../robot-control/model/robotModels";
@@ -391,13 +391,6 @@ function finalizeLoadedRobotVisualState(
   applyJointAngles(loadedRobot, options.jointNames, options.angles);
 }
 
-const EMPTY_MANAGER_STATE: JointStateSnapshot = {
-  angles: [],
-  activeSourceId: null,
-  jointNames: [],
-  jointPropertiesByName: {},
-};
-
 function ViewportRobot({
   robot,
   isSelected,
@@ -418,8 +411,8 @@ function ViewportRobot({
     setHighlightedJointName,
   } = useRobotInteraction();
   const manager = getJointManager(robot.robotId);
-  const [managerState, setManagerState] =
-    useState<JointStateSnapshot>(EMPTY_MANAGER_STATE);
+  const [managerActiveSourceId, setManagerActiveSourceId] =
+    useState<JointSourceId | null>(null);
   const [loadedRobotState, setLoadedRobotState] = useState<URDFRobot | null>(
     null,
   );
@@ -439,6 +432,7 @@ function ViewportRobot({
     : null;
   const groupRef = useRef<THREE.Group>(null);
   const loadedRobotRef = useRef<URDFRobot | null>(null);
+  const managerAnglesRef = useRef<number[]>([]);
   const ikModelRef = useRef<RobotIkModel | null>(null);
   const abortAreaHoveredRef = useRef(isAbortAreaHovered);
   const originalMaterialMapRef = useRef<Map<THREE.Object3D, THREE.Material>>(
@@ -464,15 +458,43 @@ function ViewportRobot({
 
   useEffect(() => {
     if (!manager) {
-      setManagerState(EMPTY_MANAGER_STATE);
+      managerAnglesRef.current = [];
+      setManagerActiveSourceId(null);
       return;
     }
 
-    setManagerState(manager.getState());
+    const initialState = manager.getState();
+    managerAnglesRef.current = initialState.angles;
+    setManagerActiveSourceId(initialState.activeSourceId);
     return manager.subscribe((snapshot) => {
-      setManagerState(snapshot);
+      managerAnglesRef.current = snapshot.angles;
+      setManagerActiveSourceId((current) =>
+        current === snapshot.activeSourceId ? current : snapshot.activeSourceId,
+      );
+
+      const loadedRobot = loadedRobotRef.current;
+      if (loadedRobot) {
+        applyJointAngles(loadedRobot, snapshot.jointNames, snapshot.angles);
+      }
+
+      if (
+        isSelected &&
+        loadedRobot &&
+        groupRef.current &&
+        snapshot.activeSourceId !== JOINT_SOURCE_ID.IK
+      ) {
+        const nextGoalPosition = getToolPointWorldPosition(loadedRobot);
+        const nextGoalQuaternion = getToolPointWorldQuaternion(loadedRobot);
+        setGoalPosition(nextGoalPosition);
+        setGoalQuaternion(nextGoalQuaternion);
+        goalPositionRef.current = nextGoalPosition?.clone() ?? null;
+        goalQuaternionRef.current = nextGoalQuaternion?.clone() ?? null;
+        setIkConverged(true);
+        lastValidGoalPositionRef.current = nextGoalPosition?.clone() ?? null;
+        lastValidGoalQuaternionRef.current = nextGoalQuaternion?.clone() ?? null;
+      }
     });
-  }, [manager]);
+  }, [isSelected, manager]);
 
   useEffect(() => {
     const group = groupRef.current;
@@ -644,19 +666,11 @@ function ViewportRobot({
   ]);
 
   useEffect(() => {
-    const loadedRobot = loadedRobotRef.current;
-    if (!loadedRobot || !manager) return;
-
-    const jointNames = manager.getOrderedJointNames();
-    applyJointAngles(loadedRobot, jointNames, managerState.angles);
-  }, [manager, managerState.angles]);
-
-  useEffect(() => {
     if (
       !isSelected ||
       !loadedRobotState ||
       !groupRef.current ||
-      managerState.activeSourceId === JOINT_SOURCE_ID.IK
+      managerActiveSourceId === JOINT_SOURCE_ID.IK
     ) {
       return;
     }
@@ -673,8 +687,7 @@ function ViewportRobot({
   }, [
     isSelected,
     loadedRobotState,
-    managerState.activeSourceId,
-    managerState.angles,
+    managerActiveSourceId,
     robot.robotId,
   ]);
 
@@ -830,16 +843,16 @@ function ViewportRobot({
     isSelected &&
     !!manager &&
     !!loadedRobotState &&
-    managerState.activeSourceId !== JOINT_SOURCE_ID.MANUAL &&
-    managerState.activeSourceId !== JOINT_SOURCE_ID.ANIMATION &&
-    managerState.activeSourceId !== JOINT_SOURCE_ID.RESET;
+    managerActiveSourceId !== JOINT_SOURCE_ID.MANUAL &&
+    managerActiveSourceId !== JOINT_SOURCE_ID.ANIMATION &&
+    managerActiveSourceId !== JOINT_SOURCE_ID.RESET;
 
   const canManipulateIk =
     isSelected &&
     !!manager &&
     !!loadedRobotState &&
-    managerState.activeSourceId !== JOINT_SOURCE_ID.ANIMATION &&
-    managerState.activeSourceId !== JOINT_SOURCE_ID.RESET;
+    managerActiveSourceId !== JOINT_SOURCE_ID.ANIMATION &&
+    managerActiveSourceId !== JOINT_SOURCE_ID.RESET;
 
   const handleDragStart = useCallback(() => {
     if (!manager) {
@@ -967,11 +980,11 @@ function ViewportRobot({
     const targetPosition = goalPositionRef.current;
     const targetQuaternion = goalQuaternionRef.current;
     const isActiveIkManipulation =
-      managerState.activeSourceId === JOINT_SOURCE_ID.IK;
+      managerActiveSourceId === JOINT_SOURCE_ID.IK;
     const hasConflictingManipulation =
-      managerState.activeSourceId !== null &&
-      managerState.activeSourceId !== JOINT_SOURCE_ID.IK &&
-      managerState.activeSourceId !== JOINT_SOURCE_ID.FK;
+      managerActiveSourceId !== null &&
+      managerActiveSourceId !== JOINT_SOURCE_ID.IK &&
+      managerActiveSourceId !== JOINT_SOURCE_ID.FK;
 
     if (
       !isSelected ||
@@ -988,7 +1001,7 @@ function ViewportRobot({
 
     const jointNames = manager.getOrderedJointNames();
     const ikJointNames = ikJointNamesRef.current;
-    const currentAngles = manager.getAngles();
+    const currentAngles = managerAnglesRef.current;
     ikModel.setConfig(solverConfig);
     const jointNameToIndexMap = manager.getJointNameToIndexMap();
     const ikAngles = ikJointNames.map((jointName) => {

@@ -5,6 +5,7 @@ import type {
   ClientMessage,
   ServerMessage,
 } from "../../../shared/api/messages";
+import type { RobotSessionInfo } from "../../../entities/robot/model/types";
 import { onSurfaceMessageLog } from "../../../shared/api/surfaceMessageLog";
 import { useOpcuaServer } from "../context/OpcuaServerContext";
 
@@ -24,7 +25,6 @@ function getLineColorClass(line: string) {
   if (
     l.includes("error") ||
     l.includes("failed") ||
-    l.includes("invalid") ||
     l.includes("not ready") ||
     l.includes("no client")
   ) {
@@ -40,18 +40,50 @@ function getLineColorClass(line: string) {
   return "text-white/80";
 }
 
-function formatEntry(entry: WebSocketMessageLogEntry): string {
-  const time = new Date(entry.timestamp).toLocaleTimeString();
-  if (entry.direction === "incoming") {
-    return `${time} received ${describeServerMessage(entry.message as ServerMessage)}`;
+function describeMotionDevice(
+  motionDeviceId: string,
+  motionDevice?: RobotSessionInfo,
+): string {
+  if (!motionDevice) {
+    return motionDeviceId;
   }
-  if (entry.direction === "queued") {
-    return `${time} warning queued ${describeClientMessage(entry.message as ClientMessage)}`;
-  }
-  return `${time} sent ${describeClientMessage(entry.message as ClientMessage)}`;
+  return `${motionDevice.displayName} (${motionDeviceId})`;
 }
 
-function describeClientMessage(message: ClientMessage): string {
+function resolveMotionDevice(
+  motionDeviceId: string,
+  motionDevicesById: Record<string, RobotSessionInfo>,
+): string {
+  return describeMotionDevice(motionDeviceId, motionDevicesById[motionDeviceId]);
+}
+
+function formatEntry(
+  entry: WebSocketMessageLogEntry,
+  motionDevicesById: Record<string, RobotSessionInfo>,
+): string {
+  const time = new Date(entry.timestamp).toLocaleTimeString();
+  if (entry.direction === "incoming") {
+    return `${time} received ${describeServerMessage(
+      entry.message as ServerMessage,
+      motionDevicesById,
+    )}`;
+  }
+  if (entry.direction === "queued") {
+    return `${time} warning queued ${describeClientMessage(
+      entry.message as ClientMessage,
+      motionDevicesById,
+    )}`;
+  }
+  return `${time} sent ${describeClientMessage(
+    entry.message as ClientMessage,
+    motionDevicesById,
+  )}`;
+}
+
+function describeClientMessage(
+  message: ClientMessage,
+  motionDevicesById: Record<string, RobotSessionInfo>,
+): string {
   switch (message.type) {
     case "connectServer":
       return `connectServer -> ${message.serverUrl}`;
@@ -63,14 +95,26 @@ function describeClientMessage(message: ClientMessage): string {
     case "unsubscribeRobotJoints":
     case "subscribeRobotMode":
     case "unsubscribeRobotMode":
-      return `${message.type} -> ${message.robotId}`;
+      return `${message.type} -> ${resolveMotionDevice(
+        message.robotId,
+        motionDevicesById,
+      )}`;
     case "callRobotMethod":
-      return `callRobotMethod ${message.method} -> ${message.robotId}`;
+      return `callRobotMethod ${message.method} -> ${resolveMotionDevice(
+        message.robotId,
+        motionDevicesById,
+      )}`;
     case "executeRobotAction":
-      return `executeRobotAction ${message.actionName} -> ${message.robotId}`;
+      return `executeRobotAction ${message.actionName} -> ${resolveMotionDevice(
+        message.robotId,
+        motionDevicesById,
+      )}`;
     case "haltRobotAction":
     case "resetRobotAction":
-      return `${message.type} ${message.actionName} -> ${message.robotId}`;
+      return `${message.type} ${message.actionName} -> ${resolveMotionDevice(
+        message.robotId,
+        motionDevicesById,
+      )}`;
     case "subscribeNode":
     case "unsubscribeNode":
     case "subscribeEvent":
@@ -91,7 +135,10 @@ function describeClientMessage(message: ClientMessage): string {
   }
 }
 
-function describeServerMessage(message: ServerMessage): string {
+function describeServerMessage(
+  message: ServerMessage,
+  motionDevicesById: Record<string, RobotSessionInfo>,
+): string {
   switch (message.type) {
     case "serverConnected":
       return `serverConnected <- ${message.server.serverUrl}`;
@@ -100,15 +147,31 @@ function describeServerMessage(message: ServerMessage): string {
     case "robotsDiscovered":
       return `robotsDiscovered <- ${message.robots.length} robot(s) from ${message.serverUrl}`;
     case "robotInfo":
-      return `robotInfo <- ${message.robotId}`;
+      return `robotInfo <- ${resolveMotionDevice(
+        message.robotId,
+        motionDevicesById,
+      )}`;
     case "robotJointState":
-      return `robotJointState <- ${message.robotId}`;
+      return `robotJointState <- ${resolveMotionDevice(
+        message.robotId,
+        motionDevicesById,
+      )}`;
     case "robotModeChanged":
-      return `robotModeChanged <- ${message.robotId}: ${message.mode}`;
+      return `robotModeChanged <- ${resolveMotionDevice(
+        message.robotId,
+        motionDevicesById,
+      )}: ${message.mode}`;
     case "robotActionState":
-      return `robotActionState <- ${message.robotId}: ${message.data.actionName} ${message.data.status}`;
+      return `robotActionState <- ${resolveMotionDevice(
+        message.robotId,
+        motionDevicesById,
+      )}: ${message.data.actionName} ${message.data.status}`;
     case "methodResult":
-      return `methodResult <- ${message.nodeId ?? message.robotId ?? "unknown"}`;
+      return `methodResult <- ${
+        message.robotId
+          ? resolveMotionDevice(message.robotId, motionDevicesById)
+          : (message.nodeId ?? "unknown")
+      }`;
     case "nodeValueChanged":
       return `nodeValueChanged <- ${message.nodeId}`;
     case "opcuaEvent":
@@ -136,7 +199,8 @@ export function MessageLog() {
 
   useEffect(() => {
     return controller.onWebSocketMessageLog((entry) => {
-      setLogs((current) => `${current}${formatEntry(entry)}\n`);
+      const motionDevicesById = controller.getSnapshot().server.motionDevicesById;
+      setLogs((current) => `${current}${formatEntry(entry, motionDevicesById)}\n`);
     });
   }, [controller]);
 

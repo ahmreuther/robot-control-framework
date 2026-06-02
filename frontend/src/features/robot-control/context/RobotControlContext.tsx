@@ -28,6 +28,7 @@ export interface RobotControlContextValue {
   bindRobotToMotionDevice(robotId: string, motionDeviceId: string | null): void;
   startRobotSync(robotId: string): void;
   stopRobotSync(robotId: string): void;
+  setRobotTakeControl(robotId: string, enabled: boolean): Promise<string[]>;
   executeRobotAction(
     robotId: string,
     actionName: string,
@@ -97,6 +98,8 @@ export function RobotControlProvider({
       stopRobotSync: (robotId: string) => {
         controller.stopRobotSync(robotId);
       },
+      setRobotTakeControl: (robotId: string, enabled: boolean) =>
+        controller.setRobotTakeControl(robotId, enabled),
       executeRobotAction: (
         robotId: string,
         actionName: string,

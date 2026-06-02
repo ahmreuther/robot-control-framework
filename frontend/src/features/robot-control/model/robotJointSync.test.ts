@@ -34,6 +34,7 @@ function robot(overrides: Partial<Robot> = {}): Robot {
   };
   const defaultPanel = {
     useDegrees: false,
+    takeControlActive: false,
     showCollisionMap: false,
     showWorkspace: false,
     workspaceSampleCount: 1000000,

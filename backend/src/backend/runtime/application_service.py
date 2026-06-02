@@ -216,13 +216,22 @@ async def discover_and_register(
     server_url: str,
     registry: RuntimeRegistry,
     connection_factory: ConnectionFactory | None = None,
+    use_cache: bool = True,
 ) -> tuple[ServerConnectedEvent, RobotsDiscoveredEvent]:
+    if use_cache:
+        cached_result = registry.get_cached_discovery(server_url)
+        if cached_result is not None:
+            logger.info("using cached discovery result for %s", server_url)
+            return register_discovery_result(registry=registry, result=cached_result)
+
     connection = ensure_connection(
         server_url=server_url,
         registry=registry,
         connection_factory=connection_factory,
     )
     result = await connection.discover()
+    registry.cache_discovery_result(result)
+    logger.info("cached discovery result for %s", server_url)
     return register_discovery_result(registry=registry, result=result)
 
 

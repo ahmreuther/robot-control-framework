@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+import logging
 from typing import Any
 import re
 
@@ -25,6 +26,9 @@ DEVICE_INTEGRATION_NAMESPACE_URI = "http://opcfoundation.org/UA/DI/"
 
 MOTION_DEVICE_TYPE_IDENTIFIER = 1004
 AXIS_TYPE_IDENTIFIER = 16601
+MOTION_DEVICE_NUMERIC_ID_RANGE = range(5010, 5020)
+
+logger = logging.getLogger(__name__)
 
 
 async def read_namespace_uris(client: Client) -> list[str]:
@@ -89,6 +93,32 @@ async def iter_descendants(start_node: Node) -> AsyncIterator[Node]:
             continue
 
 
+async def iter_descendants_limited(
+    start_node: Node,
+    *,
+    max_depth: int,
+) -> AsyncIterator[Node]:
+    queue: list[tuple[Node, int]] = [(start_node, 0)]
+    visited: set[str] = set()
+
+    while queue:
+        node, depth = queue.pop(0)
+        node_id = node.nodeid.to_string()
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        yield node
+
+        if depth >= max_depth:
+            continue
+
+        try:
+            children = await node.get_children()
+        except Exception:
+            continue
+        queue.extend((child, depth + 1) for child in children)
+
+
 async def child_by_name(node: Node | None, wanted: str) -> Node | None:
     if node is None:
         return None
@@ -151,8 +181,16 @@ async def find_device_set(client: Client, namespace_uris: list[str]) -> Node | N
     return None
 
 
+async def find_motion_devices_container(device_set: Node | None) -> Node | None:
+    motion_device_system = await child_by_name(device_set, "MotionDeviceSystem")
+    if motion_device_system is None:
+        return None
+    return await child_by_name(motion_device_system, "MotionDevices")
+
+
 async def discover_motion_device_nodes(
     *,
+    client: Client,
     start_node: Node,
     namespace_uris: list[str],
 ) -> list[Node]:
@@ -164,11 +202,56 @@ async def discover_motion_device_nodes(
     if motion_device_type_id is None:
         return []
 
+    motion_devices_container = await find_motion_devices_container(start_node)
+
+    if motion_devices_container is not None:
+        namespace_index = motion_devices_container.nodeid.NamespaceIndex
+        probed_motion_devices: list[Node] = []
+        for identifier in MOTION_DEVICE_NUMERIC_ID_RANGE:
+            candidate = client.get_node(f"ns={namespace_index};i={identifier}")
+            try:
+                if await read_type_definition_id(candidate) != motion_device_type_id:
+                    continue
+            except Exception:
+                continue
+            probed_motion_devices.append(candidate)
+
+        if probed_motion_devices:
+            logger.info(
+                "opcua discovery motion-device shortcut hit: namespace=%s ids=%s count=%s",
+                namespace_index,
+                list(MOTION_DEVICE_NUMERIC_ID_RANGE),
+                len(probed_motion_devices),
+            )
+            return probed_motion_devices
+
+    if motion_devices_container is not None:
+        direct_motion_devices: list[Node] = []
+        try:
+            candidate_children = await motion_devices_container.get_children()
+        except Exception:
+            candidate_children = []
+
+        for candidate in candidate_children:
+            if await read_type_definition_id(candidate) == motion_device_type_id:
+                direct_motion_devices.append(candidate)
+
+        if direct_motion_devices:
+            logger.info(
+                "opcua discovery motion-device direct-children hit: count=%s",
+                len(direct_motion_devices),
+            )
+            return direct_motion_devices
+
     motion_devices: list[Node] = []
     async for node in iter_descendants(start_node):
         if await read_type_definition_id(node) == motion_device_type_id:
             motion_devices.append(node)
 
+    logger.info(
+        "opcua discovery motion-device fallback tree scan used: count=%s",
+        len(motion_devices),
+    )
     return motion_devices
 
 
@@ -291,16 +374,64 @@ async def discover_named_variable_bindings(parent_node: Node | None) -> dict[str
     return bindings
 
 
+async def iter_direct_children(start_node: Node) -> AsyncIterator[Node]:
+    try:
+        children = await start_node.get_children()
+    except Exception:
+        return
+
+    for child in children:
+        yield child
+
+
 def merge_bindings[T](primary: dict[str, T], fallback: dict[str, T]) -> dict[str, T]:
     merged = dict(fallback)
     merged.update(primary)
     return merged
 
 
-async def discover_method_bindings(motion_device_node: Node) -> dict[str, MethodBinding]:
+async def discover_method_bindings(
+    motion_device_node: Node,
+    *,
+    max_depth: int | None = None,
+) -> dict[str, MethodBinding]:
     methods: dict[str, MethodBinding] = {}
 
-    async for node in iter_descendants(motion_device_node):
+    direct_children = [child async for child in iter_direct_children(motion_device_node)]
+    direct_methods: dict[str, MethodBinding] = {}
+    for node in direct_children:
+        try:
+            node_class = await node.read_node_class()
+        except Exception:
+            continue
+        if node_class != ua.NodeClass.Method:
+            continue
+
+        binding = await build_method_binding(node)
+        key = normalize_capability_name(binding.browse_name or binding.display_name or "")
+        if not key:
+            continue
+        direct_methods.setdefault(key, binding)
+
+        names = f"{(binding.display_name or '').lower()} {(binding.browse_name or '').lower()}"
+        if any(token in names for token in ["endeff", "end_eff", "endeffector", "gripper"]):
+            direct_methods.setdefault("toggleEndEffector", binding)
+
+    if direct_methods:
+        logger.info(
+            "opcua discovery direct method scan hit for %s: count=%s",
+            motion_device_node.nodeid.to_string(),
+            len(direct_methods),
+        )
+        return direct_methods
+
+    iterator: AsyncIterator[Node]
+    if max_depth is None:
+        iterator = iter_descendants(motion_device_node)
+    else:
+        iterator = iter_descendants_limited(motion_device_node, max_depth=max_depth)
+
+    async for node in iterator:
         try:
             node_class = await node.read_node_class()
         except Exception:
@@ -318,13 +449,23 @@ async def discover_method_bindings(motion_device_node: Node) -> dict[str, Method
         if any(token in names for token in ["endeff", "end_eff", "endeffector", "gripper"]):
             methods.setdefault("toggleEndEffector", binding)
 
+    logger.info(
+        "opcua discovery method fallback scan used for %s: count=%s",
+        motion_device_node.nodeid.to_string(),
+        len(methods),
+    )
     return methods
 
 
-async def discover_skill_bindings(motion_device_node: Node) -> dict[str, SkillBinding]:
+async def discover_skill_bindings(
+    motion_device_node: Node,
+    *,
+    max_depth: int | None = None,
+) -> dict[str, SkillBinding]:
     skills: dict[str, SkillBinding] = {}
 
-    async for node in iter_descendants(motion_device_node):
+    direct_children = [child async for child in iter_direct_children(motion_device_node)]
+    for node in direct_children:
         try:
             node_class = await node.read_node_class()
         except Exception:
@@ -380,13 +521,93 @@ async def discover_skill_bindings(motion_device_node: Node) -> dict[str, SkillBi
             ),
         )
 
+    if skills:
+        logger.info(
+            "opcua discovery direct skill scan hit for %s: count=%s",
+            motion_device_node.nodeid.to_string(),
+            len(skills),
+        )
+        return skills
+
+    iterator: AsyncIterator[Node]
+    if max_depth is None:
+        iterator = iter_descendants(motion_device_node)
+    else:
+        iterator = iter_descendants_limited(motion_device_node, max_depth=max_depth)
+
+    async for node in iterator:
+        try:
+            node_class = await node.read_node_class()
+        except Exception:
+            continue
+        if node_class != ua.NodeClass.Object:
+            continue
+
+        parameter_set = await child_by_name(node, "ParameterSet")
+        result_set = await child_by_name(node, "ResultSet")
+        current_state = await child_by_name(node, "CurrentState")
+
+        if parameter_set is None and result_set is None and current_state is None:
+            continue
+
+        start = await child_by_name(node, "Start")
+        halt = await child_by_name(node, "Halt")
+        reset = await child_by_name(node, "Reset")
+        suspend = await child_by_name(node, "Suspend")
+        resume = await child_by_name(node, "Resume")
+
+        if start is None and halt is None and reset is None and suspend is None and resume is None:
+            continue
+
+        display_name = await read_display_name(node)
+        browse_name = await read_browse_name(node)
+        key = normalize_capability_name(browse_name or display_name)
+        if not key:
+            continue
+
+        skills.setdefault(
+            key,
+            SkillBinding(
+                node_id=node.nodeid.to_string(),
+                display_name=display_name,
+                browse_name=browse_name,
+                node_class=await read_node_class_name(node),
+                parameter_set_node_id=parameter_set.nodeid.to_string()
+                if parameter_set is not None
+                else None,
+                result_set_node_id=result_set.nodeid.to_string()
+                if result_set is not None
+                else None,
+                current_state_node_id=current_state.nodeid.to_string()
+                if current_state is not None
+                else None,
+                start_node_id=start.nodeid.to_string() if start is not None else None,
+                halt_node_id=halt.nodeid.to_string() if halt is not None else None,
+                reset_node_id=reset.nodeid.to_string() if reset is not None else None,
+                suspend_node_id=suspend.nodeid.to_string() if suspend is not None else None,
+                resume_node_id=resume.nodeid.to_string() if resume is not None else None,
+                parameters=await discover_named_variable_bindings(parameter_set),
+                results=await discover_named_variable_bindings(result_set),
+            ),
+        )
+
+    logger.info(
+        "opcua discovery skill fallback scan used for %s: count=%s",
+        motion_device_node.nodeid.to_string(),
+        len(skills),
+    )
     return skills
 
 
-async def discover_variable_bindings(motion_device_node: Node) -> dict[str, str]:
+async def discover_variable_bindings(
+    motion_device_node: Node,
+    *,
+    max_depth: int | None = None,
+) -> dict[str, str]:
     variables: dict[str, str] = {}
 
-    async for node in iter_descendants(motion_device_node):
+    direct_children = [child async for child in iter_direct_children(motion_device_node)]
+    for node in direct_children:
         try:
             node_class = await node.read_node_class()
         except Exception:
@@ -401,6 +622,40 @@ async def discover_variable_bindings(motion_device_node: Node) -> dict[str, str]
         if any(token in names for token in ["mode", "robotstate", "robot state"]):
             variables.setdefault("mode", node.nodeid.to_string())
 
+    if variables:
+        logger.info(
+            "opcua discovery direct variable scan hit for %s: count=%s",
+            motion_device_node.nodeid.to_string(),
+            len(variables),
+        )
+        return variables
+
+    iterator: AsyncIterator[Node]
+    if max_depth is None:
+        iterator = iter_descendants(motion_device_node)
+    else:
+        iterator = iter_descendants_limited(motion_device_node, max_depth=max_depth)
+
+    async for node in iterator:
+        try:
+            node_class = await node.read_node_class()
+        except Exception:
+            continue
+        if node_class != ua.NodeClass.Variable:
+            continue
+
+        display = (await read_display_name(node)).lower()
+        browse = (await read_browse_name(node)).lower()
+        names = f"{display} {browse}"
+
+        if any(token in names for token in ["mode", "robotstate", "robot state"]):
+            variables.setdefault("mode", node.nodeid.to_string())
+
+    logger.info(
+        "opcua discovery variable fallback scan used for %s: count=%s",
+        motion_device_node.nodeid.to_string(),
+        len(variables),
+    )
     return variables
 
 
@@ -416,24 +671,40 @@ async def discover_motion_device_descriptors(
     objects_node = client.nodes.objects
 
     motion_device_nodes = await discover_motion_device_nodes(
+        client=client,
         start_node=device_set,
         namespace_uris=namespace_uris,
     )
     robotics_namespace_index = namespace_index(namespace_uris, ROBOTICS_NAMESPACE_URI)
 
     descriptors: list[MotionDeviceDescriptor] = []
-    global_variables = await discover_variable_bindings(objects_node)
-    global_methods = await discover_method_bindings(objects_node)
-    global_skills = await discover_skill_bindings(objects_node)
+    global_variables = await discover_variable_bindings(objects_node, max_depth=4)
+    if not global_variables:
+        global_variables = await discover_variable_bindings(objects_node)
+
+    global_methods = await discover_method_bindings(objects_node, max_depth=4)
+    if not global_methods:
+        global_methods = await discover_method_bindings(objects_node)
+
+    global_skills = await discover_skill_bindings(objects_node, max_depth=4)
+    if not global_skills:
+        global_skills = await discover_skill_bindings(objects_node)
 
     for motion_device_node in motion_device_nodes:
-        local_variables = await discover_variable_bindings(motion_device_node)
+        local_variables = await discover_variable_bindings(motion_device_node, max_depth=4)
+        if not local_variables:
+            local_variables = await discover_variable_bindings(motion_device_node)
         local_axes = await discover_axis_bindings(
             motion_device_node=motion_device_node,
             namespace_uris=namespace_uris,
         )
-        local_methods = await discover_method_bindings(motion_device_node)
-        local_skills = await discover_skill_bindings(motion_device_node)
+        local_methods = await discover_method_bindings(motion_device_node, max_depth=4)
+        if not local_methods:
+            local_methods = await discover_method_bindings(motion_device_node)
+
+        local_skills = await discover_skill_bindings(motion_device_node, max_depth=4)
+        if not local_skills:
+            local_skills = await discover_skill_bindings(motion_device_node)
 
         info = RobotInfo(
             manufacturer=await read_text_child(motion_device_node, "Manufacturer"),

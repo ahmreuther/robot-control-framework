@@ -59,6 +59,7 @@ function robot(robotId: string, offset = 0): Robot {
     },
     panel: {
       useDegrees: false,
+      takeControlActive: false,
       showCollisionMap: false,
       showWorkspace: false,
       workspaceSampleCount: 1000000,

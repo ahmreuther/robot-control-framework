@@ -1,10 +1,12 @@
 import { useState } from "react";
 
+import { useAppFeedback } from "../../../app/context/AppFeedbackContext";
 import CreateRobot from "./CreateRobot";
 import RobotDetails from "./RobotDetails";
 import { useRobotControl } from "../context/RobotControlContext";
 
 export default function RobotManager() {
+  const feedback = useAppFeedback();
   const {
     robots,
     activeRobotId,
@@ -15,6 +17,7 @@ export default function RobotManager() {
     bindRobotToMotionDevice,
     startRobotSync,
     stopRobotSync,
+    setRobotTakeControl,
   } = useRobotControl();
   const [robotsOpen, setRobotsOpen] = useState(true);
   const [openRobotIds, setOpenRobotIds] = useState<Record<string, boolean>>({});
@@ -30,6 +33,22 @@ export default function RobotManager() {
     }
 
     startRobotSync(robotId);
+  }
+
+  async function handleToggleTakeControl(robotId: string, enabled: boolean) {
+    try {
+      await setRobotTakeControl(robotId, enabled);
+    } catch (error) {
+      feedback.showError(
+        enabled ? "Failed to take control" : "Failed to release control",
+        {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Robot control request failed.",
+        },
+      );
+    }
   }
 
   function toggleRobotOpen(robotId: string) {
@@ -65,6 +84,7 @@ export default function RobotManager() {
           {robots.map((robot) => {
             const isActive = activeRobotId === robot.robotId;
             const syncing = isSyncing(robot.robotId);
+            const takeControlActive = robot.panel.takeControlActive;
             const isOpen = !!openRobotIds[robot.robotId];
             const boundMotionDevice = robot.motionDeviceId
               ? (motionDevices.find(
@@ -87,6 +107,19 @@ export default function RobotManager() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      className={`button-ghost ${takeControlActive ? "active" : ""}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleToggleTakeControl(
+                          robot.robotId,
+                          !takeControlActive,
+                        );
+                      }}
+                      disabled={!canSync}
+                    >
+                      Take Control
+                    </button>
                     <button
                       className={`button-ghost ${syncing ? "active" : ""}`}
                       onClick={(event) => {

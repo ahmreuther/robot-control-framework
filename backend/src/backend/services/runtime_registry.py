@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from backend.opcua.discovery import ServerDiscoveryResult
 from backend.runtime.robot_session import RobotSession
 from backend.runtime.server_session import ServerSession
 from backend.runtime.surface_job import SurfaceJob
@@ -12,6 +13,7 @@ class RuntimeRegistry:
     def __init__(self) -> None:
         self._servers_by_url: dict[str, ServerSession] = {}
         self._robots_by_id: dict[str, RobotSession] = {}
+        self._discovery_cache_by_url: dict[str, ServerDiscoveryResult] = {}
         self._surface_jobs_by_id: dict[str, SurfaceJob] = {}
         self._next_surface_job_id = 1
 
@@ -44,6 +46,15 @@ class RuntimeRegistry:
         if server is not None:
             await server.disconnect()
         return self.remove_server(server_url)
+
+    def get_cached_discovery(self, server_url: str) -> ServerDiscoveryResult | None:
+        return self._discovery_cache_by_url.get(server_url)
+
+    def cache_discovery_result(self, result: ServerDiscoveryResult) -> None:
+        self._discovery_cache_by_url[result.server.server_url] = result
+
+    def clear_cached_discovery(self, server_url: str) -> None:
+        self._discovery_cache_by_url.pop(server_url, None)
 
     def register_robot(self, server_url: str, robot: RobotSession) -> None:
         server = self.ensure_server(server_url)
@@ -87,6 +98,7 @@ class RuntimeRegistry:
     def clear(self) -> None:
         self._servers_by_url.clear()
         self._robots_by_id.clear()
+        self._discovery_cache_by_url.clear()
         self._surface_jobs_by_id.clear()
 
     @property

@@ -83,6 +83,7 @@ export interface RobotVisualBinding {
 
 export interface RobotPanelState {
   useDegrees: boolean;
+  takeControlActive: boolean;
   showCollisionMap: boolean;
   showWorkspace: boolean;
   workspaceSampleCount: number;
@@ -137,6 +138,7 @@ export function createRobotFromSession(session: RobotSessionInfo): Robot {
     },
     panel: {
       useDegrees: false,
+      takeControlActive: false,
       showCollisionMap: false,
       showWorkspace: false,
       workspaceSampleCount: 1000000,
@@ -219,5 +221,9 @@ export function unbindRobotFromMotionDevice(robot: Robot): Robot {
     status: 'unknown',
     mode: null,
     actionStates: {},
+    panel: {
+      ...robot.panel,
+      takeControlActive: false,
+    },
   };
 }

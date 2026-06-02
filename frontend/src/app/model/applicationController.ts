@@ -94,6 +94,13 @@ export class ApplicationController {
   private readonly jointRuntime: RobotJointRuntime;
   private readonly listeners = new Set<ApplicationStateListener>();
   private readonly unsubscribeClientMessage: () => void;
+  private readonly pendingMethodCallWaiters = new Map<
+    string,
+    {
+      resolve: () => void;
+      reject: (error: Error) => void;
+    }
+  >();
 
   constructor(options: ApplicationControllerOptions) {
     this.client = options.client;
@@ -356,6 +363,52 @@ export class ApplicationController {
     return motionDeviceId ? this.client.unsubscribeRobotJoints(motionDeviceId) : '';
   }
 
+  async setRobotTakeControl(robotId: string, enabled: boolean): Promise<string[]> {
+    const robot = this.requireRobot(robotId);
+    this.requireBoundMotionDeviceId(robotId);
+
+    const requestIds: string[] = [];
+
+    if (enabled) {
+      const createSessionRequestId = this.executeRobotAction(
+        robotId,
+        'createSession',
+        buildDefaultActionInputs(robot, 'createSession'),
+      );
+      requestIds.push(createSessionRequestId);
+      await this.waitForMethodCall(createSessionRequestId);
+      if (robot.actions?.initLock) {
+        const initLockRequestId = this.executeRobotAction(
+          robotId,
+          'initLock',
+          buildDefaultActionInputs(robot, 'initLock'),
+        );
+        requestIds.push(initLockRequestId);
+        await this.waitForMethodCall(initLockRequestId);
+      }
+    } else {
+      if (robot.actions?.exitLock) {
+        const exitLockRequestId = this.executeRobotAction(
+          robotId,
+          'exitLock',
+          buildDefaultActionInputs(robot, 'exitLock'),
+        );
+        requestIds.push(exitLockRequestId);
+        await this.waitForMethodCall(exitLockRequestId);
+      }
+      const invalidateSessionRequestId = this.executeRobotAction(
+        robotId,
+        'invalidateSession',
+        buildDefaultActionInputs(robot, 'invalidateSession'),
+      );
+      requestIds.push(invalidateSessionRequestId);
+      await this.waitForMethodCall(invalidateSessionRequestId);
+    }
+
+    this.updateRobotPanelState(robotId, { takeControlActive: enabled });
+    return requestIds;
+  }
+
   updateRobotVisualBinding(
     robotId: string,
     visual: Partial<RobotVisualBinding>,
@@ -615,6 +668,14 @@ export class ApplicationController {
     this.serverState = applyServerMessage(this.serverState, message);
     this.robotState = applyRobotMessage(this.robotState, message);
 
+    if (
+      'requestId' in message &&
+      typeof message.requestId === 'string' &&
+      this.serverState.methodCallStatuses[message.requestId]
+    ) {
+      this.resolvePendingMethodCallWaiter(message.requestId);
+    }
+
     if (message.type === 'robotActionState' && message.data.actionName === 'goto') {
       const localRobotId = this.findRobotInstanceIdByMotionDeviceId(message.robotId);
       if (localRobotId && isGotoStateReady(message.data)) {
@@ -665,6 +726,44 @@ export class ApplicationController {
     this.emitState();
   }
 
+  private waitForMethodCall(requestId: string): Promise<void> {
+    const existingStatus = this.serverState.methodCallStatuses[requestId];
+    if (existingStatus?.status === 'succeeded') {
+      return Promise.resolve();
+    }
+    if (existingStatus?.status === 'failed') {
+      return Promise.reject(
+        new Error(existingStatus.error?.message ?? `Request "${requestId}" failed.`),
+      );
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      this.pendingMethodCallWaiters.set(requestId, { resolve, reject });
+    });
+  }
+
+  private resolvePendingMethodCallWaiter(requestId: string): void {
+    const waiter = this.pendingMethodCallWaiters.get(requestId);
+    if (!waiter) {
+      return;
+    }
+
+    const status = this.serverState.methodCallStatuses[requestId];
+    if (!status || status.status === 'pending') {
+      return;
+    }
+
+    this.pendingMethodCallWaiters.delete(requestId);
+    if (status.status === 'succeeded') {
+      waiter.resolve();
+      return;
+    }
+
+    waiter.reject(
+      new Error(status.error?.message ?? `Request "${requestId}" failed.`),
+    );
+  }
+
   private emitState(): void {
     const snapshot = this.getSnapshot();
     for (const listener of this.listeners) {
@@ -711,6 +810,14 @@ function buildGotoActionInputs(
   return Object.fromEntries(
     Object.entries(inputs).filter(([name]) => allowedParameterNames.has(name)),
   );
+}
+
+function buildDefaultActionInputs(
+  robot: Robot,
+  actionName: string,
+): Record<string, unknown> {
+  const parameterNames = robot.actions?.[actionName]?.parameterNames ?? [];
+  return Object.fromEntries(parameterNames.map((name) => [name, null]));
 }
 
 function serializeGotoOptionalString(value: unknown): string {
