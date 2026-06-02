@@ -7,13 +7,19 @@ import {
   createLocalRobot,
   bindRobotToMotionDevice,
   unbindRobotFromMotionDevice,
+  createRobotFromSession,
   type Robot,
   type RobotPanelState,
+  type RobotSessionInfo,
   type RobotVisualBinding,
 } from '../../entities/robot/model/types';
 import type {
   RobotModelConfig,
   RobotOrigin,
+} from '../../features/robot-control/model/robotModels';
+import {
+  defaultRobotOrigin,
+  resolveRobotModelFromIdentity,
 } from '../../features/robot-control/model/robotModels';
 import {
   applyServerMessage,
@@ -665,8 +671,17 @@ export class ApplicationController {
       }
     }
 
+    if (message.type === 'robotsDiscovered') {
+      this.robotState = this.rebuildRobotsFromDiscoveredSessions(
+        message.serverUrl,
+        message.robots,
+      );
+    }
+
     this.serverState = applyServerMessage(this.serverState, message);
-    this.robotState = applyRobotMessage(this.robotState, message);
+    if (message.type !== 'robotsDiscovered') {
+      this.robotState = applyRobotMessage(this.robotState, message);
+    }
 
     if (
       'requestId' in message &&
@@ -717,6 +732,59 @@ export class ApplicationController {
       }
     }
     return null;
+  }
+
+  private rebuildRobotsFromDiscoveredSessions(
+    serverUrl: string,
+    sessions: RobotSessionInfo[],
+  ): RobotStoreState {
+    const nextById: RobotStoreState['byId'] = Object.fromEntries(
+      Object.entries(this.robotState.byId).filter(
+        ([, robot]) => robot.serverUrl !== serverUrl,
+      ),
+    );
+
+    for (const session of sessions) {
+      const existing = this.robotState.byId[session.robotId];
+      const model = resolveRobotModelFromIdentity({
+        displayName: session.displayName,
+        model: session.info.model,
+        manufacturer: session.info.manufacturer,
+        browseName: session.motionDevice.browseName,
+      });
+
+      const baseRobot = createRobotFromSession(session);
+      const nextRobot: Robot = {
+        ...baseRobot,
+        joints: existing?.joints ?? baseRobot.joints,
+        actionStates: existing?.actionStates ?? baseRobot.actionStates,
+        mode: existing?.mode ?? baseRobot.mode,
+        homeAngles: model?.homeAngles ?? existing?.homeAngles ?? null,
+        status: model ? session.status : 'error',
+        visual: {
+          ...baseRobot.visual,
+          urdfId: model?.id ?? null,
+          urdfLabel: model?.label ?? null,
+          urdfUrl: model?.url ?? null,
+          origin: existing?.visual.origin ?? defaultRobotOrigin(),
+          orderedUrdfJointNames: model?.orderedUrdfJointNames ?? [],
+          allUrdfJointNames: existing?.visual.allUrdfJointNames ?? [],
+          axisToJointName: existing?.visual.axisToJointName ?? {},
+        },
+        panel: existing?.panel ?? baseRobot.panel,
+      };
+      nextById[session.robotId] = nextRobot;
+    }
+
+    const nextActiveRobotId =
+      (this.robotState.activeRobotId && nextById[this.robotState.activeRobotId]
+        ? this.robotState.activeRobotId
+        : null) ?? Object.keys(nextById)[0] ?? null;
+
+    return {
+      byId: nextById,
+      activeRobotId: nextActiveRobotId,
+    };
   }
 
   private trackPendingMethodCall(

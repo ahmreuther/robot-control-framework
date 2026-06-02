@@ -20,7 +20,6 @@ import { useViewportSceneState } from "../../features/viewport/model/sceneState"
 import { ResizeHandle } from "../../shared/ui/ResizeHandle";
 import JointAnglesPanel from "../../features/robot-control/components/JointAnglesPanel";
 import { RobotInteractionProvider } from "../../features/robot-control/context/RobotInteractionContext";
-import RobotManager from "../../features/robot-control/components/RobotManager";
 import { RobotControlProvider } from "../../features/robot-control/context/RobotControlContext";
 
 export interface DesktopLayoutProps {
@@ -153,7 +152,6 @@ export function DesktopLayout({
                 <Panel defaultSize={18} minSize={14}>
                   <div className="flex h-full flex-col gap-2 overflow-auto">
                     <ServerManager />
-                    <RobotManager />
                   </div>
                 </Panel>
               </Group>

@@ -24,7 +24,10 @@ import {
   type JointSourceId,
   type JointType,
 } from "../../robot-control/model/jointStateManager";
-import { resolveHomeAnglesForModel } from "../../robot-control/model/robotModels";
+import {
+  resolveHomeAnglesForModel,
+  resolveRobotMountRotation,
+} from "../../robot-control/model/robotModels";
 import type { ViewportSceneState } from "../model/sceneState";
 import {
   getToolPointWorldPosition,
@@ -37,7 +40,6 @@ import DragControls from "./DragControls";
 import EnvironmentErrorBoundary from "./EnvironmentErrorBoundary";
 import EnvironmentLoader from "./EnvironmentLoader";
 import GoalMarker from "./GoalMarker";
-import RobotActionsPanel from "./RobotActionsPanel";
 import SolverStatusPanel, {
   type SolverStatusSnapshot,
 } from "./SolverStatusPanel";
@@ -413,6 +415,10 @@ function ViewportRobot({
   const manager = getJointManager(robot.robotId);
   const [managerActiveSourceId, setManagerActiveSourceId] =
     useState<JointSourceId | null>(null);
+  const mountRotation = useMemo(
+    () => resolveRobotMountRotation(robot.visual.urdfId),
+    [robot.visual.urdfId],
+  );
   const [loadedRobotState, setLoadedRobotState] = useState<URDFRobot | null>(
     null,
   );
@@ -491,7 +497,8 @@ function ViewportRobot({
         goalQuaternionRef.current = nextGoalQuaternion?.clone() ?? null;
         setIkConverged(true);
         lastValidGoalPositionRef.current = nextGoalPosition?.clone() ?? null;
-        lastValidGoalQuaternionRef.current = nextGoalQuaternion?.clone() ?? null;
+        lastValidGoalQuaternionRef.current =
+          nextGoalQuaternion?.clone() ?? null;
       }
     });
   }, [isSelected, manager]);
@@ -585,7 +592,6 @@ function ViewportRobot({
         angles: manager?.getState().angles ?? [],
       });
 
-      groupNode.rotation.x = -Math.PI / 2;
       loadedRobotRef.current = loadedRobot;
       ikModelRef.current = createRobotIkModel(loadedRobot, ikJointNames);
       groupNode.add(loadedRobot);
@@ -688,6 +694,9 @@ function ViewportRobot({
     isSelected,
     loadedRobotState,
     managerActiveSourceId,
+    mountRotation.x,
+    mountRotation.y,
+    mountRotation.z,
     robot.robotId,
   ]);
 
@@ -979,8 +988,7 @@ function ViewportRobot({
     const robotGroup = groupRef.current;
     const targetPosition = goalPositionRef.current;
     const targetQuaternion = goalQuaternionRef.current;
-    const isActiveIkManipulation =
-      managerActiveSourceId === JOINT_SOURCE_ID.IK;
+    const isActiveIkManipulation = managerActiveSourceId === JOINT_SOURCE_ID.IK;
     const hasConflictingManipulation =
       managerActiveSourceId !== null &&
       managerActiveSourceId !== JOINT_SOURCE_ID.IK &&
@@ -1153,10 +1161,9 @@ function ViewportRobot({
       <group
         ref={groupRef}
         position={[origin.x, origin.y, origin.z]}
-        rotation={[origin.roll, origin.pitch, origin.yaw]}
+        rotation={[mountRotation.x, mountRotation.y, mountRotation.z]}
         onClick={handleSelectRobot}
       >
-        {isSelected && <axesHelper args={[0.2]} />}
         <WorkspacePointCloud
           points={workspacePoints}
           visible={robot.panel.showWorkspace}
@@ -1263,9 +1270,6 @@ export default function Viewport({ sceneState }: ViewportProps) {
           status={solverStatus}
           movedDistance={movedDistance}
         />
-      </div>
-      <div className="absolute right-2 top-2 z-10">
-        <RobotActionsPanel robot={activeRobot} />
       </div>
       {manipulation?.syncMode &&
         (manipulation.sourceId === JOINT_SOURCE_ID.DRAG ||

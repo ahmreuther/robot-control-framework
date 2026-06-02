@@ -203,6 +203,8 @@ export function createRobotIkModel(
         convergedStatus: IK_SOLVE_STATUS_CONVERGED,
         translationError,
         translationConvergeThreshold: solver.translationConvergeThreshold,
+        rotationError,
+        rotationConvergeThreshold: solver.rotationConvergeThreshold,
       });
 
       return {

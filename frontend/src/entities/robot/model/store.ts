@@ -128,18 +128,18 @@ export function applyRobotMessage(
     }
 
     case 'serverDisconnected': {
-      const nextById = { ...state.byId };
-      for (const [robotId, robot] of Object.entries(nextById)) {
-        if (robot.serverUrl !== message.serverUrl) continue;
-        nextById[robotId] = {
-          ...unbindRobotFromMotionDevice(robot),
-          status: 'disconnected',
-        };
-      }
+      const nextById = Object.fromEntries(
+        Object.entries(state.byId).filter(
+          ([, robot]) => robot.serverUrl !== message.serverUrl,
+        ),
+      );
 
       return {
         byId: nextById,
-        activeRobotId: state.activeRobotId,
+        activeRobotId:
+          state.activeRobotId && nextById[state.activeRobotId]
+            ? state.activeRobotId
+            : Object.keys(nextById)[0] ?? null,
       };
     }
 

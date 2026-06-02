@@ -47,8 +47,7 @@ export default function RobotDetails({
   ];
 
   return (
-    <section className="panel">
-      <div className="overflow-auto">
+    <div className="overflow-auto">
         <table className="panel-table">
           <thead>
             <tr>
@@ -80,7 +79,6 @@ export default function RobotDetails({
             Warning: URDF joint count and bound motion-device axis count do not match.
           </div>
         )}
-      </div>
-    </section>
+    </div>
   );
 }

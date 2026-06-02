@@ -50,16 +50,6 @@ export default function ViewportHeaderControls({
     { key: "dampingFactor", label: "Damping Factor", step: 0.0001 },
     { key: "divergeThreshold", label: "Diverge Threshold", step: 0.001 },
     { key: "restPoseFactor", label: "Rest Pose Factor", step: 0.001 },
-    {
-      key: "translationConvergeThreshold",
-      label: "Move Converge",
-      step: 0.0001,
-    },
-    {
-      key: "rotationConvergeThreshold",
-      label: "Rotate Converge",
-      step: 0.00001,
-    },
     { key: "translationFactor", label: "Move Factor", step: 0.1 },
     { key: "rotationFactor", label: "Rotate Factor", step: 0.1 },
     { key: "translationStep", label: "Move Step", step: 0.0001 },

@@ -89,6 +89,17 @@
     border-color: rgb(var(--panel-border) / 0.1);
   }
 
+  .panel-header.active {
+    background: rgb(var(--brand) / 0.08);
+    box-shadow:
+      inset 0 1px 0 0 rgb(var(--brand) / 0.7),
+      inset 1px 0 0 0 rgb(var(--brand) / 0.7),
+      inset -1px 0 0 0 rgb(var(--brand) / 0.7),
+      inset 0 -1px 0 0 rgb(var(--brand) / 0.7),
+      0 0 6px 0 rgb(var(--brand) / 0.35);
+    color: rgb(var(--fg));
+  }
+
   .panel-title {
     @apply text-xs font-semibold uppercase tracking-wider;
     color: rgb(var(--fg) / 0.85);
@@ -311,6 +322,10 @@
 
   .panel-table tbody tr {
     border-bottom: 1px solid rgb(var(--panel-border) / 0.1);
+  }
+
+  .panel-table tbody tr:last-child {
+    border-bottom: none;
   }
 
   .panel-table tbody tr:hover {

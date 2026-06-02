@@ -1,11 +1,11 @@
 import { useState } from "react";
 
+import RobotManager from "../../robot-control/components/RobotManager";
 import { useOpcuaServer } from "../context/OpcuaServerContext";
 import ConnectOpcUa from "./ConnectOpcUa";
 
 export default function ServerManager() {
-  const { servers, activeServerUrl, disconnectServer, selectServer, snapshot } =
-    useOpcuaServer();
+  const { servers, activeServerUrl, disconnectServer, selectServer } = useOpcuaServer();
   const [serversOpen, setServersOpen] = useState(true);
 
   function handleRemoveServer(serverUrl: string) {
@@ -40,12 +40,13 @@ export default function ServerManager() {
           )}
 
           {servers.map((server) => (
-            <section
-              className={`panel ${activeServerUrl === server.serverUrl ? "active" : ""}`}
-              key={server.serverUrl}
-              onClick={() => handleSelectServer(server.serverUrl)}
-            >
-              <header className="panel-header cursor-pointer px-2 py-1">
+            <section className="panel" key={server.serverUrl}>
+              <header
+                className={`panel-header cursor-pointer px-2 py-1 ${
+                  activeServerUrl === server.serverUrl ? "active" : ""
+                }`}
+                onClick={() => handleSelectServer(server.serverUrl)}
+              >
                 <div className="min-w-0">
                   <div className="text-xs font-semibold tracking-wider">
                     {shortServerName(server.serverUrl)}
@@ -61,19 +62,7 @@ export default function ServerManager() {
                   Disconnect
                 </button>
               </header>
-              <div className="px-2 py-1 text-xs">Motion Devices:</div>
-              <ul className="list-panel">
-                {server.motionDeviceIds.length === 0 && (
-                  <li>No devices discovered.</li>
-                )}
-                {server.motionDeviceIds.map((motionDeviceId: string) => {
-                  const motionDevice =
-                    snapshot.server.motionDevicesById[motionDeviceId];
-                  return motionDevice ? (
-                    <li key={motionDeviceId}>{motionDevice.displayName}</li>
-                  ) : null;
-                })}
-              </ul>
+              <RobotManager serverUrl={server.serverUrl} embedded />
             </section>
           ))}
         </div>

@@ -1,29 +1,72 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppFeedback } from "../../../app/context/AppFeedbackContext";
-import CreateRobot from "./CreateRobot";
-import RobotDetails from "./RobotDetails";
+import { DisclosureSection } from "../../../shared/ui/DisclosureSection";
+import { Toggle } from "../../../shared/ui/Toggle";
 import { useRobotControl } from "../context/RobotControlContext";
+import RobotActionsPanel from "./RobotActionsPanel";
+import RobotDetails from "./RobotDetails";
 
-export default function RobotManager() {
+export interface RobotManagerProps {
+  serverUrl?: string;
+  embedded?: boolean;
+}
+
+export default function RobotManager({
+  serverUrl,
+  embedded = false,
+}: RobotManagerProps) {
   const feedback = useAppFeedback();
   const {
     robots,
     activeRobotId,
-    motionDevices,
     isSyncing,
-    removeRobot,
     selectRobot,
-    bindRobotToMotionDevice,
     startRobotSync,
     stopRobotSync,
     setRobotTakeControl,
+    motionDevices,
   } = useRobotControl();
-  const [robotsOpen, setRobotsOpen] = useState(true);
-  const [openRobotIds, setOpenRobotIds] = useState<Record<string, boolean>>({});
+  const [openSectionsByRobotId, setOpenSectionsByRobotId] = useState<
+    Record<string, { details: boolean; actions: boolean }>
+  >({});
+  const shownMissingUrdfErrorsRef = useRef<Set<string>>(new Set());
 
-  function handleSelectRobot(robotId: string) {
-    selectRobot(robotId);
+  useEffect(() => {
+    for (const robot of robots) {
+      if (
+        robot.visual.urdfUrl ||
+        shownMissingUrdfErrorsRef.current.has(robot.robotId)
+      ) {
+        continue;
+      }
+      shownMissingUrdfErrorsRef.current.add(robot.robotId);
+      feedback.showError(`No URDF mapping for ${robot.displayName}`, {
+        description:
+          "This motion device was discovered, but no supported URDF model mapping could be resolved.",
+      });
+    }
+  }, [feedback, robots]);
+
+  const robotsByDisplayName = useMemo(
+    () =>
+      [...robots]
+        .filter((robot) => (serverUrl ? robot.serverUrl === serverUrl : true))
+        .sort((left, right) =>
+          left.displayName.localeCompare(right.displayName),
+        ),
+    [robots, serverUrl],
+  );
+
+  function toggleSection(robotId: string, section: "details" | "actions") {
+    setOpenSectionsByRobotId((current) => ({
+      ...current,
+      [robotId]: {
+        details: current[robotId]?.details ?? false,
+        actions: current[robotId]?.actions ?? false,
+        [section]: !(current[robotId]?.[section] ?? false),
+      },
+    }));
   }
 
   function handleToggleSync(robotId: string) {
@@ -31,7 +74,6 @@ export default function RobotManager() {
       stopRobotSync(robotId);
       return;
     }
-
     startRobotSync(robotId);
   }
 
@@ -51,143 +93,107 @@ export default function RobotManager() {
     }
   }
 
-  function toggleRobotOpen(robotId: string) {
-    setOpenRobotIds((current) => ({
-      ...current,
-      [robotId]: !current[robotId],
-    }));
-  }
-
   return (
-    <section className="panel">
-      <header className="panel-header">
-        <div className="panel-title">Robots</div>
-        <div className="flex items-center gap-2">
-          <CreateRobot />
-          <button
-            className="button-ghost"
-            onClick={() => setRobotsOpen(!robotsOpen)}
-            aria-expanded={robotsOpen}
-          >
-            {robotsOpen ? "▼" : "▶"}
-          </button>
-        </div>
-      </header>
-      {robotsOpen && (
-        <div className="panel-body flex flex-col gap-2">
-          {robots.length === 0 && (
-            <div className="text-xs text-[rgb(var(--fg-muted))]">
-              No robot instances.
-            </div>
-          )}
+    <section className={embedded ? "" : "panel"}>
+      {!embedded ? (
+        <header className="panel-header">
+          <div className="panel-title">Motion Devices</div>
+        </header>
+      ) : null}
+      <div
+        className={
+          embedded
+            ? "flex flex-col gap-2 px-2 py-2"
+            : "panel-body flex flex-col gap-2"
+        }
+      >
+        {robotsByDisplayName.length === 0 ? (
+          <div className="text-xs text-[rgb(var(--fg-muted))]">
+            No discovered motion devices.
+          </div>
+        ) : null}
 
-          {robots.map((robot) => {
-            const isActive = activeRobotId === robot.robotId;
-            const syncing = isSyncing(robot.robotId);
-            const takeControlActive = robot.panel.takeControlActive;
-            const isOpen = !!openRobotIds[robot.robotId];
-            const boundMotionDevice = robot.motionDeviceId
-              ? (motionDevices.find(
-                  (motionDevice) =>
-                    motionDevice.robotId === robot.motionDeviceId,
-                ) ?? null)
-              : null;
-            const canSync = boundMotionDevice !== null;
+        {robotsByDisplayName.map((robot) => {
+          const isActive = activeRobotId === robot.robotId;
+          const syncing = isSyncing(robot.robotId);
+          const takeControlActive = robot.panel.takeControlActive;
+          const detailsOpen =
+            openSectionsByRobotId[robot.robotId]?.details ?? false;
+          const actionsOpen =
+            openSectionsByRobotId[robot.robotId]?.actions ?? false;
+          const motionDevice =
+            motionDevices.find(
+              (candidate) => candidate.robotId === robot.motionDeviceId,
+            ) ?? null;
 
-            return (
-              <section
-                className={`panel ${isActive ? "active" : ""}`}
-                key={robot.robotId}
-                onClick={() => handleSelectRobot(robot.robotId)}
+          return (
+            <section key={robot.robotId} className="panel transition-colors">
+              <div
+                className={`panel-header cursor-pointer px-2 py-2 ${isActive ? "active" : ""}`}
+                onClick={() => selectRobot(robot.robotId)}
               >
-                <header className="panel-header px-2 py-1">
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold tracking-wider">
-                      {robot.displayName}
-                    </div>
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold tracking-wider">
+                    {robot.displayName}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      className={`button-ghost ${takeControlActive ? "active" : ""}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleToggleTakeControl(
-                          robot.robotId,
-                          !takeControlActive,
-                        );
+                </div>
+              </div>
+              <div className="panel-body flex flex-col gap-2">
+                <div className="flex flex-col gap-2 text-xs">
+                  <label className="flex items-center justify-between gap-3">
+                    <span>Take Control</span>
+                    <Toggle
+                      checked={takeControlActive}
+                      disabled={!isActive}
+                      onChange={(checked) => {
+                        void handleToggleTakeControl(robot.robotId, checked);
                       }}
-                      disabled={!canSync}
-                    >
-                      Take Control
-                    </button>
-                    <button
-                      className={`button-ghost ${syncing ? "active" : ""}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-3">
+                    <span>Sync</span>
+                    <Toggle
+                      checked={syncing}
+                      disabled={!isActive || !robot.visual.urdfUrl}
+                      onChange={() => {
                         handleToggleSync(robot.robotId);
                       }}
-                      disabled={!canSync}
-                    >
-                      Sync
-                    </button>
-                    <button
-                      className="button-ghost"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        removeRobot(robot.robotId);
-                      }}
-                    >
-                      Remove
-                    </button>
-                    <button
-                      className={`button-ghost ${isOpen ? "active" : ""}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleRobotOpen(robot.robotId);
-                      }}
-                    >
-                      Details
-                    </button>
-                  </div>
-                </header>
-
-                <div className="panel-body flex flex-col gap-2 text-xs">
-                  <select
-                    className="select w-full"
-                    value={robot.motionDeviceId ?? ""}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) =>
-                      bindRobotToMotionDevice(
-                        robot.robotId,
-                        event.target.value || null,
-                      )
-                    }
-                  >
-                    <option value="">Offline</option>
-                    {motionDevices.map((motionDevice) => (
-                      <option
-                        key={motionDevice.robotId}
-                        value={motionDevice.robotId}
-                      >
-                        {motionDevice.displayName} (
-                        {shortServerName(motionDevice.serverUrl)})
-                      </option>
-                    ))}
-                  </select>
-
-                  {isOpen && (
-                    <RobotDetails
-                      robot={robot}
-                      motionDevice={boundMotionDevice}
-                      syncing={syncing}
                     />
-                  )}
+                  </label>
                 </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
+
+                {!robot.visual.urdfUrl ? (
+                  <div className="px-1 py-1 text-[11px] text-[rgb(var(--warn))]">
+                    No URDF mapping available for this motion device.
+                  </div>
+                ) : null}
+
+                <DisclosureSection
+                  title="Details"
+                  open={detailsOpen}
+                  onToggle={() => toggleSection(robot.robotId, "details")}
+                  contentClassName="p-0 gap-0"
+                >
+                  <RobotDetails
+                    robot={robot}
+                    motionDevice={motionDevice}
+                    syncing={syncing}
+                  />
+                </DisclosureSection>
+
+                <DisclosureSection
+                  title="Actions"
+                  open={actionsOpen}
+                  onToggle={() => toggleSection(robot.robotId, "actions")}
+                  contentClassName="p-0 gap-0"
+                >
+                  <RobotActionsPanel robot={robot} embedded />
+                </DisclosureSection>
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </section>
   );
 }

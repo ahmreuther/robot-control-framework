@@ -68,6 +68,8 @@ export function evaluateIkConvergence(params: {
   convergedStatus: number;
   translationError: number;
   translationConvergeThreshold: number;
+  rotationError: number;
+  rotationConvergeThreshold: number;
 }): boolean {
   const {
     constraintMode,
@@ -75,10 +77,15 @@ export function evaluateIkConvergence(params: {
     convergedStatus,
     translationError,
     translationConvergeThreshold,
+    rotationError,
+    rotationConvergeThreshold,
   } = params;
 
   if (constraintMode === "pose") {
-    return statuses.every((status) => status === convergedStatus);
+    return (
+      translationError <= translationConvergeThreshold &&
+      rotationError <= rotationConvergeThreshold
+    );
   }
 
   return translationError <= translationConvergeThreshold;

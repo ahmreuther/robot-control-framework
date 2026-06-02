@@ -4,6 +4,11 @@ export interface RobotModelConfig {
   url: string;
   orderedUrdfJointNames: string[];
   homeAngles: number[] | null;
+  mountRotation?: {
+    x: number;
+    y: number;
+    z: number;
+  };
 }
 
 export interface RobotOrigin {
@@ -13,6 +18,17 @@ export interface RobotOrigin {
   roll: number;
   pitch: number;
   yaw: number;
+}
+
+export function defaultRobotOrigin(): RobotOrigin {
+  return {
+    x: 0,
+    y: 0,
+    z: 0,
+    roll: 0,
+    pitch: 0,
+    yaw: 0,
+  };
 }
 
 const DEGREE_TO_RADIAN = Math.PI / 180;
@@ -62,6 +78,11 @@ export const ROBOT_MODEL_OPTIONS: RobotModelConfig[] = [
     id: "eva",
     label: "EVA",
     url: "/urdf/eva_description/urdf/eva_description.urdf",
+    mountRotation: {
+      x: -Math.PI / 2,
+      y: 0,
+      z: 0,
+    },
     orderedUrdfJointNames: [
       "joint_1",
       "joint_2",
@@ -83,6 +104,11 @@ export const ROBOT_MODEL_OPTIONS: RobotModelConfig[] = [
     id: "fr3",
     label: "FR3",
     url: "/urdf/fr3_description/urdf/fr3.urdf",
+    mountRotation: {
+      x: 0,
+      y: 0,
+      z: 0,
+    },
     orderedUrdfJointNames: [
       "arm_joint1",
       "arm_joint2",
@@ -106,6 +132,11 @@ export const ROBOT_MODEL_OPTIONS: RobotModelConfig[] = [
     id: "fr3_wagon",
     label: "FR3 with Wagon",
     url: "/urdf/fr3_description_with_wagon/urdf/fr3.urdf",
+    mountRotation: {
+      x: 0,
+      y: 0,
+      z: 0,
+    },
     orderedUrdfJointNames: [
       "arm_joint1",
       "arm_joint2",
@@ -129,6 +160,11 @@ export const ROBOT_MODEL_OPTIONS: RobotModelConfig[] = [
     id: "ur5e",
     label: "UR5e",
     url: "/urdf/ur5_description/urdf/ur5_robot.urdf",
+    mountRotation: {
+      x: -Math.PI / 2,
+      y: 0,
+      z: 0,
+    },
     orderedUrdfJointNames: [
       "shoulder_pan_joint",
       "shoulder_lift_joint",
@@ -147,3 +183,54 @@ export const ROBOT_MODEL_OPTIONS: RobotModelConfig[] = [
     ]),
   },
 ];
+
+export function resolveRobotModelFromIdentity(input: {
+  displayName?: string | null;
+  model?: string | null;
+  manufacturer?: string | null;
+  browseName?: string | null;
+}): RobotModelConfig | null {
+  const haystack = [
+    input.displayName,
+    input.model,
+    input.manufacturer,
+    input.browseName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (haystack.includes("eva")) {
+    return ROBOT_MODEL_OPTIONS.find((model) => model.id === "eva") ?? null;
+  }
+  if (
+    haystack.includes("franka") ||
+    haystack.includes("fr3") ||
+    haystack.includes("research 3")
+  ) {
+    if (haystack.includes("wagon")) {
+      return ROBOT_MODEL_OPTIONS.find((model) => model.id === "fr3_wagon") ?? null;
+    }
+    return ROBOT_MODEL_OPTIONS.find((model) => model.id === "fr3") ?? null;
+  }
+  if (haystack.includes("ur5e") || haystack.includes("ur5")) {
+    return ROBOT_MODEL_OPTIONS.find((model) => model.id === "ur5e") ?? null;
+  }
+
+  return null;
+}
+
+export function resolveRobotMountRotation(modelId?: string | null): {
+  x: number;
+  y: number;
+  z: number;
+} {
+  const model = ROBOT_MODEL_OPTIONS.find((candidate) => candidate.id === modelId);
+  return (
+    model?.mountRotation ?? {
+      x: 0,
+      y: 0,
+      z: 0,
+    }
+  );
+}
