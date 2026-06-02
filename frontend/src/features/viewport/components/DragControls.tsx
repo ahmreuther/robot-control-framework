@@ -74,6 +74,19 @@ export default function DragControls({
   const dragStartPointRef = useRef<THREE.Vector3 | null>(null);
   const dragPlaneRef = useRef<THREE.Plane | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
+  const onDragStartRef = useRef(onDragStart);
+  const onDragEndRef = useRef(onDragEnd);
+  const onHoverRef = useRef(onHover);
+  const onUnhoverRef = useRef(onUnhover);
+  const onUpdateJointRef = useRef(onUpdateJoint);
+
+  useEffect(() => {
+    onDragStartRef.current = onDragStart;
+    onDragEndRef.current = onDragEnd;
+    onHoverRef.current = onHover;
+    onUnhoverRef.current = onUnhover;
+    onUpdateJointRef.current = onUpdateJoint;
+  }, [onDragEnd, onDragStart, onHover, onUnhover, onUpdateJoint]);
 
   useEffect(() => {
     const domElement = gl.domElement;
@@ -153,7 +166,7 @@ export default function DragControls({
         };
 
         if (
-          onUpdateJoint &&
+          onUpdateJointRef.current &&
           dragPlaneRef.current &&
           dragStartPointRef.current
         ) {
@@ -199,7 +212,10 @@ export default function DragControls({
               nextValue += endProjection - startProjection;
             }
 
-            onUpdateJoint(joint, clampJointValue(joint, nextValue));
+            onUpdateJointRef.current(
+              joint,
+              clampJointValue(joint, nextValue),
+            );
           }
         }
 
@@ -214,12 +230,12 @@ export default function DragControls({
           : null;
 
       if (hoveredJoint !== hoveredRef.current) {
-        if (hoveredRef.current && onUnhover) {
-          onUnhover(hoveredRef.current);
+        if (hoveredRef.current && onUnhoverRef.current) {
+          onUnhoverRef.current(hoveredRef.current);
         }
         hoveredRef.current = hoveredJoint;
-        if (hoveredJoint && onHover) {
-          onHover(hoveredJoint);
+        if (hoveredJoint && onHoverRef.current) {
+          onHoverRef.current(hoveredJoint);
         }
       }
 
@@ -291,14 +307,14 @@ export default function DragControls({
       }
 
       setCursor("grabbing");
-      onDragStart?.(joint);
+      onDragStartRef.current?.(joint);
       activePointerIdRef.current = event.pointerId;
       domElement.setPointerCapture(event.pointerId);
     }
 
     function pointerUp(event: PointerEvent) {
       if (draggingRef.current) {
-        onDragEnd?.(draggingRef.current);
+        onDragEndRef.current?.(draggingRef.current);
         draggingRef.current = null;
         dragStartPointRef.current = null;
         dragPlaneRef.current = null;
@@ -314,7 +330,7 @@ export default function DragControls({
 
     return () => {
       if (draggingRef.current) {
-        onDragEnd?.(draggingRef.current);
+        onDragEndRef.current?.(draggingRef.current);
         draggingRef.current = null;
       }
       domElement.removeEventListener("pointermove", pointerMove);
@@ -326,11 +342,6 @@ export default function DragControls({
     camera,
     enabled,
     gl.domElement,
-    onDragEnd,
-    onDragStart,
-    onHover,
-    onUnhover,
-    onUpdateJoint,
     robot,
   ]);
 

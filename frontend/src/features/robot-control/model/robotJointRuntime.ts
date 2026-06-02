@@ -42,6 +42,8 @@ interface InFlightSyncGotoRequest {
   requestId: string;
 }
 
+const DEFAULT_SYNC_GOTO_CHANGE_THRESHOLD = 1e-2;
+
 interface JointAnimationState {
   robotId: string;
   fromAngles: number[];
@@ -117,6 +119,24 @@ export class RobotJointRuntime {
 
   clearSyncGotoInFlight(robotId: string): void {
     this.syncGotoRequestByRobotId.delete(robotId);
+  }
+
+  hasMeaningfulManipulationChange(
+    robotId: string,
+    threshold = DEFAULT_SYNC_GOTO_CHANGE_THRESHOLD,
+  ): boolean {
+    const state = this.manipulationsByRobotId.get(robotId);
+    if (!state) {
+      return false;
+    }
+    const currentAngles = this.getManager(robotId).getAngles();
+    const checkpointAngles = state.checkpointAngles;
+    if (currentAngles.length !== checkpointAngles.length) {
+      return true;
+    }
+    return currentAngles.some(
+      (angle, index) => Math.abs(angle - checkpointAngles[index]) > threshold,
+    );
   }
 
   startAnimationToAngles(

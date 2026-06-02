@@ -22,7 +22,11 @@ from backend.models.robot import (
 from backend.models.server import ServerSessionInfo, ServerStatus
 from backend.opcua.discovery import ServerDiscoveryResult
 from backend.opcua.method_calls import normalize_method_inputs
-from backend.runtime.application_service import handle_client_message
+from backend.runtime.application_service import (
+    _extract_skill_current_state_text,
+    _map_skill_current_state_to_status,
+    handle_client_message,
+)
 from backend.services.runtime_registry import RuntimeRegistry
 
 
@@ -675,6 +679,19 @@ async def test_execute_robot_action_dispatches_skill_and_emits_runtime_state() -
         "inputs": {"args": []},
         "args": [],
     }
+
+
+def test_skill_current_state_normalization_accepts_structured_values() -> None:
+    current_state = _extract_skill_current_state_text(
+        {"Text": "Ready", "Locale": None}
+    )
+
+    assert current_state == "Ready"
+    assert _map_skill_current_state_to_status(current_state) == "idle"
+    assert (
+        _map_skill_current_state_to_status("LocalizedText(Text='Running', Locale=None)")
+        == "running"
+    )
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 import logging
+import re
+from typing import Any
 
 from backend.models.messages import (
     AddressSpaceChildrenEvent,
@@ -133,15 +135,27 @@ def ensure_connection(
 
 def _map_skill_current_state_to_status(current_state: str | None) -> str:
     normalized = (current_state or "").strip().lower()
-    if normalized in {"ready", "idle"}:
+    if re.search(r"\b(ready|idle)\b", normalized):
         return "idle"
-    if normalized in {"halted", "aborted", "stopped"}:
+    if re.search(r"\b(halted|aborted|stopped)\b", normalized):
         return "halted"
-    if normalized in {"reset", "resetting"}:
+    if re.search(r"\b(reset|resetting)\b", normalized):
         return "reset"
-    if normalized in {"failed", "error"}:
+    if re.search(r"\b(failed|error)\b", normalized):
         return "failed"
     return "running"
+
+
+def _extract_skill_current_state_text(raw_value: Any) -> str | None:
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, dict):
+        for key in ("Text", "text", "Name", "name"):
+            value = raw_value.get(key)
+            if value:
+                return str(value)
+        return str(raw_value)
+    return str(raw_value)
 
 
 async def _watch_skill_action_state(
@@ -160,7 +174,7 @@ async def _watch_skill_action_state(
     try:
         while True:
             raw_value = await connection.read_node_value(action.current_state_node_id)
-            current_state = str(raw_value) if raw_value is not None else None
+            current_state = _extract_skill_current_state_text(raw_value)
             if current_state != last_current_state:
                 state = RobotActionState(
                     action_name=action_name,

@@ -157,10 +157,7 @@ describe('ApplicationController', () => {
     });
 
     expect(started?.requestId).toBe('subscribe-joints-1');
-    expect(controller.getSnapshot().robot.byId[robotId]?.joints.axisValues).toEqual({
-      Axis_1: 1,
-      Axis_2: 2,
-    });
+    expect(controller.getSnapshot().robot.byId[robotId]?.joints.axisValues).toEqual({});
     expect(controller.getJointRuntime().getManager(robotId).getAngles()).toEqual([
       1,
       2,

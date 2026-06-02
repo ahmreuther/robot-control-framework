@@ -111,8 +111,13 @@ export function RobotInteractionProvider({
 
         if (current.syncMode && !cancel) {
           const manager = getJointManager(current.robotId);
+          const hasMeaningfulChange = runtime.hasMeaningfulManipulationChange(
+            current.robotId,
+          );
           if (!manager) {
             cancel = true;
+          } else if (!hasMeaningfulChange) {
+            preserveAnglesOnResume = false;
           } else if (runtime.hasInFlightSyncGoto(current.robotId)) {
             cancel = true;
           } else {

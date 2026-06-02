@@ -113,12 +113,12 @@ function formatOriginRotationValue(value: number, useDegrees: boolean): string {
 
 function toOriginPoseInput(
   origin: {
-  x: number;
-  y: number;
-  z: number;
-  roll: number;
-  pitch: number;
-  yaw: number;
+    x: number;
+    y: number;
+    z: number;
+    roll: number;
+    pitch: number;
+    yaw: number;
   },
   useDegrees: boolean,
 ): OriginPoseInput {
@@ -187,7 +187,10 @@ export default function JointAnglesPanel() {
     }
     setWorkspaceSampleInput(String(activeRobot.panel.workspaceSampleCount));
     setOriginPoseInput(
-      toOriginPoseInput(activeRobot.visual.origin, activeRobot.panel.useDegrees),
+      toOriginPoseInput(
+        activeRobot.visual.origin,
+        activeRobot.panel.useDegrees,
+      ),
     );
   }, [activeRobot]);
 
@@ -263,7 +266,11 @@ export default function JointAnglesPanel() {
     window.addEventListener("pointercancel", handleWindowPointerCancel, true);
     return () => {
       window.removeEventListener("pointerup", handleWindowPointerUp, true);
-      window.removeEventListener("pointercancel", handleWindowPointerCancel, true);
+      window.removeEventListener(
+        "pointercancel",
+        handleWindowPointerCancel,
+        true,
+      );
       sliderPointerActiveRef.current = false;
     };
   }, [managerState.activeSourceId]);
@@ -316,7 +323,8 @@ export default function JointAnglesPanel() {
   }
 
   function generateWorkspace(nextSampleCount?: number) {
-    const sampleCount = nextSampleCount ?? currentRobot.panel.workspaceSampleCount;
+    const sampleCount =
+      nextSampleCount ?? currentRobot.panel.workspaceSampleCount;
     setWorkspaceOptionsOpen(true);
     updateRobotPanelState(robotId, {
       showWorkspace: true,
@@ -351,8 +359,10 @@ export default function JointAnglesPanel() {
   const robotId = currentRobot.robotId;
   const syncActive = isSyncing(robotId);
   const syncSliderManipulationActive =
-    manipulation?.syncMode && managerState.activeSourceId === JOINT_SOURCE_ID.MANUAL;
-  const dragManipulationActive = managerState.activeSourceId === JOINT_SOURCE_ID.DRAG;
+    manipulation?.syncMode &&
+    managerState.activeSourceId === JOINT_SOURCE_ID.MANUAL;
+  const dragManipulationActive =
+    managerState.activeSourceId === JOINT_SOURCE_ID.DRAG;
   const canEdit =
     managerState.activeSourceId !== JOINT_SOURCE_ID.RESET &&
     managerState.activeSourceId !== JOINT_SOURCE_ID.ANIMATION &&
@@ -444,10 +454,10 @@ export default function JointAnglesPanel() {
             {(["x", "y", "z"] as const).map((field) => (
               <label key={field} className="flex min-w-0 items-center gap-2">
                 <span className="text-[rgb(var(--fg-muted))] uppercase">
-                  {field}
+                  {field}:
                 </span>
                 <input
-                  className="input-ghost min-w-0 w-full text-right"
+                  className="input-ghost min-w-0 w-full min-w-24 text-right"
                   type="number"
                   step="0.1"
                   value={originPoseInput[field]}
@@ -485,10 +495,10 @@ export default function JointAnglesPanel() {
             ).map(([field, label]) => (
               <label key={field} className="flex min-w-0 items-center gap-2">
                 <span className="text-[rgb(var(--fg-muted))] uppercase">
-                  {label}
+                  {label}:
                 </span>
                 <input
-                  className="input-ghost min-w-0 w-full text-right"
+                  className="input-ghost min-w-0 w-full min-w-24 text-right"
                   type="number"
                   step="0.1"
                   value={originPoseInput[field]}
@@ -647,7 +657,9 @@ export default function JointAnglesPanel() {
                           setHighlightedJointName(robotId, row.jointName)
                         }
                         onMouseLeave={() => {
-                          if (getHighlightedJointName(robotId) === row.jointName) {
+                          if (
+                            getHighlightedJointName(robotId) === row.jointName
+                          ) {
                             setHighlightedJointName(robotId, null);
                           }
                         }}

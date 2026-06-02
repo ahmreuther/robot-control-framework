@@ -602,15 +602,18 @@ export class ApplicationController {
       this.jointRuntime.clearSyncGotoInFlightByRequestId(message.requestId);
     }
 
-    this.serverState = applyServerMessage(this.serverState, message);
-    this.robotState = applyRobotMessage(this.robotState, message);
-
     if (message.type === 'robotJointState') {
       const localRobotId = this.findRobotInstanceIdByMotionDeviceId(message.robotId);
       if (localRobotId) {
         this.jointRuntime.update(localRobotId, message.data);
+        if (this.jointRuntime.isSyncing(localRobotId)) {
+          return;
+        }
       }
     }
+
+    this.serverState = applyServerMessage(this.serverState, message);
+    this.robotState = applyRobotMessage(this.robotState, message);
 
     if (message.type === 'robotActionState' && message.data.actionName === 'goto') {
       const localRobotId = this.findRobotInstanceIdByMotionDeviceId(message.robotId);

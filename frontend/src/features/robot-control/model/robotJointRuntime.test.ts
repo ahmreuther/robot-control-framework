@@ -324,4 +324,19 @@ describe('RobotJointRuntime', () => {
     expect(runtime.isSyncing('robot-a')).toBe(false);
   });
 
+  it('treats tiny sync drag changes as not meaningful for goto dispatch', () => {
+    const runtime = createRobotJointRuntime();
+    const manager = runtime.configureRobot(robot('robot-a'));
+
+    runtime.startSync(robot('robot-a'));
+    runtime.beginManipulation('robot-a', JOINT_SOURCE_ID.DRAG);
+    manager.updateFromSource(JOINT_SOURCE_ID.DRAG, [0.105, 0.205]);
+
+    expect(runtime.hasMeaningfulManipulationChange('robot-a')).toBe(false);
+
+    manager.updateFromSource(JOINT_SOURCE_ID.DRAG, [0.2, 0.3]);
+
+    expect(runtime.hasMeaningfulManipulationChange('robot-a')).toBe(true);
+  });
+
 });
