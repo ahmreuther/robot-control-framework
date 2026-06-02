@@ -14,7 +14,7 @@ We will add the full citation once the paper is accepted and published.
 
 ## Contents
 
-- [Feature Overview](docs/features.md)
-- [Architecture](docs/architecture.md)
-- [Data and Interface Model](docs/data-and-interface-model.md)
-- [Development Setup](docs/development.md)
+- [Feature Overview](./docs/features.md)
+- [Architecture](./docs/architecture.md)
+- [Data and Interface Model](./docs/data-and-interface-model.md)
+- [Development Setup](./docs/development.md)
