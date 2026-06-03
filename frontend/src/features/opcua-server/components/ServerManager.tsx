@@ -5,7 +5,8 @@ import { useOpcuaServer } from "../context/OpcuaServerContext";
 import ConnectOpcUa from "./ConnectOpcUa";
 
 export default function ServerManager() {
-  const { servers, activeServerUrl, disconnectServer, selectServer } = useOpcuaServer();
+  const { servers, activeServerUrl, disconnectServer, selectServer } =
+    useOpcuaServer();
   const [serversOpen, setServersOpen] = useState(true);
 
   function handleRemoveServer(serverUrl: string) {
@@ -22,13 +23,6 @@ export default function ServerManager() {
         <div className="panel-title">Servers</div>
         <div className="flex items-center gap-2">
           <ConnectOpcUa />
-          <button
-            className="button-ghost"
-            onClick={() => setServersOpen(!serversOpen)}
-            aria-expanded={serversOpen}
-          >
-            {serversOpen ? "▼" : "▶"}
-          </button>
         </div>
       </header>
       {serversOpen && (

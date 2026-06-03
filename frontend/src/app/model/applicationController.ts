@@ -2,7 +2,7 @@ import {
   applyRobotMessage,
   initialRobotStoreState,
   type RobotStoreState,
-} from '../../entities/robot/model/store';
+} from "../../entities/robot/model/store";
 import {
   createLocalRobot,
   bindRobotToMotionDevice,
@@ -12,15 +12,15 @@ import {
   type RobotPanelState,
   type RobotSessionInfo,
   type RobotVisualBinding,
-} from '../../entities/robot/model/types';
+} from "../../entities/robot/model/types";
 import type {
   RobotModelConfig,
   RobotOrigin,
-} from '../../features/robot-control/model/robotModels';
+} from "../../features/robot-control/model/robotModels";
 import {
   defaultRobotOrigin,
   resolveRobotModelFromIdentity,
-} from '../../features/robot-control/model/robotModels';
+} from "../../features/robot-control/model/robotModels";
 import {
   applyServerMessage,
   requestAddressSpaceChildren,
@@ -37,20 +37,20 @@ import {
   unmarkEventSubscription,
   unmarkNodeSubscription,
   type ServerStoreState,
-} from '../../entities/server/model/store';
+} from "../../entities/server/model/store";
 import {
   WscWebSocketClient,
   type MessageLogListener,
   type StatusListener,
   type WebSocketClientStatus,
-} from '../../shared/api/websocketClient';
-import type { ServerMessage } from '../../shared/api/messages';
+} from "../../shared/api/websocketClient";
+import type { ServerMessage } from "../../shared/api/messages";
 import {
   createRobotJointRuntime,
   type RobotJointRuntime,
   type RobotJointRuntimeStartResult,
-} from '../../features/robot-control/model/robotJointRuntime';
-import { mapVisualAnglesToAxisValues } from '../../features/robot-control/model/axisMapping';
+} from "../../features/robot-control/model/robotJointRuntime";
+import { mapVisualAnglesToAxisValues } from "../../features/robot-control/model/axisMapping";
 
 export interface ApplicationSnapshot {
   server: ServerStoreState;
@@ -88,7 +88,7 @@ export interface ApplicationControllerOptions {
   jointRuntime?: RobotJointRuntime;
 }
 
-const DEFAULT_GOTO_MODE = 'automatic';
+const DEFAULT_GOTO_MODE = "automatic";
 const DEFAULT_GOTO_SPEED = -1.0;
 const DEFAULT_GOTO_TIME = -1.0;
 
@@ -178,16 +178,20 @@ export class ApplicationController {
   }
 
   browseAddressSpaceRoot(serverUrl: string): string {
-    assertNonEmpty('serverUrl', serverUrl);
+    assertNonEmpty("serverUrl", serverUrl);
     const requestId = this.client.browseAddressSpaceRoot(serverUrl);
-    this.serverState = requestAddressSpaceRoot(this.serverState, serverUrl, requestId);
+    this.serverState = requestAddressSpaceRoot(
+      this.serverState,
+      serverUrl,
+      requestId,
+    );
     this.emitState();
     return requestId;
   }
 
   browseAddressSpaceChildren(serverUrl: string, nodeId: string): string {
-    assertNonEmpty('serverUrl', serverUrl);
-    assertNonEmpty('nodeId', nodeId);
+    assertNonEmpty("serverUrl", serverUrl);
+    assertNonEmpty("nodeId", nodeId);
     const requestId = this.client.browseAddressSpaceChildren(serverUrl, nodeId);
     this.serverState = requestAddressSpaceChildren(
       this.serverState,
@@ -200,9 +204,12 @@ export class ApplicationController {
   }
 
   browseAddressSpaceReferences(serverUrl: string, nodeId: string): string {
-    assertNonEmpty('serverUrl', serverUrl);
-    assertNonEmpty('nodeId', nodeId);
-    const requestId = this.client.browseAddressSpaceReferences(serverUrl, nodeId);
+    assertNonEmpty("serverUrl", serverUrl);
+    assertNonEmpty("nodeId", nodeId);
+    const requestId = this.client.browseAddressSpaceReferences(
+      serverUrl,
+      nodeId,
+    );
     this.serverState = requestAddressSpaceReferences(
       this.serverState,
       serverUrl,
@@ -214,9 +221,12 @@ export class ApplicationController {
   }
 
   browseAddressSpaceNodeDetails(serverUrl: string, nodeId: string): string {
-    assertNonEmpty('serverUrl', serverUrl);
-    assertNonEmpty('nodeId', nodeId);
-    const requestId = this.client.browseAddressSpaceNodeDetails(serverUrl, nodeId);
+    assertNonEmpty("serverUrl", serverUrl);
+    assertNonEmpty("nodeId", nodeId);
+    const requestId = this.client.browseAddressSpaceNodeDetails(
+      serverUrl,
+      nodeId,
+    );
     this.serverState = requestAddressSpaceNodeDetails(
       this.serverState,
       serverUrl,
@@ -228,14 +238,22 @@ export class ApplicationController {
   }
 
   selectAddressSpaceNode(serverUrl: string, nodeId: string | null): void {
-    assertNonEmpty('serverUrl', serverUrl);
-    this.serverState = selectAddressSpaceNode(this.serverState, serverUrl, nodeId);
+    assertNonEmpty("serverUrl", serverUrl);
+    this.serverState = selectAddressSpaceNode(
+      this.serverState,
+      serverUrl,
+      nodeId,
+    );
     this.emitState();
   }
 
   setAddressSpaceExpandedNodeIds(serverUrl: string, nodeIds: string[]): void {
-    assertNonEmpty('serverUrl', serverUrl);
-    this.serverState = setExpandedAddressSpaceNodes(this.serverState, serverUrl, nodeIds);
+    assertNonEmpty("serverUrl", serverUrl);
+    this.serverState = setExpandedAddressSpaceNodes(
+      this.serverState,
+      serverUrl,
+      nodeIds,
+    );
     this.emitState();
   }
 
@@ -246,7 +264,7 @@ export class ApplicationController {
   ): string {
     const trimmedName = displayName.trim();
     if (!trimmedName) {
-      throw new Error('Robot name must not be empty.');
+      throw new Error("Robot name must not be empty.");
     }
 
     this.localRobotCounter += 1;
@@ -285,7 +303,10 @@ export class ApplicationController {
     return robotId;
   }
 
-  bindRobotToMotionDevice(robotId: string, motionDeviceId: string | null): void {
+  bindRobotToMotionDevice(
+    robotId: string,
+    motionDeviceId: string | null,
+  ): void {
     const robot = this.requireRobot(robotId);
     if (robot.motionDeviceId !== motionDeviceId) {
       this.jointRuntime.stopSync(robotId);
@@ -294,9 +315,12 @@ export class ApplicationController {
       motionDeviceId === null
         ? unbindRobotFromMotionDevice(robot)
         : (() => {
-            const motionDevice = this.serverState.motionDevicesById[motionDeviceId];
+            const motionDevice =
+              this.serverState.motionDevicesById[motionDeviceId];
             if (!motionDevice) {
-              throw new Error(`Motion device "${motionDeviceId}" is not known.`);
+              throw new Error(
+                `Motion device "${motionDeviceId}" is not known.`,
+              );
             }
             return bindRobotToMotionDevice(robot, motionDevice);
           })();
@@ -326,7 +350,7 @@ export class ApplicationController {
       byId: nextById,
       activeRobotId:
         this.robotState.activeRobotId === robotId
-          ? remainingRobotIds[0] ?? null
+          ? (remainingRobotIds[0] ?? null)
           : this.robotState.activeRobotId,
     };
     this.emitState();
@@ -366,10 +390,15 @@ export class ApplicationController {
   stopRobotSync(robotId: string): string {
     const motionDeviceId = this.robotState.byId[robotId]?.motionDeviceId;
     this.jointRuntime.stopSync(robotId);
-    return motionDeviceId ? this.client.unsubscribeRobotJoints(motionDeviceId) : '';
+    return motionDeviceId
+      ? this.client.unsubscribeRobotJoints(motionDeviceId)
+      : "";
   }
 
-  async setRobotTakeControl(robotId: string, enabled: boolean): Promise<string[]> {
+  async setRobotTakeControl(
+    robotId: string,
+    enabled: boolean,
+  ): Promise<string[]> {
     const robot = this.requireRobot(robotId);
     this.requireBoundMotionDeviceId(robotId);
 
@@ -378,16 +407,16 @@ export class ApplicationController {
     if (enabled) {
       const createSessionRequestId = this.executeRobotAction(
         robotId,
-        'createSession',
-        buildDefaultActionInputs(robot, 'createSession'),
+        "createSession",
+        buildDefaultActionInputs(robot, "createSession"),
       );
       requestIds.push(createSessionRequestId);
       await this.waitForMethodCall(createSessionRequestId);
       if (robot.actions?.initLock) {
         const initLockRequestId = this.executeRobotAction(
           robotId,
-          'initLock',
-          buildDefaultActionInputs(robot, 'initLock'),
+          "initLock",
+          buildDefaultActionInputs(robot, "initLock"),
         );
         requestIds.push(initLockRequestId);
         await this.waitForMethodCall(initLockRequestId);
@@ -396,16 +425,16 @@ export class ApplicationController {
       if (robot.actions?.exitLock) {
         const exitLockRequestId = this.executeRobotAction(
           robotId,
-          'exitLock',
-          buildDefaultActionInputs(robot, 'exitLock'),
+          "exitLock",
+          buildDefaultActionInputs(robot, "exitLock"),
         );
         requestIds.push(exitLockRequestId);
         await this.waitForMethodCall(exitLockRequestId);
       }
       const invalidateSessionRequestId = this.executeRobotAction(
         robotId,
-        'invalidateSession',
-        buildDefaultActionInputs(robot, 'invalidateSession'),
+        "invalidateSession",
+        buildDefaultActionInputs(robot, "invalidateSession"),
       );
       requestIds.push(invalidateSessionRequestId);
       await this.waitForMethodCall(invalidateSessionRequestId);
@@ -482,41 +511,61 @@ export class ApplicationController {
   }
 
   subscribeRobotMode(robotId: string): string {
-    return this.client.subscribeRobotMode(this.requireBoundMotionDeviceId(robotId));
+    return this.client.subscribeRobotMode(
+      this.requireBoundMotionDeviceId(robotId),
+    );
   }
 
   unsubscribeRobotMode(robotId: string): string {
-    return this.client.unsubscribeRobotMode(this.requireBoundMotionDeviceId(robotId));
+    return this.client.unsubscribeRobotMode(
+      this.requireBoundMotionDeviceId(robotId),
+    );
   }
 
   subscribeNode(serverUrl: string, nodeId: string): string {
-    assertNonEmpty('serverUrl', serverUrl);
-    assertNonEmpty('nodeId', nodeId);
-    this.serverState = markNodeSubscription(this.serverState, serverUrl, nodeId);
+    assertNonEmpty("serverUrl", serverUrl);
+    assertNonEmpty("nodeId", nodeId);
+    this.serverState = markNodeSubscription(
+      this.serverState,
+      serverUrl,
+      nodeId,
+    );
     this.emitState();
     return this.client.subscribeNode(serverUrl, nodeId);
   }
 
   unsubscribeNode(serverUrl: string, nodeId: string): string {
-    assertNonEmpty('serverUrl', serverUrl);
-    assertNonEmpty('nodeId', nodeId);
-    this.serverState = unmarkNodeSubscription(this.serverState, serverUrl, nodeId);
+    assertNonEmpty("serverUrl", serverUrl);
+    assertNonEmpty("nodeId", nodeId);
+    this.serverState = unmarkNodeSubscription(
+      this.serverState,
+      serverUrl,
+      nodeId,
+    );
     this.emitState();
     return this.client.unsubscribeNode(serverUrl, nodeId);
   }
 
   subscribeEvent(serverUrl: string, nodeId: string): string {
-    assertNonEmpty('serverUrl', serverUrl);
-    assertNonEmpty('nodeId', nodeId);
-    this.serverState = markEventSubscription(this.serverState, serverUrl, nodeId);
+    assertNonEmpty("serverUrl", serverUrl);
+    assertNonEmpty("nodeId", nodeId);
+    this.serverState = markEventSubscription(
+      this.serverState,
+      serverUrl,
+      nodeId,
+    );
     this.emitState();
     return this.client.subscribeEvent(serverUrl, nodeId);
   }
 
   unsubscribeEvent(serverUrl: string, nodeId: string): string {
-    assertNonEmpty('serverUrl', serverUrl);
-    assertNonEmpty('nodeId', nodeId);
-    this.serverState = unmarkEventSubscription(this.serverState, serverUrl, nodeId);
+    assertNonEmpty("serverUrl", serverUrl);
+    assertNonEmpty("nodeId", nodeId);
+    this.serverState = unmarkEventSubscription(
+      this.serverState,
+      serverUrl,
+      nodeId,
+    );
     this.emitState();
     return this.client.unsubscribeEvent(serverUrl, nodeId);
   }
@@ -530,14 +579,21 @@ export class ApplicationController {
       );
     }
     if (robot.actions?.goto || robot.opcua.skills?.go_to) {
-      return this.executeRobotAction(robotId, 'goto', buildGotoActionInputs(robot, command));
+      return this.executeRobotAction(
+        robotId,
+        "goto",
+        buildGotoActionInputs(robot, command),
+      );
     }
     throw new Error(
       `Robot "${robot.robotId}" has no discovered goto action or go_to skill.`,
     );
   }
 
-  callRobotGotoForVisualAngles(robotId: string, visualAngles: number[]): string {
+  callRobotGotoForVisualAngles(
+    robotId: string,
+    visualAngles: number[],
+  ): string {
     const robot = this.requireRobot(robotId);
     validateJointArray(visualAngles);
 
@@ -548,7 +604,9 @@ export class ApplicationController {
         : robot.visual.orderedUrdfJointNames;
     const axisNames = getRobotAxisNames(robot);
     if (axisNames.length === 0) {
-      throw new Error(`Robot "${robotId}" has no discovered axes for goto ordering.`);
+      throw new Error(
+        `Robot "${robotId}" has no discovered axes for goto ordering.`,
+      );
     }
 
     const joints = mapVisualAnglesToAxisValues(
@@ -560,26 +618,31 @@ export class ApplicationController {
     return this.callRobotGoto(robotId, { joints });
   }
 
-  toggleEndEffector(robotId: string, command: ToggleEndEffectorCommand = {}): string {
+  toggleEndEffector(
+    robotId: string,
+    command: ToggleEndEffectorCommand = {},
+  ): string {
     const robot = this.requireRobot(robotId);
     const motionDeviceId = this.requireBoundMotionDeviceId(robotId);
     const method = robot.opcua.methods.toggleEndEffector;
     if (!method) {
-      throw new Error(`Robot "${robotId}" has no discovered toggleEndEffector method.`);
+      throw new Error(
+        `Robot "${robotId}" has no discovered toggleEndEffector method.`,
+      );
     }
 
     const inputs =
       command.value === undefined ? { args: [] } : { args: [command.value] };
     const requestId = this.client.callRobotMethod(
       motionDeviceId,
-      'toggleEndEffector',
+      "toggleEndEffector",
       inputs,
     );
     this.trackPendingMethodCall({
       requestId,
       serverUrl: robot.serverUrl,
       motionDeviceId,
-      method: 'toggleEndEffector',
+      method: "toggleEndEffector",
       nodeId: method.nodeId,
     });
     return requestId;
@@ -593,7 +656,11 @@ export class ApplicationController {
     const robot = this.requireRobot(robotId);
     const motionDeviceId = this.requireBoundMotionDeviceId(robotId);
     const action = robot.actions?.[actionName];
-    const requestId = this.client.executeRobotAction(motionDeviceId, actionName, inputs);
+    const requestId = this.client.executeRobotAction(
+      motionDeviceId,
+      actionName,
+      inputs,
+    );
     this.trackPendingMethodCall({
       requestId,
       serverUrl: robot.serverUrl,
@@ -635,8 +702,8 @@ export class ApplicationController {
   }
 
   callRawMethod(command: RawMethodCommand): string {
-    assertNonEmpty('serverUrl', command.serverUrl);
-    assertNonEmpty('nodeId', command.nodeId);
+    assertNonEmpty("serverUrl", command.serverUrl);
+    assertNonEmpty("nodeId", command.nodeId);
     const inputs = command.inputs ?? {};
     const requestId = this.client.callRawMethod(
       command.serverUrl,
@@ -647,22 +714,24 @@ export class ApplicationController {
       requestId,
       serverUrl: command.serverUrl,
       nodeId: command.nodeId,
-      method: 'raw',
+      method: "raw",
     });
     return requestId;
   }
 
   private handleServerMessage(message: ServerMessage): void {
-    if (message.type === 'serverDisconnected') {
+    if (message.type === "serverDisconnected") {
       this.removeRuntimeForServer(message.serverUrl);
     }
 
-    if (message.type === 'error' && typeof message.requestId === 'string') {
+    if (message.type === "error" && typeof message.requestId === "string") {
       this.jointRuntime.clearSyncGotoInFlightByRequestId(message.requestId);
     }
 
-    if (message.type === 'robotJointState') {
-      const localRobotId = this.findRobotInstanceIdByMotionDeviceId(message.robotId);
+    if (message.type === "robotJointState") {
+      const localRobotId = this.findRobotInstanceIdByMotionDeviceId(
+        message.robotId,
+      );
       if (localRobotId) {
         this.jointRuntime.update(localRobotId, message.data);
         if (this.jointRuntime.isSyncing(localRobotId)) {
@@ -671,28 +740,39 @@ export class ApplicationController {
       }
     }
 
-    if (message.type === 'robotsDiscovered') {
+    if (message.type === "robotsDiscovered") {
       this.robotState = this.rebuildRobotsFromDiscoveredSessions(
         message.serverUrl,
         message.robots,
       );
+      for (const session of message.robots) {
+        const robot = this.robotState.byId[session.robotId];
+        if (robot) {
+          this.jointRuntime.configureRobot(robot);
+        }
+      }
     }
 
     this.serverState = applyServerMessage(this.serverState, message);
-    if (message.type !== 'robotsDiscovered') {
+    if (message.type !== "robotsDiscovered") {
       this.robotState = applyRobotMessage(this.robotState, message);
     }
 
     if (
-      'requestId' in message &&
-      typeof message.requestId === 'string' &&
+      "requestId" in message &&
+      typeof message.requestId === "string" &&
       this.serverState.methodCallStatuses[message.requestId]
     ) {
       this.resolvePendingMethodCallWaiter(message.requestId);
     }
 
-    if (message.type === 'robotActionState' && message.data.actionName === 'goto') {
-      const localRobotId = this.findRobotInstanceIdByMotionDeviceId(message.robotId);
+    if (
+      message.type === "robotActionState" &&
+      message.data.actionName === "goto"
+    ) {
+      const localRobotId = this.findRobotInstanceIdByMotionDeviceId(
+        message.robotId,
+      );
       if (localRobotId && isGotoStateReady(message.data)) {
         this.jointRuntime.clearSyncGotoInFlight(localRobotId);
       }
@@ -725,7 +805,9 @@ export class ApplicationController {
     return robot.motionDeviceId;
   }
 
-  private findRobotInstanceIdByMotionDeviceId(motionDeviceId: string): string | null {
+  private findRobotInstanceIdByMotionDeviceId(
+    motionDeviceId: string,
+  ): string | null {
     for (const robot of Object.values(this.robotState.byId)) {
       if (robot.motionDeviceId === motionDeviceId) {
         return robot.robotId;
@@ -738,7 +820,7 @@ export class ApplicationController {
     serverUrl: string,
     sessions: RobotSessionInfo[],
   ): RobotStoreState {
-    const nextById: RobotStoreState['byId'] = Object.fromEntries(
+    const nextById: RobotStoreState["byId"] = Object.fromEntries(
       Object.entries(this.robotState.byId).filter(
         ([, robot]) => robot.serverUrl !== serverUrl,
       ),
@@ -760,15 +842,21 @@ export class ApplicationController {
         actionStates: existing?.actionStates ?? baseRobot.actionStates,
         mode: existing?.mode ?? baseRobot.mode,
         homeAngles: model?.homeAngles ?? existing?.homeAngles ?? null,
-        status: model ? session.status : 'error',
+        status: model ? session.status : "error",
         visual: {
           ...baseRobot.visual,
           urdfId: model?.id ?? null,
           urdfLabel: model?.label ?? null,
           urdfUrl: model?.url ?? null,
-          origin: existing?.visual.origin ?? defaultRobotOrigin(),
+          origin:
+            existing?.visual.origin ??
+            defaultRobotOrigin(model?.id ?? null),
           orderedUrdfJointNames: model?.orderedUrdfJointNames ?? [],
-          allUrdfJointNames: existing?.visual.allUrdfJointNames ?? [],
+          allUrdfJointNames:
+            existing?.visual.allUrdfJointNames &&
+            existing.visual.allUrdfJointNames.length > 0
+              ? existing.visual.allUrdfJointNames
+              : (model?.orderedUrdfJointNames ?? []),
           axisToJointName: existing?.visual.axisToJointName ?? {},
         },
         panel: existing?.panel ?? baseRobot.panel,
@@ -779,7 +867,9 @@ export class ApplicationController {
     const nextActiveRobotId =
       (this.robotState.activeRobotId && nextById[this.robotState.activeRobotId]
         ? this.robotState.activeRobotId
-        : null) ?? Object.keys(nextById)[0] ?? null;
+        : null) ??
+      Object.keys(nextById)[0] ??
+      null;
 
     return {
       byId: nextById,
@@ -796,12 +886,14 @@ export class ApplicationController {
 
   private waitForMethodCall(requestId: string): Promise<void> {
     const existingStatus = this.serverState.methodCallStatuses[requestId];
-    if (existingStatus?.status === 'succeeded') {
+    if (existingStatus?.status === "succeeded") {
       return Promise.resolve();
     }
-    if (existingStatus?.status === 'failed') {
+    if (existingStatus?.status === "failed") {
       return Promise.reject(
-        new Error(existingStatus.error?.message ?? `Request "${requestId}" failed.`),
+        new Error(
+          existingStatus.error?.message ?? `Request "${requestId}" failed.`,
+        ),
       );
     }
 
@@ -817,12 +909,12 @@ export class ApplicationController {
     }
 
     const status = this.serverState.methodCallStatuses[requestId];
-    if (!status || status.status === 'pending') {
+    if (!status || status.status === "pending") {
       return;
     }
 
     this.pendingMethodCallWaiters.delete(requestId);
-    if (status.status === 'succeeded') {
+    if (status.status === "succeeded") {
       waiter.resolve();
       return;
     }
@@ -890,9 +982,9 @@ function buildDefaultActionInputs(
 
 function serializeGotoOptionalString(value: unknown): string {
   if (value === undefined || value === null) {
-    return '';
+    return "";
   }
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return value;
   }
   return JSON.stringify(value);
@@ -903,26 +995,29 @@ function isGotoReadyForDispatch(robot: Robot): boolean {
 }
 
 function isGotoStateReady(
-  state: { status?: string | null; currentState?: string | null } | null | undefined,
+  state:
+    | { status?: string | null; currentState?: string | null }
+    | null
+    | undefined,
 ): boolean {
   if (!state) {
     return true;
   }
-  const currentState = (state.currentState ?? '').trim().toLowerCase();
-  if (currentState === 'ready' || currentState === 'idle') {
+  const currentState = (state.currentState ?? "").trim().toLowerCase();
+  if (currentState === "ready" || currentState === "idle") {
     return true;
   }
-  return state.status !== 'running';
+  return state.status !== "running";
 }
 
 function validateJointArray(joints: number[]): void {
   if (!Array.isArray(joints) || joints.length === 0) {
-    throw new Error('Goto command requires at least one joint value.');
+    throw new Error("Goto command requires at least one joint value.");
   }
 
   for (const value of joints) {
     if (!Number.isFinite(value)) {
-      throw new Error('Goto joint values must be finite numbers.');
+      throw new Error("Goto joint values must be finite numbers.");
     }
   }
 }
@@ -942,7 +1037,7 @@ function getRobotAxisNames(robot: Robot): string[] {
 }
 
 function assertNonEmpty(name: string, value: string): void {
-  if (value.trim() === '') {
+  if (value.trim() === "") {
     throw new Error(`${name} must not be empty.`);
   }
 }

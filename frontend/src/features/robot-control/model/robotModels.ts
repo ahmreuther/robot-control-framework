@@ -20,7 +20,18 @@ export interface RobotOrigin {
   yaw: number;
 }
 
-export function defaultRobotOrigin(): RobotOrigin {
+export function defaultRobotOrigin(modelId?: string | null): RobotOrigin {
+  if (modelId === "fr3" || modelId === "fr3_wagon") {
+    return {
+      x: 0,
+      y: 0,
+      z: 0,
+      roll: -Math.PI / 2,
+      pitch: 0,
+      yaw: 0,
+    };
+  }
+
   return {
     x: 0,
     y: 0,
@@ -209,7 +220,9 @@ export function resolveRobotModelFromIdentity(input: {
     haystack.includes("research 3")
   ) {
     if (haystack.includes("wagon")) {
-      return ROBOT_MODEL_OPTIONS.find((model) => model.id === "fr3_wagon") ?? null;
+      return (
+        ROBOT_MODEL_OPTIONS.find((model) => model.id === "fr3_wagon") ?? null
+      );
     }
     return ROBOT_MODEL_OPTIONS.find((model) => model.id === "fr3") ?? null;
   }

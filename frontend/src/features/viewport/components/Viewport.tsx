@@ -419,6 +419,7 @@ function ViewportRobot({
     () => resolveRobotMountRotation(robot.visual.urdfId),
     [robot.visual.urdfId],
   );
+
   const [loadedRobotState, setLoadedRobotState] = useState<URDFRobot | null>(
     null,
   );
@@ -437,6 +438,7 @@ function ViewportRobot({
     ? getHighlightedJointName(robot.robotId)
     : null;
   const groupRef = useRef<THREE.Group>(null);
+  const mountGroupRef = useRef<THREE.Group>(null);
   const loadedRobotRef = useRef<URDFRobot | null>(null);
   const managerAnglesRef = useRef<number[]>([]);
   const ikModelRef = useRef<RobotIkModel | null>(null);
@@ -527,7 +529,10 @@ function ViewportRobot({
         controller.getSnapshot().robot.byId[robot.robotId] ?? robot;
       const latestAllJointNames = latestRobot.visual.allUrdfJointNames ?? [];
 
-      const groupNode = groupRef.current;
+      const groupNode = mountGroupRef.current;
+      if (!groupNode) {
+        return;
+      }
       const previous = loadedRobotRef.current;
       if (previous) {
         groupNode.remove(previous);
@@ -591,7 +596,6 @@ function ViewportRobot({
         jointNames: managerJointNames,
         angles: manager?.getState().angles ?? [],
       });
-
       loadedRobotRef.current = loadedRobot;
       ikModelRef.current = createRobotIkModel(loadedRobot, ikJointNames);
       groupNode.add(loadedRobot);
@@ -653,8 +657,8 @@ function ViewportRobot({
       if (finalizeFrame !== null) {
         window.cancelAnimationFrame(finalizeFrame);
       }
-      if (groupRef.current && loadedRobotRef.current) {
-        groupRef.current.remove(loadedRobotRef.current);
+      if (mountGroupRef.current && loadedRobotRef.current) {
+        mountGroupRef.current.remove(loadedRobotRef.current);
       }
       loadedRobotRef.current = null;
       ikModelRef.current = null;
@@ -747,7 +751,7 @@ function ViewportRobot({
 
   useEffect(() => {
     const loadedRobot = loadedRobotState;
-    const localRoot = groupRef.current;
+    const localRoot = mountGroupRef.current;
     const loadingKey = `workspace.${robot.robotId}`;
     const generationVersion = robot.panel.workspaceGenerationVersion;
 
@@ -985,7 +989,7 @@ function ViewportRobot({
 
     const ikModel = ikModelRef.current;
     const visibleRobot = loadedRobotRef.current;
-    const robotGroup = groupRef.current;
+    const robotGroup = mountGroupRef.current;
     const targetPosition = goalPositionRef.current;
     const targetQuaternion = goalQuaternionRef.current;
     const isActiveIkManipulation = managerActiveSourceId === JOINT_SOURCE_ID.IK;
@@ -1161,25 +1165,30 @@ function ViewportRobot({
       <group
         ref={groupRef}
         position={[origin.x, origin.y, origin.z]}
-        rotation={[mountRotation.x, mountRotation.y, mountRotation.z]}
+        rotation={[origin.roll, origin.pitch, origin.yaw]}
         onClick={handleSelectRobot}
       >
-        <WorkspacePointCloud
-          points={workspacePoints}
-          visible={robot.panel.showWorkspace}
-        />
-        {loadedRobotState && (
-          <DragControls
-            robot={loadedRobotState}
-            enabled={canDrag}
-            cancelSequence={dragCancelSequence}
-            onDragStart={handleDragJointStart}
-            onDragEnd={handleDragJointEnd}
-            onHover={handleHoverJoint}
-            onUnhover={handleUnhoverJoint}
-            onUpdateJoint={handleUpdateJoint}
+        <group
+          ref={mountGroupRef}
+          rotation={[mountRotation.x, mountRotation.y, mountRotation.z]}
+        >
+          <WorkspacePointCloud
+            points={workspacePoints}
+            visible={robot.panel.showWorkspace}
           />
-        )}
+          {loadedRobotState && (
+            <DragControls
+              robot={loadedRobotState}
+              enabled={canDrag}
+              cancelSequence={dragCancelSequence}
+              onDragStart={handleDragJointStart}
+              onDragEnd={handleDragJointEnd}
+              onHover={handleHoverJoint}
+              onUnhover={handleUnhoverJoint}
+              onUpdateJoint={handleUpdateJoint}
+            />
+          )}
+        </group>
       </group>
       {isSelected && loadedRobotState && robot.panel.goalMarkerEnabled ? (
         <GoalMarker

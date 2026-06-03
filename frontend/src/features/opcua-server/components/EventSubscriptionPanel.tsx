@@ -60,13 +60,6 @@ export default function EventSubscriptionPanel({
                 <td className="cell-mono">{row.nodeId}</td>
               </tr>
             ))}
-            {rows.length === 0 && (
-              <tr>
-                <td className="cell-muted" colSpan={2}>
-                  No subscribed events.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>

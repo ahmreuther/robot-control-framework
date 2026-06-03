@@ -450,42 +450,47 @@ export default function JointAnglesPanel() {
           open={originPoseOpen}
           onToggle={() => setOriginPoseOpen((current) => !current)}
         >
-          <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="grid grid-cols-1 gap-2 text-xs">
             {(["x", "y", "z"] as const).map((field) => (
-              <label key={field} className="flex min-w-0 items-center gap-2">
+              <label
+                key={field}
+                className="grid min-w-0 grid-cols-[auto_1fr] items-center gap-2"
+              >
                 <span className="text-[rgb(var(--fg-muted))] uppercase">
                   {field}:
                 </span>
-                <input
-                  className="input-ghost min-w-0 w-full min-w-24 text-right"
-                  type="number"
-                  step="0.1"
-                  value={originPoseInput[field]}
-                  onChange={(event) =>
-                    updateOriginPoseFieldInput(field, event.target.value)
-                  }
-                  onBlur={() => commitOriginPoseField(field)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                      commitOriginPoseField(field);
+                <span className="ml-auto flex items-center gap-2">
+                  <input
+                    className="input-ghost w-28 text-right"
+                    type="number"
+                    step="0.1"
+                    value={originPoseInput[field]}
+                    onChange={(event) =>
+                      updateOriginPoseFieldInput(field, event.target.value)
                     }
-                    if (event.key === "Escape") {
-                      setOriginPoseInput(
-                        toOriginPoseInput(
-                          currentRobot.visual.origin,
-                          useDegrees,
-                        ),
-                      );
-                      event.currentTarget.blur();
-                    }
-                  }}
-                />
-                <span className="text-[rgb(var(--fg-muted))]">m</span>
+                    onBlur={() => commitOriginPoseField(field)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                        commitOriginPoseField(field);
+                      }
+                      if (event.key === "Escape") {
+                        setOriginPoseInput(
+                          toOriginPoseInput(
+                            currentRobot.visual.origin,
+                            useDegrees,
+                          ),
+                        );
+                        event.currentTarget.blur();
+                      }
+                    }}
+                  />
+                  <span className="text-[rgb(var(--fg-muted))]">m</span>
+                </span>
               </label>
             ))}
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div className="mt-2 grid grid-cols-1 gap-2 text-xs">
             {(
               [
                 ["roll", "R"],
@@ -493,37 +498,42 @@ export default function JointAnglesPanel() {
                 ["yaw", "Y"],
               ] as const
             ).map(([field, label]) => (
-              <label key={field} className="flex min-w-0 items-center gap-2">
+              <label
+                key={field}
+                className="grid min-w-0 grid-cols-[auto_1fr] items-center gap-2"
+              >
                 <span className="text-[rgb(var(--fg-muted))] uppercase">
                   {label}:
                 </span>
-                <input
-                  className="input-ghost min-w-0 w-full min-w-24 text-right"
-                  type="number"
-                  step="0.1"
-                  value={originPoseInput[field]}
-                  onChange={(event) =>
-                    updateOriginPoseFieldInput(field, event.target.value)
-                  }
-                  onBlur={() => commitOriginPoseField(field)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                      commitOriginPoseField(field);
+                <span className="ml-auto flex items-center gap-2">
+                  <input
+                    className="input-ghost w-28 text-right"
+                    type="number"
+                    step="0.1"
+                    value={originPoseInput[field]}
+                    onChange={(event) =>
+                      updateOriginPoseFieldInput(field, event.target.value)
                     }
-                    if (event.key === "Escape") {
-                      setOriginPoseInput(
-                        toOriginPoseInput(
-                          currentRobot.visual.origin,
-                          useDegrees,
-                        ),
-                      );
-                      event.currentTarget.blur();
-                    }
-                  }}
-                />
-                <span className="text-[rgb(var(--fg-muted))]">
-                  {useDegrees ? "°" : "rad"}
+                    onBlur={() => commitOriginPoseField(field)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                        commitOriginPoseField(field);
+                      }
+                      if (event.key === "Escape") {
+                        setOriginPoseInput(
+                          toOriginPoseInput(
+                            currentRobot.visual.origin,
+                            useDegrees,
+                          ),
+                        );
+                        event.currentTarget.blur();
+                      }
+                    }}
+                  />
+                  <span className="text-[rgb(var(--fg-muted))]">
+                    {useDegrees ? "°" : "rad"}
+                  </span>
                 </span>
               </label>
             ))}

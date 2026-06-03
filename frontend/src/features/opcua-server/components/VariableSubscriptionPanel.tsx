@@ -64,13 +64,6 @@ export default function VariableSubscriptionPanel({
                 <td className="cell-mono">{formatUnknownPayload(row.value)}</td>
               </tr>
             ))}
-            {rows.length === 0 && (
-              <tr>
-                <td className="cell-muted" colSpan={3}>
-                  No subscribed variables.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>

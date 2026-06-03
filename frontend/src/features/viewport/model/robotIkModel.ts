@@ -1,7 +1,4 @@
-import {
-  Goal,
-  Solver,
-} from "closed-chain-ik/src/core";
+import { Goal, Solver } from "closed-chain-ik/src/core";
 import {
   setIKFromUrdf,
   setUrdfFromIK,
@@ -203,8 +200,6 @@ export function createRobotIkModel(
         convergedStatus: IK_SOLVE_STATUS_CONVERGED,
         translationError,
         translationConvergeThreshold: solver.translationConvergeThreshold,
-        rotationError,
-        rotationConvergeThreshold: solver.rotationConvergeThreshold,
       });
 
       return {

@@ -45,20 +45,25 @@ export function DesktopLayout({
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden">
-      <header className="panel-header flex">
-        <a
-          href="https://www.maschinenbau.tu-darmstadt.de/plcm/fachgebiet_plcm/"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open PLCM website"
-        >
-          <img
-            src={logoSrc}
-            alt="PLCM logo"
-            className="h-10 w-auto bg-gray-200 rounded-sm p-1"
-          />
-        </a>
-        <div className="panel-title text-sm">Digital Twin Robots</div>
+      <header className="panel-header flex items-center">
+        <div className="flex w-22 justify-start">
+          <a
+            href="https://www.maschinenbau.tu-darmstadt.de/plcm/fachgebiet_plcm/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open PLCM website"
+          >
+            <img
+              src={logoSrc}
+              alt="PLCM logo"
+              className="h-10 w-auto rounded-sm bg-gray-200 p-1"
+            />
+          </a>
+        </div>
+        <div className="flex-1 text-center">
+          <div className="panel-title text-sm">Digital Twin Robots</div>
+        </div>
+        <div className="w-22" />
       </header>
 
       <RobotControlProvider controller={controller} snapshot={snapshot}>

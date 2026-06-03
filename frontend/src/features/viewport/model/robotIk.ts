@@ -115,11 +115,7 @@ export function getToolPointWorldPosition(
     return null;
   }
 
-  let root: THREE.Object3D = robot;
-  while (root.parent) {
-    root = root.parent;
-  }
-  root.updateMatrixWorld(true);
+  robot.updateMatrixWorld(true);
   return toolPoint.getWorldPosition(new THREE.Vector3());
 }
 
@@ -131,11 +127,7 @@ export function getToolPointWorldQuaternion(
     return null;
   }
 
-  let root: THREE.Object3D = robot;
-  while (root.parent) {
-    root = root.parent;
-  }
-  root.updateMatrixWorld(true);
+  robot.updateMatrixWorld(true);
   return toolPoint.getWorldQuaternion(new THREE.Quaternion());
 }
 
