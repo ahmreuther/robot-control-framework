@@ -54,7 +54,10 @@ function resolveMotionDevice(
   motionDeviceId: string,
   motionDevicesById: Record<string, RobotSessionInfo>,
 ): string {
-  return describeMotionDevice(motionDeviceId, motionDevicesById[motionDeviceId]);
+  return describeMotionDevice(
+    motionDeviceId,
+    motionDevicesById[motionDeviceId],
+  );
 }
 
 function formatEntry(
@@ -78,6 +81,17 @@ function formatEntry(
     entry.message as ClientMessage,
     motionDevicesById,
   )}`;
+}
+
+function shouldLogEntry(entry: WebSocketMessageLogEntry): boolean {
+  if (entry.direction === "incoming") {
+    const type = (entry.message as ServerMessage).type;
+    if (type === "robotJointState" || type === "nodeValueChanged") {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function describeClientMessage(
@@ -199,8 +213,14 @@ export function MessageLog() {
 
   useEffect(() => {
     return controller.onWebSocketMessageLog((entry) => {
-      const motionDevicesById = controller.getSnapshot().server.motionDevicesById;
-      setLogs((current) => `${current}${formatEntry(entry, motionDevicesById)}\n`);
+      if (!shouldLogEntry(entry)) {
+        return;
+      }
+      const motionDevicesById =
+        controller.getSnapshot().server.motionDevicesById;
+      setLogs(
+        (current) => `${current}${formatEntry(entry, motionDevicesById)}\n`,
+      );
     });
   }, [controller]);
 

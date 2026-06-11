@@ -1,4 +1,4 @@
-import { serverNodeIdFromKey } from "../../../entities/server/model/store";
+import { getSubscribedNodeValueRows } from "../../../entities/server/model/store";
 import { formatUnknownPayload } from "../../../shared/api/formatUnknownPayload";
 import { useOpcuaServer } from "../context/OpcuaServerContext";
 
@@ -10,27 +10,9 @@ export default function VariableSubscriptionPanel({
   serverUrl,
 }: VariableSubscriptionPanelProps) {
   const { snapshot, selectAddressSpaceNode } = useOpcuaServer();
-  const addressSpaceState = serverUrl
-    ? snapshot.server.addressSpace.byServerUrl[serverUrl]
-    : undefined;
-  const rows = (
-    serverUrl
-      ? snapshot.server.subscribedNodeKeys
-          .map((key) => {
-            const nodeId = serverNodeIdFromKey(serverUrl, key);
-            if (nodeId === null) return null;
-            const node =
-              addressSpaceState?.detailsByNodeId[nodeId] ??
-              addressSpaceState?.nodesById[nodeId];
-            return {
-              variable: node?.displayName ?? node?.browseName ?? nodeId,
-              nodeId,
-              value: snapshot.server.nodeValues[key]?.value,
-            };
-          })
-          .filter((row) => row !== null)
-      : []
-  ).sort((a, b) => a.variable.localeCompare(b.variable));
+  const rows = serverUrl
+    ? getSubscribedNodeValueRows(snapshot.server, serverUrl)
+    : [];
 
   return (
     <section className="panel min-h-0 w-1/2 overflow-auto">
@@ -39,7 +21,7 @@ export default function VariableSubscriptionPanel({
       </header>
       <div className="panel-body">
         <table
-          className="panel-table border-x border-t"
+          className="panel-table border"
           style={{ borderColor: "rgb(var(--panel-border) / 0.1)" }}
         >
           <thead>
@@ -59,7 +41,7 @@ export default function VariableSubscriptionPanel({
                   selectAddressSpaceNode(serverUrl, row.nodeId);
                 }}
               >
-                <td className="cell-muted">{row.variable}</td>
+                <td className="cell-muted">{row.label}</td>
                 <td className="cell-mono">{row.nodeId}</td>
                 <td className="cell-mono">{formatUnknownPayload(row.value)}</td>
               </tr>

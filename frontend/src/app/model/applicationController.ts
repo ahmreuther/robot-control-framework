@@ -91,6 +91,12 @@ export interface ApplicationControllerOptions {
 const DEFAULT_GOTO_MODE = "automatic";
 const DEFAULT_GOTO_SPEED = -1.0;
 const DEFAULT_GOTO_TIME = -1.0;
+const TAKE_CONTROL_KEEPALIVE_INTERVAL_MS = 60_000;
+
+interface TakeControlKeepaliveState {
+  intervalId: ReturnType<typeof window.setInterval>;
+  inFlight: boolean;
+}
 
 export class ApplicationController {
   private serverState = initialServerStoreState;
@@ -107,6 +113,10 @@ export class ApplicationController {
       reject: (error: Error) => void;
     }
   >();
+  private readonly takeControlKeepaliveByRobotId = new Map<
+    string,
+    TakeControlKeepaliveState
+  >();
 
   constructor(options: ApplicationControllerOptions) {
     this.client = options.client;
@@ -117,6 +127,7 @@ export class ApplicationController {
   }
 
   dispose(): void {
+    this.stopAllTakeControlKeepalives();
     this.unsubscribeClientMessage();
     this.listeners.clear();
     this.jointRuntime.clear();
@@ -310,6 +321,7 @@ export class ApplicationController {
     const robot = this.requireRobot(robotId);
     if (robot.motionDeviceId !== motionDeviceId) {
       this.jointRuntime.stopSync(robotId);
+      this.stopTakeControlKeepalive(robotId);
     }
     const nextRobot =
       motionDeviceId === null
@@ -340,6 +352,7 @@ export class ApplicationController {
       return;
     }
 
+    this.stopTakeControlKeepalive(robotId);
     const nextById = { ...this.robotState.byId };
     delete nextById[robotId];
     this.jointRuntime.removeRobot(robotId);
@@ -421,7 +434,9 @@ export class ApplicationController {
         requestIds.push(initLockRequestId);
         await this.waitForMethodCall(initLockRequestId);
       }
+      this.startTakeControlKeepalive(robotId);
     } else {
+      this.stopTakeControlKeepalive(robotId);
       if (robot.actions?.exitLock) {
         const exitLockRequestId = this.executeRobotAction(
           robotId,
@@ -785,6 +800,86 @@ export class ApplicationController {
     for (const robot of Object.values(this.robotState.byId)) {
       if (robot.serverUrl === serverUrl) {
         this.jointRuntime.stopSync(robot.robotId);
+        this.stopTakeControlKeepalive(robot.robotId);
+      }
+    }
+  }
+
+  private startTakeControlKeepalive(robotId: string): void {
+    this.stopTakeControlKeepalive(robotId);
+    const robot = this.requireRobot(robotId);
+    const hasRenewSession = !!robot.actions?.renewSession;
+    const hasRenewLock = !!robot.actions?.renewLock;
+    if (!hasRenewSession && !hasRenewLock) {
+      return;
+    }
+
+    const keepalive: TakeControlKeepaliveState = {
+      intervalId: window.setInterval(() => {
+        void this.runTakeControlKeepalive(robotId);
+      }, TAKE_CONTROL_KEEPALIVE_INTERVAL_MS),
+      inFlight: false,
+    };
+    this.takeControlKeepaliveByRobotId.set(robotId, keepalive);
+  }
+
+  private stopTakeControlKeepalive(robotId: string): void {
+    const keepalive = this.takeControlKeepaliveByRobotId.get(robotId);
+    if (!keepalive) {
+      return;
+    }
+    window.clearInterval(keepalive.intervalId);
+    this.takeControlKeepaliveByRobotId.delete(robotId);
+  }
+
+  private stopAllTakeControlKeepalives(): void {
+    for (const robotId of this.takeControlKeepaliveByRobotId.keys()) {
+      this.stopTakeControlKeepalive(robotId);
+    }
+  }
+
+  private async runTakeControlKeepalive(robotId: string): Promise<void> {
+    const keepalive = this.takeControlKeepaliveByRobotId.get(robotId);
+    if (!keepalive || keepalive.inFlight) {
+      return;
+    }
+
+    keepalive.inFlight = true;
+    try {
+      const robot = this.requireRobot(robotId);
+      if (!robot.panel.takeControlActive || !robot.motionDeviceId) {
+        this.stopTakeControlKeepalive(robotId);
+        return;
+      }
+
+      if (robot.actions?.renewSession) {
+        const renewSessionRequestId = this.executeRobotAction(
+          robotId,
+          "renewSession",
+          buildDefaultActionInputs(robot, "renewSession"),
+        );
+        await this.waitForMethodCall(renewSessionRequestId);
+      }
+
+      const latestRobot = this.requireRobot(robotId);
+      if (latestRobot.actions?.renewLock) {
+        const renewLockRequestId = this.executeRobotAction(
+          robotId,
+          "renewLock",
+          buildDefaultActionInputs(latestRobot, "renewLock"),
+        );
+        await this.waitForMethodCall(renewLockRequestId);
+      }
+    } catch (error) {
+      console.error(`Failed to keep take-control lease alive for ${robotId}`, error);
+      this.stopTakeControlKeepalive(robotId);
+      if (this.robotState.byId[robotId]) {
+        this.updateRobotPanelState(robotId, { takeControlActive: false });
+      }
+    } finally {
+      const latestKeepalive = this.takeControlKeepaliveByRobotId.get(robotId);
+      if (latestKeepalive) {
+        latestKeepalive.inFlight = false;
       }
     }
   }

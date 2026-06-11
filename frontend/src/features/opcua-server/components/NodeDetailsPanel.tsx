@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 
-import { serverNodeKey } from "../../../entities/server/model/store";
+import {
+  getNodeLiveValue,
+  serverNodeKey,
+} from "../../../entities/server/model/store";
 import { formatUnknownPayload } from "../../../shared/api/formatUnknownPayload";
 import { useOpcuaServer } from "../context/OpcuaServerContext";
 import EventSubscriptionPanel from "./EventSubscriptionPanel";
@@ -36,8 +39,7 @@ export default function NodeDetailsPanel() {
     detailRequestStatus === "loading";
   const liveValue =
     activeServerUrl && selectedNodeId
-      ? snapshot.server.nodeValues[serverNodeKey(activeServerUrl, selectedNodeId)]
-          ?.value
+      ? getNodeLiveValue(snapshot.server, activeServerUrl, selectedNodeId)?.value
       : undefined;
   const isLoadingReferences = referenceRequestStatus === "loading";
   const selectedNodeKey =

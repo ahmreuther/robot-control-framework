@@ -61,9 +61,12 @@ The right-hand server panel is organized around connected servers and their disc
 While working with the WebSkillComposition 3D viewer, you can quickly switch between view, transformation, and IK control modes using the keyboard.
 These shortcuts enable smooth operation without having to constantly click on UI elements.
 
-| Key   | Function                                                                      |
-| ----- | ----------------------------------------------------------------------------- |
-| **Q** | Switch between **world** and **local coordinate systems** for transformations |
-| **W** | Toggle solve with keep TCP orientation                                        |
-| **E** | Switch **Rotation** and **Translation**                                       |
-| **H** | **Show or hide** the IK interface for manipulating the end effector           |
+| Key       | Function                                                                               |
+| --------- | -------------------------------------------------------------------------------------- |
+| **Q**     | Switch between **world** and **local coordinate systems** for transformations          |
+| **W**     | Toggle solve with keep TCP orientation                                                 |
+| **E**     | Switch **Rotation** and **Translation**                                                |
+| **H**     | **Show or hide** the IK interface for manipulating the end effector                    |
+| **esc**   | While sync is active abort current movement while dragging slider, joint or goalmarker |
+| **Click** | IP in header of server manager is clickable to set active server for addressspace      |
+| **Click** | Robot name or URDF model is clickable to set active robot                              |

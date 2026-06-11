@@ -43,6 +43,14 @@ export interface NodeValueRecord {
   motionDeviceId?: string | null;
 }
 
+export interface SubscribedNodeValueRow {
+  key: string;
+  serverUrl: string;
+  nodeId: string;
+  label: string;
+  value: unknown;
+}
+
 export interface OpcUaEventRecord {
   serverUrl: string;
   nodeId: string;
@@ -140,6 +148,38 @@ export function serverNodeIdFromKey(
 ): string | null {
   const prefix = serverNodeKeyPrefix(serverUrl);
   return key.startsWith(prefix) ? key.slice(prefix.length) : null;
+}
+
+export function getNodeLiveValue(
+  state: ServerStoreState,
+  serverUrl: string,
+  nodeId: string,
+): NodeValueRecord | null {
+  return state.nodeValues[serverNodeKey(serverUrl, nodeId)] ?? null;
+}
+
+export function getSubscribedNodeValueRows(
+  state: ServerStoreState,
+  serverUrl: string,
+): SubscribedNodeValueRow[] {
+  const addressSpaceState = state.addressSpace.byServerUrl[serverUrl];
+  return state.subscribedNodeKeys
+    .map((key) => {
+      const nodeId = serverNodeIdFromKey(serverUrl, key);
+      if (nodeId === null) return null;
+      const node =
+        addressSpaceState?.detailsByNodeId[nodeId] ??
+        addressSpaceState?.nodesById[nodeId];
+      return {
+        key,
+        serverUrl,
+        nodeId,
+        label: node?.displayName ?? node?.browseName ?? nodeId,
+        value: state.nodeValues[key]?.value,
+      };
+    })
+    .filter((row): row is SubscribedNodeValueRow => row !== null)
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function createAddressSpaceServerState(): AddressSpaceServerState {
@@ -577,18 +617,40 @@ export function applyServerMessage(
       };
 
     case 'nodeValueChanged':
-      return {
-        ...state,
-        nodeValues: {
-          ...state.nodeValues,
-          [serverNodeKey(message.serverUrl, message.nodeId)]: {
-            serverUrl: message.serverUrl,
-            nodeId: message.nodeId,
-            value: message.value,
-            motionDeviceId: message.robotId,
+      {
+        const serverState = ensureAddressSpaceServerState(state, message.serverUrl);
+        const existingDetails = serverState.detailsByNodeId[message.nodeId];
+        return {
+          ...state,
+          nodeValues: {
+            ...state.nodeValues,
+            [serverNodeKey(message.serverUrl, message.nodeId)]: {
+              serverUrl: message.serverUrl,
+              nodeId: message.nodeId,
+              value: message.value,
+              motionDeviceId: message.robotId,
+            },
           },
-        },
-      };
+          addressSpace: existingDetails
+            ? {
+                ...state.addressSpace,
+                byServerUrl: {
+                  ...state.addressSpace.byServerUrl,
+                  [message.serverUrl]: {
+                    ...serverState,
+                    detailsByNodeId: {
+                      ...serverState.detailsByNodeId,
+                      [message.nodeId]: {
+                        ...existingDetails,
+                        value: message.value,
+                      },
+                    },
+                  },
+                },
+              }
+            : state.addressSpace,
+        };
+      }
 
     case 'opcuaEvent':
       return {

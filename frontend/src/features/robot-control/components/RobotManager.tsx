@@ -28,7 +28,7 @@ export default function RobotManager({
     motionDevices,
   } = useRobotControl();
   const [openSectionsByRobotId, setOpenSectionsByRobotId] = useState<
-    Record<string, { details: boolean; actions: boolean }>
+    Record<string, { details: boolean }>
   >({});
   const shownMissingUrdfErrorsRef = useRef<Set<string>>(new Set());
 
@@ -58,13 +58,11 @@ export default function RobotManager({
     [robots, serverUrl],
   );
 
-  function toggleSection(robotId: string, section: "details" | "actions") {
+  function toggleSection(robotId: string, section: "details") {
     setOpenSectionsByRobotId((current) => ({
       ...current,
       [robotId]: {
-        details: current[robotId]?.details ?? false,
-        actions: current[robotId]?.actions ?? false,
-        [section]: !(current[robotId]?.[section] ?? false),
+        details: !(current[robotId]?.[section] ?? false),
       },
     }));
   }
@@ -119,8 +117,6 @@ export default function RobotManager({
           const takeControlActive = robot.panel.takeControlActive;
           const detailsOpen =
             openSectionsByRobotId[robot.robotId]?.details ?? false;
-          const actionsOpen =
-            openSectionsByRobotId[robot.robotId]?.actions ?? false;
           const motionDevice =
             motionDevices.find(
               (candidate) => candidate.robotId === robot.motionDeviceId,
@@ -181,14 +177,7 @@ export default function RobotManager({
                   />
                 </DisclosureSection>
 
-                <DisclosureSection
-                  title="Actions"
-                  open={actionsOpen}
-                  onToggle={() => toggleSection(robot.robotId, "actions")}
-                  contentClassName="p-0 gap-0"
-                >
-                  <RobotActionsPanel robot={robot} embedded />
-                </DisclosureSection>
+                <RobotActionsPanel robot={robot} embedded />
               </div>
             </section>
           );

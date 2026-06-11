@@ -16,7 +16,7 @@ export interface ViewportSceneState {
 }
 
 const DEFAULT_SETTINGS: ViewportSceneSettings = {
-  effectComposer: true,
+  effectComposer: false,
   environment: false,
   grid: true,
   stats: true,

@@ -232,4 +232,37 @@ describe('server store routing', () => {
       },
     ]);
   });
+
+  it('overlays live subscribed values onto fetched node details', () => {
+    const withDetails = applyServerMessage(initialServerStoreState, {
+      type: 'addressSpaceNodeDetails',
+      serverUrl: SERVER_URL,
+      nodeId: 'ns=4;s=temperature',
+      details: {
+        nodeId: 'ns=4;s=temperature',
+        displayName: 'Temperature',
+        browseName: 'Temperature',
+        nodeClass: 'Variable',
+        nodeClassValue: 2,
+        description: '',
+        value: 20.1,
+        dataType: 'Double',
+        eventNotifier: '',
+        inputArguments: [],
+        outputArguments: [],
+      },
+    });
+    const withLiveValue = applyServerMessage(withDetails, {
+      type: 'nodeValueChanged',
+      serverUrl: SERVER_URL,
+      nodeId: 'ns=4;s=temperature',
+      value: 21.5,
+    });
+
+    expect(
+      withLiveValue.addressSpace.byServerUrl[SERVER_URL]?.detailsByNodeId[
+        'ns=4;s=temperature'
+      ]?.value,
+    ).toBe(21.5);
+  });
 });
