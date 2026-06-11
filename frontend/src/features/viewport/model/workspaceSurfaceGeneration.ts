@@ -7,6 +7,7 @@ import type {
   SurfaceServerMessage,
 } from "../../../shared/api/surfaceMessages";
 import { emitSurfaceMessageLog } from "../../../shared/api/surfaceMessageLog";
+import { getSurfaceWebSocketUrl } from "../../../shared/api/websocketUrls";
 
 export type WorkspaceResolution = "low" | "medium" | "high";
 
@@ -54,7 +55,6 @@ const WORKSPACE_RESOLUTIONS: Record<
   high: { samples: 8_000_000, voxelSize: 0.01 },
 };
 
-const DEFAULT_SURFACE_WS_URL = "ws://127.0.0.1:8000/ws/surface";
 const PCD_HEADER_BYTES = 52;
 const MIN_WORKSPACE_SAMPLE_COUNT = 1000;
 const MAX_WORKSPACE_SAMPLE_COUNT = 8_000_000;
@@ -122,11 +122,6 @@ function createSurfaceProcessingConfig(
     mapMode: "nn",
     mapRadius: null,
   };
-}
-
-function getSurfaceWebSocketUrl() {
-  const base = import.meta.env.VITE_WSC2_WS_URL ?? "ws://127.0.0.1:8000/ws";
-  return base.replace(/\/ws\/?$/, "/ws/surface") || DEFAULT_SURFACE_WS_URL;
 }
 
 function createAbortError(message = "Workspace generation aborted") {

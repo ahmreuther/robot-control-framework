@@ -11,14 +11,12 @@ import {
   WscWebSocketClient,
   type WebSocketClientStatus,
 } from "./shared/api/websocketClient";
+import { getWebSocketUrl } from "./shared/api/websocketUrls";
 import { useEffect, useMemo, useState } from "react";
 
-const DEFAULT_WS_URL = "ws://127.0.0.1:8000/ws";
-
 function createController() {
-  const websocketUrl = import.meta.env.VITE_WSC2_WS_URL ?? DEFAULT_WS_URL;
   return createApplicationController({
-    client: new WscWebSocketClient(websocketUrl),
+    client: new WscWebSocketClient(getWebSocketUrl()),
   });
 }
 
