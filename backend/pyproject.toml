@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "webskillcomposition-backend"
 version = "0.1.0"
 description = "Contract-first backend skeleton for WebSkillComposition"
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "asyncua>=1.1.6,<2.0",
     "fastapi>=0.116,<1.0",
@@ -36,7 +36,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py313"
 src = ["src"]
 
 [tool.hatch.build.targets.wheel]

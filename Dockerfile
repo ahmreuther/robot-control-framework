@@ -9,7 +9,7 @@ RUN npm run build
 FROM ghcr.io/astral-sh/uv:trixie-slim
 WORKDIR /app
 COPY ./backend /app/
-RUN uv sync
+RUN uv python install 3.13 && uv sync --python 3.13
 COPY --from=build_frontend /src/public/urdf /app/www/urdf
 COPY --from=build_frontend /src/dist /app/www
 ENV HOST=true
