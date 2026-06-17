@@ -390,59 +390,10 @@ async def collect_direct_children(start_node: Node | None) -> list[Node]:
     return [child async for child in iter_direct_children(start_node)]
 
 
-async def collect_named_children(
-    parent_node: Node | None,
-    names: list[str],
-) -> list[Node]:
-    if parent_node is None:
-        return []
-
-    children = await collect_direct_children(parent_node)
-    wanted = {name.lower() for name in names}
-    matches: list[Node] = []
-    seen: set[str] = set()
-    for child in children:
-        child_names: list[str] = []
-        try:
-            child_names.append((await read_display_name(child)).lower())
-        except Exception:
-            pass
-        try:
-            child_names.append((await read_browse_name(child)).lower())
-        except Exception:
-            pass
-        if not any(name in wanted for name in child_names):
-            continue
-        node_id = child.nodeid.to_string()
-        if node_id in seen:
-            continue
-        seen.add(node_id)
-        matches.append(child)
-    return matches
-
-
 def merge_bindings[T](primary: dict[str, T], fallback: dict[str, T]) -> dict[str, T]:
     merged = dict(fallback)
     merged.update(primary)
     return merged
-
-
-KNOWN_CAPABILITY_CONTAINER_NAMES = [
-    "Skills",
-    "RobotFeatures",
-    "Movement",
-    "EndEff",
-    "Toolpath",
-    "TaskControl",
-    "TaskControlOperation",
-    "TaskControlStateMachine",
-]
-
-
-KNOWN_VARIABLE_CONTAINER_NAMES = [
-    "RobotFeatures",
-    "ParameterSet",
-]
 
 
 async def discover_method_bindings_from_nodes(nodes: list[Node]) -> dict[str, MethodBinding]:
@@ -464,24 +415,6 @@ async def discover_method_bindings_from_nodes(nodes: list[Node]) -> dict[str, Me
         names = f"{(binding.display_name or '').lower()} {(binding.browse_name or '').lower()}"
         if any(token in names for token in ["endeff", "end_eff", "endeffector", "gripper"]):
             methods.setdefault("toggleEndEffector", binding)
-    return methods
-
-
-async def discover_method_bindings_in_known_containers(
-    motion_device_node: Node,
-) -> dict[str, MethodBinding]:
-    containers = await collect_named_children(motion_device_node, KNOWN_CAPABILITY_CONTAINER_NAMES)
-    methods: dict[str, MethodBinding] = {}
-    for container in containers:
-        async for node in iter_descendants_limited(container, max_depth=3):
-            discovered = await discover_method_bindings_from_nodes([node])
-            methods.update({key: value for key, value in discovered.items() if key not in methods})
-    if methods:
-        logger.info(
-            "opcua discovery known-container method scan hit for %s: count=%s",
-            motion_device_node.nodeid.to_string(),
-            len(methods),
-        )
     return methods
 
 
@@ -551,24 +484,6 @@ async def discover_skill_bindings_from_nodes(nodes: list[Node]) -> dict[str, Ski
     return skills
 
 
-async def discover_skill_bindings_in_known_containers(
-    motion_device_node: Node,
-) -> dict[str, SkillBinding]:
-    containers = await collect_named_children(motion_device_node, KNOWN_CAPABILITY_CONTAINER_NAMES)
-    skills: dict[str, SkillBinding] = {}
-    for container in containers:
-        async for node in iter_descendants_limited(container, max_depth=3):
-            discovered = await discover_skill_bindings_from_nodes([node])
-            skills.update({key: value for key, value in discovered.items() if key not in skills})
-    if skills:
-        logger.info(
-            "opcua discovery known-container skill scan hit for %s: count=%s",
-            motion_device_node.nodeid.to_string(),
-            len(skills),
-        )
-    return skills
-
-
 async def discover_method_bindings(
     motion_device_node: Node,
     *,
@@ -586,12 +501,6 @@ async def discover_method_bindings(
             len(direct_methods),
         )
         return direct_methods
-
-    known_container_methods = await discover_method_bindings_in_known_containers(
-        motion_device_node
-    )
-    if known_container_methods:
-        return known_container_methods
 
     iterator: AsyncIterator[Node]
     if max_depth is None:
@@ -635,12 +544,6 @@ async def discover_skill_bindings(
             len(direct_skills),
         )
         return direct_skills
-
-    known_container_skills = await discover_skill_bindings_in_known_containers(
-        motion_device_node
-    )
-    if known_container_skills:
-        return known_container_skills
 
     iterator: AsyncIterator[Node]
     if max_depth is None:
@@ -696,22 +599,6 @@ async def discover_variable_bindings(
     if variables:
         logger.info(
             "opcua discovery direct variable scan hit for %s: count=%s",
-            motion_device_node.nodeid.to_string(),
-            len(variables),
-        )
-        return variables
-
-    variable_containers = await collect_named_children(
-        motion_device_node,
-        KNOWN_VARIABLE_CONTAINER_NAMES,
-    )
-    for container in variable_containers:
-        descendants = [node async for node in iter_descendants_limited(container, max_depth=2)]
-        await collect_variables(descendants)
-
-    if variables:
-        logger.info(
-            "opcua discovery known-container variable scan hit for %s: count=%s",
             motion_device_node.nodeid.to_string(),
             len(variables),
         )
