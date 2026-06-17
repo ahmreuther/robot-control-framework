@@ -701,6 +701,12 @@ function ViewportRobot({
     mountRotation.x,
     mountRotation.y,
     mountRotation.z,
+    robot.visual.origin.x,
+    robot.visual.origin.y,
+    robot.visual.origin.z,
+    robot.visual.origin.roll,
+    robot.visual.origin.pitch,
+    robot.visual.origin.yaw,
     robot.robotId,
   ]);
 
