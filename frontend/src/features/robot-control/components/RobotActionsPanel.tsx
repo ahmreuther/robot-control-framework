@@ -107,8 +107,8 @@ export default function RobotActionsPanel({
     {},
   );
   const [openActionName, setOpenActionName] = useState<string | null>(null);
-  const [skillsOpen, setSkillsOpen] = useState(true);
-  const [methodsOpen, setMethodsOpen] = useState(true);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [methodsOpen, setMethodsOpen] = useState(false);
 
   const actions = useMemo(
     () =>

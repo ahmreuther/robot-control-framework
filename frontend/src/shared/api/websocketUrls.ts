@@ -1,6 +1,14 @@
 const DEFAULT_WS_URL = "ws://127.0.0.1:8000/ws";
 const DEFAULT_SURFACE_WS_URL = "ws://127.0.0.1:8000/ws/surface";
 
+function getDevelopmentWebSocketUrl(): string | null {
+  if (!import.meta.env.DEV) {
+    return null;
+  }
+
+  return DEFAULT_WS_URL;
+}
+
 function getLocationDerivedWebSocketBaseUrl(): string | null {
   if (typeof window === "undefined") {
     return null;
@@ -18,6 +26,7 @@ function getLocationDerivedWebSocketBaseUrl(): string | null {
 export function getWebSocketUrl(): string {
   return (
     import.meta.env.VITE_WSC2_WS_URL ??
+    getDevelopmentWebSocketUrl() ??
     getLocationDerivedWebSocketBaseUrl() ??
     DEFAULT_WS_URL
   );
