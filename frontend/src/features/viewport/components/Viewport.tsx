@@ -40,6 +40,7 @@ import DragControls from "./DragControls";
 import EnvironmentErrorBoundary from "./EnvironmentErrorBoundary";
 import EnvironmentLoader from "./EnvironmentLoader";
 import GoalMarker from "./GoalMarker";
+import OriginGizmo from "./OriginGizmo";
 import SolverStatusPanel, {
   type SolverStatusSnapshot,
 } from "./SolverStatusPanel";
@@ -408,6 +409,7 @@ function ViewportRobot({
     dragCancelSequence,
     endManipulation,
     getHighlightedJointName,
+    manipulation,
     ikCancelSequence,
     isAbortAreaHovered,
     setHighlightedJointName,
@@ -455,6 +457,32 @@ function ViewportRobot({
   const lastValidGoalQuaternionRef = useRef<THREE.Quaternion | null>(null);
   const lastSolverStatusRef = useRef("");
   const ikJointNamesRef = useRef<string[]>([]);
+  const previousViewportModeRef = useRef(robot.panel.viewportMode);
+  const originPosition = useMemo(
+    () =>
+      new THREE.Vector3(
+        robot.visual.origin.x,
+        robot.visual.origin.y,
+        robot.visual.origin.z,
+      ),
+    [robot.visual.origin.x, robot.visual.origin.y, robot.visual.origin.z],
+  );
+  const originQuaternion = useMemo(
+    () =>
+      new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(
+          robot.visual.origin.roll,
+          robot.visual.origin.pitch,
+          robot.visual.origin.yaw,
+          "XYZ",
+        ),
+      ),
+    [
+      robot.visual.origin.roll,
+      robot.visual.origin.pitch,
+      robot.visual.origin.yaw,
+    ],
+  );
 
   useEffect(() => {
     abortAreaHoveredRef.current = isAbortAreaHovered;
@@ -489,6 +517,7 @@ function ViewportRobot({
         isSelected &&
         loadedRobot &&
         groupRef.current &&
+        robot.panel.viewportMode === "goalmarker" &&
         snapshot.activeSourceId !== JOINT_SOURCE_ID.IK
       ) {
         const nextGoalPosition = getToolPointWorldPosition(loadedRobot);
@@ -503,7 +532,7 @@ function ViewportRobot({
           nextGoalQuaternion?.clone() ?? null;
       }
     });
-  }, [isSelected, manager]);
+  }, [isSelected, manager, robot.panel.viewportMode]);
 
   useEffect(() => {
     const group = groupRef.current;
@@ -680,6 +709,7 @@ function ViewportRobot({
       !isSelected ||
       !loadedRobotState ||
       !groupRef.current ||
+      robot.panel.viewportMode !== "goalmarker" ||
       managerActiveSourceId === JOINT_SOURCE_ID.IK
     ) {
       return;
@@ -701,12 +731,73 @@ function ViewportRobot({
     mountRotation.x,
     mountRotation.y,
     mountRotation.z,
+    robot.panel.viewportMode,
     robot.visual.origin.x,
     robot.visual.origin.y,
     robot.visual.origin.z,
     robot.visual.origin.roll,
     robot.visual.origin.pitch,
     robot.visual.origin.yaw,
+    robot.robotId,
+  ]);
+
+  useEffect(() => {
+    const previousMode = previousViewportModeRef.current;
+    const nextMode = robot.panel.viewportMode;
+    if (previousMode === nextMode) {
+      return;
+    }
+    previousViewportModeRef.current = nextMode;
+
+    if (!isSelected) {
+      return;
+    }
+
+    if (nextMode === "origin") {
+      if (
+        manipulation?.robotId === robot.robotId &&
+        manipulation.sourceId === JOINT_SOURCE_ID.IK
+      ) {
+        if (
+          lastValidGoalPositionRef.current &&
+          lastValidGoalQuaternionRef.current
+        ) {
+          setGoalPosition(lastValidGoalPositionRef.current.clone());
+          setGoalQuaternion(lastValidGoalQuaternionRef.current.clone());
+          goalPositionRef.current = lastValidGoalPositionRef.current.clone();
+          goalQuaternionRef.current =
+            lastValidGoalQuaternionRef.current.clone();
+          ikConvergedRef.current = true;
+          setIkConverged(true);
+        }
+        endManipulation({ cancel: true });
+        onDraggingChange?.(false);
+      }
+      return;
+    }
+
+    if (!loadedRobotState || managerActiveSourceId === JOINT_SOURCE_ID.IK) {
+      return;
+    }
+
+    const nextGoalPosition = getToolPointWorldPosition(loadedRobotState);
+    const nextGoalQuaternion = getToolPointWorldQuaternion(loadedRobotState);
+    setGoalPosition(nextGoalPosition);
+    setGoalQuaternion(nextGoalQuaternion);
+    goalPositionRef.current = nextGoalPosition?.clone() ?? null;
+    goalQuaternionRef.current = nextGoalQuaternion?.clone() ?? null;
+    setIkConverged(true);
+    lastValidGoalPositionRef.current = nextGoalPosition?.clone() ?? null;
+    lastValidGoalQuaternionRef.current = nextGoalQuaternion?.clone() ?? null;
+  }, [
+    endManipulation,
+    isSelected,
+    loadedRobotState,
+    managerActiveSourceId,
+    manipulation?.robotId,
+    manipulation?.sourceId,
+    onDraggingChange,
+    robot.panel.viewportMode,
     robot.robotId,
   ]);
 
@@ -862,6 +953,7 @@ function ViewportRobot({
     isSelected &&
     !!manager &&
     !!loadedRobotState &&
+    robot.panel.viewportMode === "goalmarker" &&
     managerActiveSourceId !== JOINT_SOURCE_ID.MANUAL &&
     managerActiveSourceId !== JOINT_SOURCE_ID.ANIMATION &&
     managerActiveSourceId !== JOINT_SOURCE_ID.RESET;
@@ -870,16 +962,23 @@ function ViewportRobot({
     isSelected &&
     !!manager &&
     !!loadedRobotState &&
+    robot.panel.viewportMode === "goalmarker" &&
     managerActiveSourceId !== JOINT_SOURCE_ID.ANIMATION &&
     managerActiveSourceId !== JOINT_SOURCE_ID.RESET;
 
   const handleDragStart = useCallback(() => {
-    if (!manager) {
+    if (!manager || robot.panel.viewportMode !== "goalmarker") {
       return;
     }
     beginManipulation(robot.robotId, JOINT_SOURCE_ID.DRAG);
     onDraggingChange?.(true);
-  }, [beginManipulation, manager, onDraggingChange, robot.robotId]);
+  }, [
+    beginManipulation,
+    manager,
+    onDraggingChange,
+    robot.panel.viewportMode,
+    robot.robotId,
+  ]);
 
   const handleDragEnd = useCallback(() => {
     if (!manager) {
@@ -891,7 +990,7 @@ function ViewportRobot({
 
   const handleUpdateJoint = useCallback(
     (joint: unknown, value: number) => {
-      if (!manager) return;
+      if (!manager || robot.panel.viewportMode !== "goalmarker") return;
 
       const candidate = joint as { name?: string | null };
       const jointName = candidate.name ?? null;
@@ -904,7 +1003,7 @@ function ViewportRobot({
       nextAngles[jointIndex] = value;
       manager.updateFromSource(JOINT_SOURCE_ID.DRAG, nextAngles);
     },
-    [manager],
+    [manager, robot.panel.viewportMode],
   );
 
   const handleHoverJoint = useCallback((joint: unknown) => {
@@ -1006,6 +1105,7 @@ function ViewportRobot({
 
     if (
       !isSelected ||
+      robot.panel.viewportMode !== "goalmarker" ||
       !ikModel ||
       !visibleRobot ||
       !robotGroup ||
@@ -1155,6 +1255,17 @@ function ViewportRobot({
   }, [robot.robotId, setHighlightedJointName]);
 
   const origin = robot.visual.origin;
+  const showGoalMarker =
+    isSelected &&
+    loadedRobotState &&
+    robot.panel.goalMarkerEnabled &&
+    robot.panel.viewportMode === "goalmarker";
+  const showOriginGizmo =
+    isSelected && robot.panel.viewportMode === "origin";
+  const originGizmoEnabled =
+    managerActiveSourceId !== JOINT_SOURCE_ID.DRAG &&
+    !draggedJointName &&
+    !sharedHighlightedJointName;
   const handleSelectRobot = useCallback(
     (event: { stopPropagation?: () => void }) => {
       event.stopPropagation?.();
@@ -1164,6 +1275,22 @@ function ViewportRobot({
       selectRobot(robot.robotId);
     },
     [isSelected, robot.robotId, selectRobot],
+  );
+  const handleOriginTransformChange = useCallback(
+    (nextPosition: THREE.Vector3, nextQuaternion: THREE.Quaternion) => {
+      const euler = new THREE.Euler().setFromQuaternion(nextQuaternion, "XYZ");
+      controller.updateRobotVisualBinding(robot.robotId, {
+        origin: {
+          x: nextPosition.x,
+          y: nextPosition.y,
+          z: nextPosition.z,
+          roll: euler.x,
+          pitch: euler.y,
+          yaw: euler.z,
+        },
+      });
+    },
+    [controller, robot.robotId],
   );
 
   return (
@@ -1196,11 +1323,11 @@ function ViewportRobot({
           )}
         </group>
       </group>
-      {isSelected && loadedRobotState && robot.panel.goalMarkerEnabled ? (
+      {showGoalMarker ? (
         <GoalMarker
           enabled={canManipulateIk}
-          mode={robot.panel.goalMarkerMode}
-          space={robot.panel.goalMarkerSpace}
+          mode={robot.panel.transformMode}
+          space={robot.panel.transformSpace}
           position={goalPosition}
           quaternion={goalQuaternion}
           converged={ikConverged}
@@ -1211,6 +1338,17 @@ function ViewportRobot({
           onDragStart={handleGoalDragStart}
           onDragEnd={handleGoalDragEnd}
           onCanceledPointerRelease={() => onDraggingChange?.(false)}
+        />
+      ) : null}
+      {showOriginGizmo ? (
+        <OriginGizmo
+          objectRef={groupRef as React.RefObject<THREE.Object3D | null>}
+          enabled={originGizmoEnabled}
+          mode={robot.panel.transformMode}
+          space={robot.panel.transformSpace}
+          onTransformChange={handleOriginTransformChange}
+          onDragStart={() => onDraggingChange?.(true)}
+          onDragEnd={() => onDraggingChange?.(false)}
         />
       ) : null}
     </>

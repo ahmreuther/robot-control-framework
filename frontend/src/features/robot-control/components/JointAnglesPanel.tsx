@@ -186,13 +186,37 @@ export default function JointAnglesPanel() {
       return;
     }
     setWorkspaceSampleInput(String(activeRobot.panel.workspaceSampleCount));
+  }, [activeRobot]);
+
+  useEffect(() => {
+    if (!activeRobot) {
+      setOriginPoseInput({
+        x: "0",
+        y: "0",
+        z: "0",
+        roll: "0",
+        pitch: "0",
+        yaw: "0",
+      });
+      return;
+    }
+
     setOriginPoseInput(
       toOriginPoseInput(
         activeRobot.visual.origin,
         activeRobot.panel.useDegrees,
       ),
     );
-  }, [activeRobot]);
+  }, [
+    activeRobot?.robotId,
+    activeRobot?.panel.useDegrees,
+    activeRobot?.visual.origin.x,
+    activeRobot?.visual.origin.y,
+    activeRobot?.visual.origin.z,
+    activeRobot?.visual.origin.roll,
+    activeRobot?.visual.origin.pitch,
+    activeRobot?.visual.origin.yaw,
+  ]);
 
   useEffect(() => {
     const isSyncSliderManipulation =
@@ -364,11 +388,15 @@ export default function JointAnglesPanel() {
   const dragManipulationActive =
     managerState.activeSourceId === JOINT_SOURCE_ID.DRAG;
   const canEdit =
+    currentRobot.panel.viewportMode === "goalmarker" &&
     managerState.activeSourceId !== JOINT_SOURCE_ID.RESET &&
     managerState.activeSourceId !== JOINT_SOURCE_ID.ANIMATION &&
     !dragManipulationActive;
 
   function beginSliderManipulation() {
+    if (!canEdit) {
+      return;
+    }
     beginManipulation(robotId, JOINT_SOURCE_ID.MANUAL);
   }
 
@@ -384,6 +412,9 @@ export default function JointAnglesPanel() {
     displayValue: number,
     property: JointProperty | null,
   ) {
+    if (!canEdit) {
+      return;
+    }
     const nextAngles = [...managerState.angles];
     nextAngles[index] = toManagerValue(displayValue, property, useDegrees);
     updateRobotJointAngles(robotId, nextAngles);

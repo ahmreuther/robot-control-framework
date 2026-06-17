@@ -35,6 +35,7 @@ function robot(overrides: Partial<Robot> = {}): Robot {
   const defaultPanel = {
     useDegrees: false,
     takeControlActive: false,
+    viewportMode: 'origin' as const,
     showCollisionMap: false,
     showWorkspace: false,
     workspaceSampleCount: 1000000,
@@ -46,8 +47,8 @@ function robot(overrides: Partial<Robot> = {}): Robot {
     workspaceAbortVersion: 0,
     goalMarkerEnabled: true,
     goalMarkerConstraintMode: 'pose' as const,
-    goalMarkerMode: 'translate' as const,
-    goalMarkerSpace: 'world' as const,
+    transformMode: 'translate' as const,
+    transformSpace: 'world' as const,
   };
 
   const { visual: visualOverrides, panel: panelOverrides, ...restOverrides } = overrides;

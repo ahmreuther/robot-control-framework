@@ -370,12 +370,23 @@ export class ApplicationController {
   }
 
   selectRobot(robotId: string): void {
-    if (!this.robotState.byId[robotId]) {
+    const robot = this.robotState.byId[robotId];
+    if (!robot) {
       throw new Error(`Robot "${robotId}" is not known.`);
     }
 
     this.robotState = {
       ...this.robotState,
+      byId: {
+        ...this.robotState.byId,
+        [robotId]: {
+          ...robot,
+          panel: {
+            ...robot.panel,
+            viewportMode: "origin",
+          },
+        },
+      },
       activeRobotId: robotId,
     };
     this.emitState();
@@ -501,6 +512,21 @@ export class ApplicationController {
       },
     };
     this.emitState();
+  }
+
+  setRobotViewportMode(
+    robotId: string,
+    viewportMode: RobotPanelState["viewportMode"],
+  ): void {
+    this.updateRobotPanelState(robotId, { viewportMode });
+  }
+
+  toggleRobotViewportMode(robotId: string): void {
+    const robot = this.requireRobot(robotId);
+    this.updateRobotPanelState(robotId, {
+      viewportMode:
+        robot.panel.viewportMode === "origin" ? "goalmarker" : "origin",
+    });
   }
 
   updateRobotHomeAngles(robotId: string, homeAngles: number[]): void {

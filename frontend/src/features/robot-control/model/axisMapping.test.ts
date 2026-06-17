@@ -134,6 +134,7 @@ describe('axis mapping', () => {
       panel: {
         useDegrees: false,
         takeControlActive: false,
+        viewportMode: 'origin',
         showCollisionMap: false,
         showWorkspace: false,
         workspaceSampleCount: 1000000,
@@ -145,8 +146,8 @@ describe('axis mapping', () => {
         workspaceAbortVersion: 0,
         goalMarkerEnabled: true,
         goalMarkerConstraintMode: 'pose',
-        goalMarkerMode: 'translate',
-        goalMarkerSpace: 'world',
+        transformMode: 'translate',
+        transformSpace: 'world',
       },
     };
 

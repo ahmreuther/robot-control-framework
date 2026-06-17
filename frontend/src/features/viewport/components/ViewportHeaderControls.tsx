@@ -16,7 +16,10 @@ function isTypingTarget(target: EventTarget | null): boolean {
     target.isContentEditable ||
     tagName === "INPUT" ||
     tagName === "TEXTAREA" ||
-    tagName === "SELECT"
+    tagName === "SELECT" ||
+    tagName === "BUTTON" ||
+    target.getAttribute("role") === "switch" ||
+    target.tabIndex >= 0
   );
 }
 
@@ -33,7 +36,8 @@ interface ViewportHeaderControlsProps {
 export default function ViewportHeaderControls({
   sceneState,
 }: ViewportHeaderControlsProps) {
-  const { activeRobot, updateRobotPanelState } = useRobotControl();
+  const { activeRobot, updateRobotPanelState, toggleRobotViewportMode } =
+    useRobotControl();
   const { config: solverConfig, updateConfig, resetConfig } = useSolverConfig();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalSectionOpen, setGoalSectionOpen] = useState(true);
@@ -65,6 +69,9 @@ export default function ViewportHeaderControls({
       }
 
       if (event.key === "h" || event.key === "H") {
+        if (activeRobot.panel.viewportMode !== "goalmarker") {
+          return;
+        }
         event.preventDefault();
         updateRobotPanelState(activeRobot.robotId, {
           goalMarkerEnabled: !activeRobot.panel.goalMarkerEnabled,
@@ -75,13 +82,16 @@ export default function ViewportHeaderControls({
       if (event.key === "q" || event.key === "Q") {
         event.preventDefault();
         updateRobotPanelState(activeRobot.robotId, {
-          goalMarkerSpace:
-            activeRobot.panel.goalMarkerSpace === "world" ? "local" : "world",
+          transformSpace:
+            activeRobot.panel.transformSpace === "world" ? "local" : "world",
         });
         return;
       }
 
       if (event.key === "w" || event.key === "W") {
+        if (activeRobot.panel.viewportMode !== "goalmarker") {
+          return;
+        }
         event.preventDefault();
         updateRobotPanelState(activeRobot.robotId, {
           goalMarkerConstraintMode:
@@ -95,11 +105,20 @@ export default function ViewportHeaderControls({
       if (event.key === "e" || event.key === "E") {
         event.preventDefault();
         updateRobotPanelState(activeRobot.robotId, {
-          goalMarkerMode:
-            activeRobot.panel.goalMarkerMode === "translate"
+          transformMode:
+            activeRobot.panel.transformMode === "translate"
               ? "rotate"
               : "translate",
         });
+        return;
+      }
+
+      if (event.key === "Tab") {
+        if (settingsOpen) {
+          return;
+        }
+        event.preventDefault();
+        toggleRobotViewportMode(activeRobot.robotId);
       }
     }
 
@@ -107,7 +126,7 @@ export default function ViewportHeaderControls({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [activeRobot, updateRobotPanelState]);
+  }, [activeRobot, settingsOpen, toggleRobotViewportMode, updateRobotPanelState]);
 
   const viewportEntries: Array<{
     key: ToggleableViewportSettingKey;
@@ -119,15 +138,25 @@ export default function ViewportHeaderControls({
     { key: "stats", label: "FPS" },
   ];
 
-  const goalDisabled = !activeRobot;
+  const goalDisabled =
+    !activeRobot || activeRobot.panel.viewportMode !== "goalmarker";
+  const transformDisabled = !activeRobot;
   const goalHidden = activeRobot ? !activeRobot.panel.goalMarkerEnabled : true;
   const goalFullPose =
     (activeRobot?.panel.goalMarkerConstraintMode ?? "pose") === "pose";
-  const goalRotate = activeRobot?.panel.goalMarkerMode === "rotate";
-  const goalLocal = activeRobot?.panel.goalMarkerSpace === "local";
+  const goalRotate = activeRobot?.panel.transformMode === "rotate";
+  const goalLocal = activeRobot?.panel.transformSpace === "local";
+  const viewportModeLabel =
+    activeRobot?.panel.viewportMode === "goalmarker"
+      ? "Goal Marker"
+      : "Origin";
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
+        <div className="border border-[rgb(var(--panel-border)/0.18)] bg-[rgb(var(--panel-bg)/0.55)] px-2 py-1 text-xs text-[rgb(var(--fg-muted))]">
+          Mode:{" "}
+          <span className="text-[rgb(var(--fg))]">{viewportModeLabel}</span>
+        </div>
         <button
           className="button-ghost"
           onClick={() => setSettingsOpen((current) => !current)}
@@ -141,7 +170,7 @@ export default function ViewportHeaderControls({
           <div className="panel w-80 max-h-[min(42rem,calc(100vh-8rem))] overflow-hidden">
             <div className="panel-body flex max-h-[min(42rem,calc(100vh-8rem))] flex-col gap-2 overflow-y-auto">
               <DisclosureSection
-                title="Goal Marker"
+                title="Gizmo Options"
                 open={goalSectionOpen}
                 onToggle={() => setGoalSectionOpen((current) => !current)}
               >
@@ -161,12 +190,12 @@ export default function ViewportHeaderControls({
                 <label className="flex items-center justify-between gap-3 text-xs">
                   <span>Orientation Mode</span>
                   <Toggle
-                    disabled={goalDisabled}
+                    disabled={transformDisabled}
                     checked={goalRotate}
                     onChange={(checked) => {
                       if (!activeRobot) return;
                       updateRobotPanelState(activeRobot.robotId, {
-                        goalMarkerMode: checked ? "rotate" : "translate",
+                        transformMode: checked ? "rotate" : "translate",
                       });
                     }}
                   />
@@ -187,12 +216,12 @@ export default function ViewportHeaderControls({
                 <label className="flex items-center justify-between gap-3 text-xs">
                   <span>Local Coordinates</span>
                   <Toggle
-                    disabled={goalDisabled}
+                    disabled={transformDisabled}
                     checked={goalLocal}
                     onChange={(checked) => {
                       if (!activeRobot) return;
                       updateRobotPanelState(activeRobot.robotId, {
-                        goalMarkerSpace: checked ? "local" : "world",
+                        transformSpace: checked ? "local" : "world",
                       });
                     }}
                   />

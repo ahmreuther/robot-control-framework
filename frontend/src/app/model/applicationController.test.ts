@@ -575,6 +575,8 @@ describe('ApplicationController', () => {
       },
       panel: {
         useDegrees: false,
+        takeControlActive: false,
+        viewportMode: 'origin',
         showCollisionMap: false,
         showWorkspace: false,
         workspaceSampleCount: 1000000,
@@ -586,11 +588,63 @@ describe('ApplicationController', () => {
         workspaceAbortVersion: 0,
         goalMarkerEnabled: true,
         goalMarkerConstraintMode: 'pose',
-        goalMarkerMode: 'translate',
-        goalMarkerSpace: 'world',
+        transformMode: 'translate',
+        transformSpace: 'world',
       },
     });
     expect(controller.getJointRuntime().getExistingManager(robotId) !== null).toBe(true);
+  });
+
+  it('toggles and sets the robot viewport mode explicitly', () => {
+    const { controller } = setup();
+
+    const robotId = controller.createRobot('Manual EVA', ROBOT_MODEL_OPTIONS[0], {
+      x: 0,
+      y: 0,
+      z: 0,
+      roll: 0,
+      pitch: 0,
+      yaw: 0,
+    });
+
+    controller.toggleRobotViewportMode(robotId);
+    expect(
+      controller.getSnapshot().robot.byId[robotId]?.panel.viewportMode,
+    ).toBe('goalmarker');
+
+    controller.setRobotViewportMode(robotId, 'origin');
+    expect(
+      controller.getSnapshot().robot.byId[robotId]?.panel.viewportMode,
+    ).toBe('origin');
+  });
+
+  it('resets the selected robot viewport mode back to origin on selection', () => {
+    const { controller } = setup();
+
+    const robotA = controller.createRobot('Robot A', ROBOT_MODEL_OPTIONS[0], {
+      x: 0,
+      y: 0,
+      z: 0,
+      roll: 0,
+      pitch: 0,
+      yaw: 0,
+    });
+    const robotB = controller.createRobot('Robot B', ROBOT_MODEL_OPTIONS[0], {
+      x: 0,
+      y: 0,
+      z: 0,
+      roll: 0,
+      pitch: 0,
+      yaw: 0,
+    });
+
+    controller.setRobotViewportMode(robotA, 'goalmarker');
+    controller.selectRobot(robotB);
+    controller.selectRobot(robotA);
+
+    expect(
+      controller.getSnapshot().robot.byId[robotA]?.panel.viewportMode,
+    ).toBe('origin');
   });
 
   it('lets the active server be selected explicitly', () => {

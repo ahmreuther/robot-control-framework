@@ -41,6 +41,11 @@ export interface RobotControlContextValue {
     visual: Partial<RobotVisualBinding>,
   ): void;
   updateRobotPanelState(robotId: string, panel: Partial<RobotPanelState>): void;
+  setRobotViewportMode(
+    robotId: string,
+    viewportMode: RobotPanelState["viewportMode"],
+  ): void;
+  toggleRobotViewportMode(robotId: string): void;
   updateRobotHomeAngles(robotId: string, homeAngles: number[]): void;
   updateRobotJointAngles(robotId: string, angles: number[]): boolean;
 }
@@ -117,6 +122,15 @@ export function RobotControlProvider({
       },
       updateRobotPanelState: (robotId: string, panel: Partial<RobotPanelState>) => {
         controller.updateRobotPanelState(robotId, panel);
+      },
+      setRobotViewportMode: (
+        robotId: string,
+        viewportMode: RobotPanelState["viewportMode"],
+      ) => {
+        controller.setRobotViewportMode(robotId, viewportMode);
+      },
+      toggleRobotViewportMode: (robotId: string) => {
+        controller.toggleRobotViewportMode(robotId);
       },
       updateRobotHomeAngles: (robotId: string, homeAngles: number[]) => {
         controller.updateRobotHomeAngles(robotId, homeAngles);

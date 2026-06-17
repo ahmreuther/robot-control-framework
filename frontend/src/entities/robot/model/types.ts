@@ -84,6 +84,7 @@ export interface RobotVisualBinding {
 export interface RobotPanelState {
   useDegrees: boolean;
   takeControlActive: boolean;
+  viewportMode: 'origin' | 'goalmarker';
   showCollisionMap: boolean;
   showWorkspace: boolean;
   workspaceSampleCount: number;
@@ -95,8 +96,8 @@ export interface RobotPanelState {
   workspaceAbortVersion: number;
   goalMarkerEnabled: boolean;
   goalMarkerConstraintMode: 'pose' | 'position';
-  goalMarkerMode: 'translate' | 'rotate';
-  goalMarkerSpace: 'local' | 'world';
+  transformMode: 'translate' | 'rotate';
+  transformSpace: 'local' | 'world';
 }
 
 export interface Robot extends RobotSessionInfo {
@@ -139,6 +140,7 @@ export function createRobotFromSession(session: RobotSessionInfo): Robot {
     panel: {
       useDegrees: false,
       takeControlActive: false,
+      viewportMode: 'origin',
       showCollisionMap: false,
       showWorkspace: false,
       workspaceSampleCount: 1000000,
@@ -150,8 +152,8 @@ export function createRobotFromSession(session: RobotSessionInfo): Robot {
       workspaceAbortVersion: 0,
       goalMarkerEnabled: true,
       goalMarkerConstraintMode: 'pose',
-      goalMarkerMode: 'translate',
-      goalMarkerSpace: 'world',
+      transformMode: 'translate',
+      transformSpace: 'world',
     },
   };
 }
