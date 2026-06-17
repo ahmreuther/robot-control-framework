@@ -260,7 +260,13 @@ class FakeConnection:
     async def read_node_value(self, node_id: str):
         return self.node_values.get(node_id)
 
-    async def write_node_value(self, node_id: str, value: object) -> None:
+    async def write_node_value(
+        self,
+        node_id: str,
+        value: object,
+        *,
+        coerce_to_existing: bool = False,
+    ) -> None:
         self.written_node_values[node_id] = value
 
     async def browse_address_space_root(self):
@@ -361,7 +367,7 @@ async def test_discover_command_registers_multiple_robot_sessions() -> None:
 
 
 @pytest.mark.asyncio
-async def test_discover_command_reuses_cached_result_after_disconnect() -> None:
+async def test_discover_command_rediscovers_after_disconnect() -> None:
     registry = RuntimeRegistry()
     discover_command = parse_client_message_json(
         '{"type":"discoverRobots","requestId":"req-discover-1","serverUrl":"' + SERVER_URL + '"}'
@@ -397,8 +403,9 @@ async def test_discover_command_reuses_cached_result_after_disconnect() -> None:
 
     assert len(second_events) == 1
     assert isinstance(second_events[0], RobotsDiscoveredEvent)
-    assert len(FakeConnection.created) == 1
+    assert len(FakeConnection.created) == 2
     assert FakeConnection.created[0].discovery_count == 1
+    assert FakeConnection.created[1].discovery_count == 1
 
 
 @pytest.mark.asyncio
