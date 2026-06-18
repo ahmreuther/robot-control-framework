@@ -28,6 +28,11 @@ MOTION_DEVICE_TYPE_IDENTIFIER = 1004
 AXIS_TYPE_IDENTIFIER = 16601
 MOTION_DEVICE_NUMERIC_ID_RANGE = range(5010, 5020)
 
+# RELATIVE_PATH = ("start_search_here", "to_be_find")
+# The relative path from the device to the motion devices container
+MOTION_DEVICES_RELATIVE_PATH = ("MotionDeviceSystem", "MotionDevices")
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -146,6 +151,15 @@ async def child_by_name(node: Node | None, wanted: str) -> Node | None:
     return None
 
 
+async def child_by_path(node: Node | None, names: tuple[str, ...]) -> Node | None:
+    current = node
+    for name in names:
+        current = await child_by_name(current, name)
+        if current is None:
+            return None
+    return current
+
+
 async def read_text_child(node: Node, child_name: str) -> str | None:
     child = await child_by_name(node, child_name)
     if child is None:
@@ -182,10 +196,26 @@ async def find_device_set(client: Client, namespace_uris: list[str]) -> Node | N
 
 
 async def find_motion_devices_container(device_set: Node | None) -> Node | None:
-    motion_device_system = await child_by_name(device_set, "MotionDeviceSystem")
-    if motion_device_system is None:
-        return None
-    return await child_by_name(motion_device_system, "MotionDevices")
+    return await child_by_path(device_set, MOTION_DEVICES_RELATIVE_PATH)
+
+
+async def probe_nodes_by_numeric_id_range(
+    *,
+    client: Client,
+    namespace_index: int,
+    identifiers: range,
+    expected_type_id: str,
+) -> list[Node]:
+    matches: list[Node] = []
+    for identifier in identifiers:
+        candidate = client.get_node(f"ns={namespace_index};i={identifier}")
+        try:
+            if await read_type_definition_id(candidate) != expected_type_id:
+                continue
+        except Exception:
+            continue
+        matches.append(candidate)
+    return matches
 
 
 async def discover_motion_device_nodes(
@@ -206,15 +236,12 @@ async def discover_motion_device_nodes(
 
     if motion_devices_container is not None:
         namespace_index = motion_devices_container.nodeid.NamespaceIndex
-        probed_motion_devices: list[Node] = []
-        for identifier in MOTION_DEVICE_NUMERIC_ID_RANGE:
-            candidate = client.get_node(f"ns={namespace_index};i={identifier}")
-            try:
-                if await read_type_definition_id(candidate) != motion_device_type_id:
-                    continue
-            except Exception:
-                continue
-            probed_motion_devices.append(candidate)
+        probed_motion_devices = await probe_nodes_by_numeric_id_range(
+            client=client,
+            namespace_index=namespace_index,
+            identifiers=MOTION_DEVICE_NUMERIC_ID_RANGE,
+            expected_type_id=motion_device_type_id,
+        )
 
         if probed_motion_devices:
             logger.info(
