@@ -669,7 +669,7 @@ export default function JointAnglesPanel() {
               </div>
             ) : null}
             <div
-              className="border-x border-t overflow-visible"
+              className="border-x border-t border-b overflow-visible"
               style={{ borderColor: "rgb(var(--panel-border) / 0.1)" }}
             >
               <table className="panel-table">

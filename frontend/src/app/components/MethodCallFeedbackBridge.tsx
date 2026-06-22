@@ -14,11 +14,11 @@ function feedbackKey(requestId: string): string {
 
 function loadingText(record: MethodCallStatusRecord): string {
   switch (record.method) {
-    case "action:goto":
+    case "action:go_to":
       return "Sending synchronized joint move...";
-    case "halt:goto":
+    case "halt:go_to":
       return "Stopping synchronized move...";
-    case "reset:goto":
+    case "reset:go_to":
       return "Resetting synchronized move...";
     case "toggleEndEffector":
       return "Switching end effector...";
@@ -30,11 +30,11 @@ function loadingText(record: MethodCallStatusRecord): string {
 
 function successText(record: MethodCallStatusRecord): string {
   switch (record.method) {
-    case "action:goto":
+    case "action:go_to":
       return "Synchronized move started";
-    case "halt:goto":
+    case "halt:go_to":
       return "Synchronized move stopped";
-    case "reset:goto":
+    case "reset:go_to":
       return "Synchronized move reset";
     case "toggleEndEffector":
       return "End effector updated";
@@ -46,11 +46,11 @@ function successText(record: MethodCallStatusRecord): string {
 
 function errorText(record: MethodCallStatusRecord): string {
   switch (record.method) {
-    case "action:goto":
+    case "action:go_to":
       return "Synchronized move failed";
-    case "halt:goto":
+    case "halt:go_to":
       return "Failed to stop synchronized move";
-    case "reset:goto":
+    case "reset:go_to":
       return "Failed to reset synchronized move";
     case "toggleEndEffector":
       return "End effector update failed";

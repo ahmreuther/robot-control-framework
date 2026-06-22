@@ -12,6 +12,7 @@ class NodeBinding(ContractModel):
     display_name: str | None = None
     browse_name: str | None = None
     node_class: str | None = None
+    discovery_path: str | None = None
 
 
 class MotionDeviceBinding(NodeBinding):

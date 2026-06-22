@@ -75,7 +75,7 @@ describe('robot store routing', () => {
               axes: {},
             },
             actions: {
-              goto: {
+              go_to: {
                 kind: 'skill',
                 targetName: 'go_to',
                 skillNodeId: 'ns=4;s=robot-a.GoToSkill',
@@ -89,7 +89,7 @@ describe('robot store routing', () => {
     );
 
     expect(updated.byId.localA?.motionDeviceId).toBe('robot-a');
-    expect(updated.byId.localA?.actions?.goto?.targetName).toBe('go_to');
+    expect(updated.byId.localA?.actions?.go_to?.targetName).toBe('go_to');
     expect(updated.byId.localA?.opcua.skills?.go_to?.nodeId).toBe(
       'ns=4;s=robot-a.GoToSkill',
     );
@@ -153,15 +153,15 @@ describe('robot store routing', () => {
       serverUrl: 'opc.tcp://127.0.0.1:4840',
       robotId: 'robot-a',
       data: {
-        actionName: 'goto',
+        actionName: 'go_to',
         kind: 'skill',
         status: 'running',
         currentState: 'Running',
       },
     });
 
-    expect(updated.byId.localA?.actionStates.goto).toEqual({
-      actionName: 'goto',
+    expect(updated.byId.localA?.actionStates.go_to).toEqual({
+      actionName: 'go_to',
       kind: 'skill',
       status: 'running',
       currentState: 'Running',

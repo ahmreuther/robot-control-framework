@@ -45,6 +45,7 @@ class RobotActionBinding(ContractModel):
     kind: Literal["method", "skill"]
     target_name: str
     display_name: str | None = None
+    discovery_path: str | None = None
     method_node_id: str | None = None
     skill_node_id: str | None = None
     parameter_set_node_id: str | None = None

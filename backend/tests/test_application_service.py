@@ -86,7 +86,7 @@ def fake_robot(
             },
         ),
         actions={
-            "goto": RobotActionBinding(
+            "go_to": RobotActionBinding(
                 kind="skill",
                 targetName="go_to",
                 skillNodeId=f"{node_id}.GoToSkill",
@@ -99,7 +99,7 @@ def fake_robot(
                 parameterNames=["mode", "joints"],
                 resultNames=[],
             ),
-            "createSession": RobotActionBinding(
+            "create_new_session": RobotActionBinding(
                 kind="method",
                 targetName="create_new_session",
                 methodNodeId=f"{node_id}.CreateSession",
@@ -704,7 +704,7 @@ async def test_execute_robot_action_dispatches_skill_and_emits_runtime_state() -
     command = parse_client_message_json(
         '{"type":"executeRobotAction","requestId":"req-action","robotId":"'
         + robot_id
-        + '","actionName":"goto","inputs":{"mode":"automatic","joints":[0,1,2]}}'
+        + '","actionName":"go_to","inputs":{"mode":"automatic","joints":[0,1,2]}}'
     )
     events = await handle_client_message(
         command,
@@ -714,7 +714,7 @@ async def test_execute_robot_action_dispatches_skill_and_emits_runtime_state() -
 
     assert events[0].type == "methodResult"
     assert events[1].type == "robotActionState"
-    assert events[1].data.action_name == "goto"
+    assert events[1].data.action_name == "go_to"
     assert events[1].data.kind == "skill"
     assert events[1].data.status == "running"
     assert events[1].data.current_state == "Running"
@@ -727,7 +727,6 @@ async def test_execute_robot_action_dispatches_skill_and_emits_runtime_state() -
         "inputs": {"args": []},
         "args": [],
     }
-
 
 def test_skill_current_state_normalization_accepts_structured_values() -> None:
     current_state = _extract_skill_current_state_text(
@@ -758,7 +757,7 @@ async def test_halt_robot_action_dispatches_skill_transition() -> None:
     command = parse_client_message_json(
         '{"type":"haltRobotAction","requestId":"req-halt","robotId":"'
         + robot_id
-        + '","actionName":"goto"}'
+        + '","actionName":"go_to"}'
     )
     events = await handle_client_message(
         command,
@@ -791,7 +790,7 @@ async def test_reset_robot_action_dispatches_skill_transition() -> None:
     command = parse_client_message_json(
         '{"type":"resetRobotAction","requestId":"req-reset","robotId":"'
         + robot_id
-        + '","actionName":"goto"}'
+        + '","actionName":"go_to"}'
     )
     events = await handle_client_message(
         command,
@@ -824,7 +823,7 @@ async def test_execute_robot_action_dispatches_method_actions_too() -> None:
     command = parse_client_message_json(
         '{"type":"executeRobotAction","requestId":"req-action","robotId":"'
         + robot_id
-        + '","actionName":"createSession","inputs":{"args":[]}}'
+        + '","actionName":"create_new_session","inputs":{"args":[]}}'
     )
     events = await handle_client_message(
         command,

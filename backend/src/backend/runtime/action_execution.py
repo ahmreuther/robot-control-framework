@@ -200,10 +200,21 @@ async def _execute_skill_action(
             inputs={"args": []},
         )
     except Exception as exc:
+        current_state: str | None = None
+        try:
+            current_state = await _read_skill_current_state(connection, action)
+        except Exception:
+            current_state = None
         raise RobotActionExecutionError(
             f"Failed to start skill action {action_name!r} on robot "
             f'"{robot.robot_id}" via {action.start_node_id} after writing '
-            f"inputs {normalized_inputs!r}: {exc}"
+            f"inputs {normalized_inputs!r}"
+            + (
+                f" while current state was {current_state!r}"
+                if current_state is not None
+                else ""
+            )
+            + f": {exc}"
         ) from exc
     current_state = await _read_skill_current_state(connection, action)
     return ExecutedRobotAction(

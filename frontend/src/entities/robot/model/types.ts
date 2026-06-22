@@ -24,6 +24,7 @@ export interface RobotActionBinding {
   kind: 'method' | 'skill';
   targetName: string;
   displayName?: string | null;
+  discoveryPath?: string | null;
   methodNodeId?: string | null;
   skillNodeId?: string | null;
   parameterSetNodeId?: string | null;
