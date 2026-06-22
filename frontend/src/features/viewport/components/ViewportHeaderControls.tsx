@@ -45,7 +45,7 @@ export default function ViewportHeaderControls({
   const { config: solverConfig, updateConfig, resetConfig } = useSolverConfig();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalSectionOpen, setGoalSectionOpen] = useState(true);
-  const [viewportSectionOpen, setViewportSectionOpen] = useState(true);
+  const [viewportSectionOpen, setViewportSectionOpen] = useState(false);
   const [solverSectionOpen, setSolverSectionOpen] = useState(false);
   const [settingsMaxHeight, setSettingsMaxHeight] = useState<number | null>(
     null,

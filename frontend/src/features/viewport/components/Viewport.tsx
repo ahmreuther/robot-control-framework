@@ -1132,7 +1132,7 @@ function ViewportRobot({
       {
         position: targetPosition,
         quaternion: targetQuaternion,
-        constraintMode: robot.panel.goalMarkerConstraintMode,
+        constraintMode: effectiveConstraintMode,
       },
       robotGroup,
     );
@@ -1149,7 +1149,7 @@ function ViewportRobot({
     }
 
     const nextSolverStatus = {
-      constraintMode: robot.panel.goalMarkerConstraintMode,
+      constraintMode: effectiveConstraintMode,
       converged: result.converged,
       statuses: result.statuses,
       translationError: Number(result.translationError.toFixed(6)),
@@ -1262,6 +1262,11 @@ function ViewportRobot({
     robot.panel.viewportMode === "tcp";
   const showOriginGizmo =
     isSelected && robot.panel.viewportMode === "origin";
+  const effectiveTransformMode = robot.panel.transformMode;
+  const effectiveConstraintMode =
+    robot.panel.transformMode === "rotate"
+      ? "pose"
+      : robot.panel.goalMarkerConstraintMode;
   const originGizmoEnabled =
     managerActiveSourceId !== JOINT_SOURCE_ID.DRAG &&
     !draggedJointName &&
@@ -1326,7 +1331,7 @@ function ViewportRobot({
       {showGoalMarker ? (
         <GoalMarker
           enabled={canManipulateIk}
-          mode={robot.panel.transformMode}
+          mode={effectiveTransformMode}
           space={robot.panel.transformSpace}
           position={goalPosition}
           quaternion={goalQuaternion}
@@ -1344,7 +1349,7 @@ function ViewportRobot({
         <OriginGizmo
           objectRef={groupRef as React.RefObject<THREE.Object3D | null>}
           enabled={originGizmoEnabled}
-          mode={robot.panel.transformMode}
+          mode={effectiveTransformMode}
           space={robot.panel.transformSpace}
           onTransformChange={handleOriginTransformChange}
           onDragStart={() => onDraggingChange?.(true)}
@@ -1356,7 +1361,8 @@ function ViewportRobot({
 }
 
 export default function Viewport({ sceneState }: ViewportProps) {
-  const { activeRobot, robots, activeRobotId } = useRobotControl();
+  const { activeRobot, robots, activeRobotId, controller, isSyncing } =
+    useRobotControl();
   const { manipulation, isAbortAreaHovered, setAbortAreaHovered } =
     useRobotInteraction();
   const [dragging, setDragging] = useState(false);
@@ -1366,10 +1372,32 @@ export default function Viewport({ sceneState }: ViewportProps) {
   const [movedDistance, setMovedDistance] = useState(0);
   const orbitControlsRef = useRef<any>(null);
   const abortAreaRef = useRef<HTMLDivElement>(null);
+  const activeRobotSyncing = activeRobot ? isSyncing(activeRobot.robotId) : false;
+  const canResetToHome =
+    !!activeRobot &&
+    !!activeRobot.homeAngles &&
+    activeRobot.homeAngles.length > 0 &&
+    !activeRobotSyncing;
   const renderableRobots = useMemo(
     () => robots.filter((robot) => robot.visual.urdfUrl),
     [robots],
   );
+
+  const handleResetToHome = useCallback(() => {
+    if (
+      !activeRobot ||
+      !activeRobot.homeAngles ||
+      activeRobot.homeAngles.length === 0 ||
+      activeRobotSyncing
+    ) {
+      return;
+    }
+    controller
+      .getJointRuntime()
+      .startAnimationToAngles(activeRobot.robotId, activeRobot.homeAngles, {
+        durationMs: 900,
+      });
+  }, [activeRobot, activeRobotSyncing, controller]);
 
   const handleDraggingChange = useCallback((nextDragging: boolean) => {
     if (orbitControlsRef.current) {
@@ -1418,11 +1446,28 @@ export default function Viewport({ sceneState }: ViewportProps) {
           <StatsOverlay />
         </div>
       )}
-      <div className="absolute left-2 bottom-2 z-10">
+      <div className="absolute left-2 bottom-2 z-10 flex flex-col gap-2">
         <SolverStatusPanel
           status={solverStatus}
           movedDistance={movedDistance}
         />
+        {activeRobot?.homeAngles && activeRobot.homeAngles.length > 0 ? (
+          <div className="group relative pointer-events-auto w-fit">
+            <button
+              className="button-ghost"
+              disabled={!canResetToHome}
+              onClick={handleResetToHome}
+              type="button"
+            >
+              Home
+            </button>
+            {activeRobotSyncing ? (
+              <div className="hover-tooltip left-full top-1/2 ml-1 -translate-y-1/2 max-w-none whitespace-nowrap">
+                Only available without synchronization
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       {manipulation?.syncMode &&
         (manipulation.sourceId === JOINT_SOURCE_ID.DRAG ||

@@ -426,6 +426,10 @@ export class ApplicationController {
   stopRobotSync(robotId: string): string {
     const motionDeviceId = this.robotState.byId[robotId]?.motionDeviceId;
     this.jointRuntime.stopSync(robotId);
+    const robot = this.robotState.byId[robotId];
+    if (robot) {
+      this.jointRuntime.configureRobot(robot);
+    }
     return motionDeviceId
       ? this.client.unsubscribeRobotJoints(motionDeviceId)
       : "";
