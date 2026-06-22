@@ -33,9 +33,9 @@ function getRawActionStateText(
     | null
     | undefined,
 ): string {
-  const raw = (state?.currentState ?? state?.status ?? "Idle").trim();
+  const raw = (state?.currentState ?? state?.status ?? "idle").trim();
   if (!raw) {
-    return "Idle";
+    return "idle";
   }
 
   const localizedTextMatch = raw.match(/Text='([^']+)'/i);
@@ -53,7 +53,7 @@ function formatActionStateLabel(
 ): string {
   const raw = getRawActionStateText(state);
   if (raw.toLowerCase() === "ready") {
-    return "Idle";
+    return "idle";
   }
   return raw;
 }
@@ -179,11 +179,6 @@ export default function RobotActionsPanel({
                     <div className="truncate text-[12px]">
                       {action.targetName}
                     </div>
-                    {action.discoveryPath ? (
-                      <div className="truncate text-[10px] text-[rgb(var(--fg-muted))]">
-                        {action.discoveryPath}
-                      </div>
-                    ) : null}
                   </div>
                 </button>
 
@@ -244,9 +239,9 @@ export default function RobotActionsPanel({
                       </button>
                     </>
                   ) : null}
-                  <div className="text-right">
+                  <div className="ml-6 text-right">
                     <div
-                      className={`inline-flex h-6 min-w-[55px] items-center justify-center border px-2 text-xs leading-none ${stateColorClass}`}
+                      className={`inline-flex h-6 min-w-[72px] items-center justify-center border px-2 text-xs leading-none ${stateColorClass}`}
                     >
                       {stateLabel}
                     </div>
@@ -259,7 +254,7 @@ export default function RobotActionsPanel({
                   {action.parameterNames.length > 0 ? (
                     <>
                       <div className="text-[10px] text-[rgb(var(--fg-muted))]">
-                        Parameters: {action.parameterNames.join(", ")}
+                        Params: {action.parameterNames.join(", ")}
                       </div>
                       <textarea
                         className="input-ghost min-h-24 w-full resize-y"

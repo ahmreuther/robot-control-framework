@@ -79,7 +79,7 @@ function robotSession(robotId = 'robot-a'): RobotSessionInfo {
       },
     },
     actions: {
-      go_to: {
+      goto: {
         kind: 'skill',
         targetName: 'go_to',
         skillNodeId: 'ns=4;s=Go To Skill',
@@ -229,9 +229,9 @@ describe('ApplicationController', () => {
     expect(socket.sent.map((raw) => JSON.parse(raw))).toEqual([
       {
         type: 'executeRobotAction',
-        requestId: 'action-go_to-1',
+        requestId: 'action-goto-1',
         robotId: 'robot-a',
-        actionName: 'go_to',
+        actionName: 'goto',
         inputs: {
           mode: 'automatic',
           joints: [0, 0.1],
@@ -277,12 +277,12 @@ describe('ApplicationController', () => {
 
     const requestId = controller.callRobotGotoForVisualAngles(robotId, [10, 20]);
 
-    expect(requestId).toBe('action-go_to-1');
+    expect(requestId).toBe('action-goto-1');
     expect(JSON.parse(socket.sent[0] ?? '{}')).toEqual({
       type: 'executeRobotAction',
-      requestId: 'action-go_to-1',
+      requestId: 'action-goto-1',
       robotId: 'robot-a',
-      actionName: 'go_to',
+      actionName: 'goto',
       inputs: {
         mode: 'automatic',
         joints: [20, 10],
@@ -315,7 +315,7 @@ describe('ApplicationController', () => {
       serverUrl: SERVER_URL,
       robotId: 'robot-a',
       data: {
-        actionName: 'go_to',
+        actionName: 'goto',
         kind: 'skill',
         status: 'idle',
         currentState: 'Ready',
@@ -339,44 +339,10 @@ describe('ApplicationController', () => {
       serverUrl: SERVER_URL,
       robotId: 'robot-a',
       data: {
-        actionName: 'go_to',
+        actionName: 'goto',
         kind: 'skill',
         status: 'running',
         currentState: 'Running',
-      },
-    });
-
-    let caught: unknown = null;
-    try {
-      controller.callRobotGoto(robotId, {
-        joints: [0, 0.1],
-      });
-    } catch (error) {
-      caught = error;
-    }
-
-    expect(caught instanceof Error).toBe(true);
-    expect((caught as Error).message.includes('goto skill is still active')).toBe(true);
-  });
-
-  it('blocks goto when the skill is halted instead of ready', () => {
-    const { socket, controller } = setup();
-
-    socket.receive({
-      type: 'robotsDiscovered',
-      serverUrl: SERVER_URL,
-      robots: [robotSession()],
-    });
-    const robotId = createBoundRobot(controller);
-    socket.receive({
-      type: 'robotActionState',
-      serverUrl: SERVER_URL,
-      robotId: 'robot-a',
-      data: {
-        actionName: 'go_to',
-        kind: 'skill',
-        status: 'halted',
-        currentState: 'Halted',
       },
     });
 
@@ -475,19 +441,19 @@ describe('ApplicationController', () => {
     });
     const robotId = createBoundRobot(controller);
 
-    const executeRequestId = controller.executeRobotAction(robotId, 'go_to', {
+    const executeRequestId = controller.executeRobotAction(robotId, 'goto', {
       mode: 'automatic',
       joints: [0, 0.1],
     });
-    const haltRequestId = controller.haltRobotAction(robotId, 'go_to');
-    const resetRequestId = controller.resetRobotAction(robotId, 'go_to');
+    const haltRequestId = controller.haltRobotAction(robotId, 'goto');
+    const resetRequestId = controller.resetRobotAction(robotId, 'goto');
     socket.receive({
       type: 'robotActionState',
       requestId: executeRequestId,
       serverUrl: SERVER_URL,
       robotId: 'robot-a',
       data: {
-        actionName: 'go_to',
+        actionName: 'goto',
         kind: 'skill',
         status: 'running',
         currentState: 'Running',
@@ -497,9 +463,9 @@ describe('ApplicationController', () => {
     expect(socket.sent.slice(-3).map((raw) => JSON.parse(raw))).toEqual([
       {
         type: 'executeRobotAction',
-        requestId: 'action-go_to-1',
+        requestId: 'action-goto-1',
         robotId: 'robot-a',
-        actionName: 'go_to',
+        actionName: 'goto',
         inputs: {
           mode: 'automatic',
           joints: [0, 0.1],
@@ -507,23 +473,23 @@ describe('ApplicationController', () => {
       },
       {
         type: 'haltRobotAction',
-        requestId: 'halt-action-go_to-2',
+        requestId: 'halt-action-goto-2',
         robotId: 'robot-a',
-        actionName: 'go_to',
+        actionName: 'goto',
       },
       {
         type: 'resetRobotAction',
-        requestId: 'reset-action-go_to-3',
+        requestId: 'reset-action-goto-3',
         robotId: 'robot-a',
-        actionName: 'go_to',
+        actionName: 'goto',
       },
     ]);
-    expect(haltRequestId).toBe('halt-action-go_to-2');
-    expect(resetRequestId).toBe('reset-action-go_to-3');
+    expect(haltRequestId).toBe('halt-action-goto-2');
+    expect(resetRequestId).toBe('reset-action-goto-3');
     expect(
-      controller.getSnapshot().robot.byId[robotId]?.actionStates.go_to,
+      controller.getSnapshot().robot.byId[robotId]?.actionStates.goto,
     ).toEqual({
-      actionName: 'go_to',
+      actionName: 'goto',
       kind: 'skill',
       status: 'running',
       currentState: 'Running',

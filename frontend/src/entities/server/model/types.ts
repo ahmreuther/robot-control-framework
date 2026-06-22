@@ -13,7 +13,6 @@ export interface NodeBinding {
   displayName?: string | null;
   browseName?: string | null;
   nodeClass?: string | null;
-  discoveryPath?: string | null;
 }
 
 export interface AddressSpaceNode extends NodeBinding {

@@ -350,19 +350,12 @@ async def read_method_arguments(method_node: Node, argument_node_name: str) -> l
     return result
 
 
-async def build_method_binding(
-    method_node: Node,
-    *,
-    root_node: Node | None = None,
-) -> MethodBinding:
+async def build_method_binding(method_node: Node) -> MethodBinding:
     return MethodBinding(
         node_id=method_node.nodeid.to_string(),
         display_name=await read_display_name(method_node),
         browse_name=await read_browse_name(method_node),
         node_class=await read_node_class_name(method_node),
-        discovery_path=await read_relative_browse_path(node=method_node, root_node=root_node)
-        if root_node is not None
-        else None,
         input_arguments=await read_method_arguments(method_node, "InputArguments"),
         output_arguments=await read_method_arguments(method_node, "OutputArguments"),
     )
@@ -424,85 +417,13 @@ async def collect_direct_children(start_node: Node | None) -> list[Node]:
     return [child async for child in iter_direct_children(start_node)]
 
 
-async def read_relative_browse_path(
-    *,
-    node: Node,
-    root_node: Node,
-) -> str | None:
-    path_parts: list[str] = []
-    current = node
-    root_node_id = root_node.nodeid.to_string()
-    visited: set[str] = set()
-
-    while True:
-        current_id = current.nodeid.to_string()
-        if current_id in visited:
-            break
-        visited.add(current_id)
-
-        if current_id == root_node_id:
-            break
-
-        try:
-            segment = await read_browse_name(current)
-        except Exception:
-            segment = ""
-        if not segment:
-            try:
-                segment = await read_display_name(current)
-            except Exception:
-                segment = ""
-        if segment:
-            path_parts.append(segment)
-
-        try:
-            current = await current.get_parent()
-        except Exception:
-            break
-
-    if not path_parts:
-        return None
-
-    return "/".join(reversed(path_parts))
-
-
 def merge_bindings[T](primary: dict[str, T], fallback: dict[str, T]) -> dict[str, T]:
     merged = dict(fallback)
     merged.update(primary)
     return merged
 
 
-def filter_skill_owned_methods(
-    methods: dict[str, MethodBinding],
-    skills: dict[str, SkillBinding],
-) -> dict[str, MethodBinding]:
-    skill_method_node_ids = {
-        node_id
-        for skill in skills.values()
-        for node_id in (
-            skill.start_node_id,
-            skill.halt_node_id,
-            skill.reset_node_id,
-            skill.suspend_node_id,
-            skill.resume_node_id,
-        )
-        if node_id
-    }
-    if not skill_method_node_ids:
-        return methods
-
-    return {
-        name: binding
-        for name, binding in methods.items()
-        if binding.node_id not in skill_method_node_ids
-    }
-
-
-async def discover_method_bindings_from_nodes(
-    nodes: list[Node],
-    *,
-    root_node: Node | None = None,
-) -> dict[str, MethodBinding]:
+async def discover_method_bindings_from_nodes(nodes: list[Node]) -> dict[str, MethodBinding]:
     methods: dict[str, MethodBinding] = {}
     for node in nodes:
         try:
@@ -512,7 +433,7 @@ async def discover_method_bindings_from_nodes(
         if node_class != ua.NodeClass.Method:
             continue
 
-        binding = await build_method_binding(node, root_node=root_node)
+        binding = await build_method_binding(node)
         key = normalize_capability_name(binding.browse_name or binding.display_name or "")
         if not key:
             continue
@@ -524,11 +445,7 @@ async def discover_method_bindings_from_nodes(
     return methods
 
 
-async def build_skill_binding_from_node(
-    node: Node,
-    *,
-    root_node: Node | None = None,
-) -> SkillBinding | None:
+async def build_skill_binding_from_node(node: Node) -> SkillBinding | None:
     try:
         node_class = await node.read_node_class()
     except Exception:
@@ -562,9 +479,6 @@ async def build_skill_binding_from_node(
         display_name=display_name,
         browse_name=browse_name,
         node_class=await read_node_class_name(node),
-        discovery_path=await read_relative_browse_path(node=node, root_node=root_node)
-        if root_node is not None
-        else None,
         parameter_set_node_id=parameter_set.nodeid.to_string()
         if parameter_set is not None
         else None,
@@ -584,14 +498,10 @@ async def build_skill_binding_from_node(
     )
 
 
-async def discover_skill_bindings_from_nodes(
-    nodes: list[Node],
-    *,
-    root_node: Node | None = None,
-) -> dict[str, SkillBinding]:
+async def discover_skill_bindings_from_nodes(nodes: list[Node]) -> dict[str, SkillBinding]:
     skills: dict[str, SkillBinding] = {}
     for node in nodes:
-        binding = await build_skill_binding_from_node(node, root_node=root_node)
+        binding = await build_skill_binding_from_node(node)
         if binding is None:
             continue
         key = normalize_capability_name(binding.browse_name or binding.display_name or "")
@@ -606,12 +516,18 @@ async def discover_method_bindings(
     *,
     max_depth: int | None = None,
 ) -> dict[str, MethodBinding]:
+    methods: dict[str, MethodBinding] = {}
+
     direct_children = await collect_direct_children(motion_device_node)
-    direct_methods = await discover_method_bindings_from_nodes(
-        direct_children,
-        root_node=motion_device_node,
-    )
-    methods = dict(direct_methods)
+    direct_methods = await discover_method_bindings_from_nodes(direct_children)
+
+    if direct_methods:
+        logger.info(
+            "opcua discovery direct method scan hit for %s: count=%s",
+            motion_device_node.nodeid.to_string(),
+            len(direct_methods),
+        )
+        return direct_methods
 
     iterator: AsyncIterator[Node]
     if max_depth is None:
@@ -627,18 +543,13 @@ async def discover_method_bindings(
         if node_class != ua.NodeClass.Method:
             continue
 
-        discovered = await discover_method_bindings_from_nodes(
-            [node],
-            root_node=motion_device_node,
-        )
+        discovered = await discover_method_bindings_from_nodes([node])
         methods.update({key: value for key, value in discovered.items() if key not in methods})
 
     logger.info(
-        "opcua discovery method scan for %s: direct=%s total=%s depth=%s",
+        "opcua discovery method fallback scan used for %s: count=%s",
         motion_device_node.nodeid.to_string(),
-        len(direct_methods),
         len(methods),
-        "full" if max_depth is None else max_depth,
     )
     return methods
 
@@ -648,12 +559,18 @@ async def discover_skill_bindings(
     *,
     max_depth: int | None = None,
 ) -> dict[str, SkillBinding]:
+    skills: dict[str, SkillBinding] = {}
+
     direct_children = await collect_direct_children(motion_device_node)
-    direct_skills = await discover_skill_bindings_from_nodes(
-        direct_children,
-        root_node=motion_device_node,
-    )
-    skills = dict(direct_skills)
+    direct_skills = await discover_skill_bindings_from_nodes(direct_children)
+
+    if direct_skills:
+        logger.info(
+            "opcua discovery direct skill scan hit for %s: count=%s",
+            motion_device_node.nodeid.to_string(),
+            len(direct_skills),
+        )
+        return direct_skills
 
     iterator: AsyncIterator[Node]
     if max_depth is None:
@@ -669,18 +586,13 @@ async def discover_skill_bindings(
         if node_class != ua.NodeClass.Object:
             continue
 
-        discovered = await discover_skill_bindings_from_nodes(
-            [node],
-            root_node=motion_device_node,
-        )
+        discovered = await discover_skill_bindings_from_nodes([node])
         skills.update({key: value for key, value in discovered.items() if key not in skills})
 
     logger.info(
-        "opcua discovery skill scan for %s: direct=%s total=%s depth=%s",
+        "opcua discovery skill fallback scan used for %s: count=%s",
         motion_device_node.nodeid.to_string(),
-        len(direct_skills),
         len(skills),
-        "full" if max_depth is None else max_depth,
     )
     return skills
 
@@ -710,7 +622,14 @@ async def discover_variable_bindings(
 
     direct_children = await collect_direct_children(motion_device_node)
     await collect_variables(direct_children)
-    direct_count = len(variables)
+
+    if variables:
+        logger.info(
+            "opcua discovery direct variable scan hit for %s: count=%s",
+            motion_device_node.nodeid.to_string(),
+            len(variables),
+        )
+        return variables
 
     async for node in (
         iter_descendants(motion_device_node)
@@ -720,11 +639,9 @@ async def discover_variable_bindings(
         await collect_variables([node])
 
     logger.info(
-        "opcua discovery variable scan for %s: direct=%s total=%s depth=%s",
+        "opcua discovery variable fallback scan used for %s: count=%s",
         motion_device_node.nodeid.to_string(),
-        direct_count,
         len(variables),
-        "full" if max_depth is None else max_depth,
     )
     return variables
 
@@ -785,7 +702,6 @@ async def discover_motion_device_descriptors(
             local_skills = await discover_skill_bindings(
                 motion_device_node,
             )
-        local_methods = filter_skill_owned_methods(local_methods, local_skills)
 
         need_global_variables = need_global_variables or not local_variables
         need_global_methods = need_global_methods or not local_methods
@@ -849,13 +765,11 @@ async def discover_motion_device_descriptors(
                 )
 
         for descriptor in descriptors:
-            merged_skills = merge_bindings(descriptor.opcua.skills, global_skills)
-            merged_methods = merge_bindings(descriptor.opcua.methods, global_methods)
             descriptor.opcua = RobotOpcUaInterface(
                 variables=merge_bindings(descriptor.opcua.variables, global_variables),
                 axes=descriptor.opcua.axes,
-                methods=filter_skill_owned_methods(merged_methods, merged_skills),
-                skills=merged_skills,
+                methods=merge_bindings(descriptor.opcua.methods, global_methods),
+                skills=merge_bindings(descriptor.opcua.skills, global_skills),
             )
 
     return descriptors

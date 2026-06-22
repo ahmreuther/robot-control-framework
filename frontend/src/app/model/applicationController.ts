@@ -447,16 +447,16 @@ export class ApplicationController {
     if (enabled) {
       const createSessionRequestId = this.executeRobotAction(
         robotId,
-        "create_new_session",
-        buildDefaultActionInputs(robot, "create_new_session"),
+        "createSession",
+        buildDefaultActionInputs(robot, "createSession"),
       );
       requestIds.push(createSessionRequestId);
       await this.waitForMethodCall(createSessionRequestId);
-      if (robot.actions?.init_lock) {
+      if (robot.actions?.initLock) {
         const initLockRequestId = this.executeRobotAction(
           robotId,
-          "init_lock",
-          buildDefaultActionInputs(robot, "init_lock"),
+          "initLock",
+          buildDefaultActionInputs(robot, "initLock"),
         );
         requestIds.push(initLockRequestId);
         await this.waitForMethodCall(initLockRequestId);
@@ -464,19 +464,19 @@ export class ApplicationController {
       this.startTakeControlKeepalive(robotId);
     } else {
       this.stopTakeControlKeepalive(robotId);
-      if (robot.actions?.exit_lock) {
+      if (robot.actions?.exitLock) {
         const exitLockRequestId = this.executeRobotAction(
           robotId,
-          "exit_lock",
-          buildDefaultActionInputs(robot, "exit_lock"),
+          "exitLock",
+          buildDefaultActionInputs(robot, "exitLock"),
         );
         requestIds.push(exitLockRequestId);
         await this.waitForMethodCall(exitLockRequestId);
       }
       const invalidateSessionRequestId = this.executeRobotAction(
         robotId,
-        "invalidate_session",
-        buildDefaultActionInputs(robot, "invalidate_session"),
+        "invalidateSession",
+        buildDefaultActionInputs(robot, "invalidateSession"),
       );
       requestIds.push(invalidateSessionRequestId);
       await this.waitForMethodCall(invalidateSessionRequestId);
@@ -634,15 +634,15 @@ export class ApplicationController {
         `Robot "${robot.robotId}" goto skill is still active. Wait until it returns to Ready/Idle before sending the next goto.`,
       );
     }
-    if (robot.actions?.go_to || robot.opcua.skills?.go_to) {
+    if (robot.actions?.goto || robot.opcua.skills?.go_to) {
       return this.executeRobotAction(
         robotId,
-        "go_to",
+        "goto",
         buildGotoActionInputs(robot, command),
       );
     }
     throw new Error(
-      `Robot "${robot.robotId}" has no discovered go_to skill.`,
+      `Robot "${robot.robotId}" has no discovered goto action or go_to skill.`,
     );
   }
 
@@ -824,7 +824,7 @@ export class ApplicationController {
 
     if (
       message.type === "robotActionState" &&
-      message.data.actionName === "go_to"
+      message.data.actionName === "goto"
     ) {
       const localRobotId = this.findRobotInstanceIdByMotionDeviceId(
         message.robotId,
@@ -849,8 +849,8 @@ export class ApplicationController {
   private startTakeControlKeepalive(robotId: string): void {
     this.stopTakeControlKeepalive(robotId);
     const robot = this.requireRobot(robotId);
-    const hasRenewSession = !!robot.actions?.renew_session;
-    const hasRenewLock = !!robot.actions?.renew_lock;
+    const hasRenewSession = !!robot.actions?.renewSession;
+    const hasRenewLock = !!robot.actions?.renewLock;
     if (!hasRenewSession && !hasRenewLock) {
       return;
     }
@@ -893,21 +893,21 @@ export class ApplicationController {
         return;
       }
 
-      if (robot.actions?.renew_session) {
+      if (robot.actions?.renewSession) {
         const renewSessionRequestId = this.executeRobotAction(
           robotId,
-          "renew_session",
-          buildDefaultActionInputs(robot, "renew_session"),
+          "renewSession",
+          buildDefaultActionInputs(robot, "renewSession"),
         );
         await this.waitForMethodCall(renewSessionRequestId);
       }
 
       const latestRobot = this.requireRobot(robotId);
-      if (latestRobot.actions?.renew_lock) {
+      if (latestRobot.actions?.renewLock) {
         const renewLockRequestId = this.executeRobotAction(
           robotId,
-          "renew_lock",
-          buildDefaultActionInputs(latestRobot, "renew_lock"),
+          "renewLock",
+          buildDefaultActionInputs(latestRobot, "renewLock"),
         );
         await this.waitForMethodCall(renewLockRequestId);
       }
@@ -1118,8 +1118,8 @@ function buildGotoActionInputs(
   command: RobotGotoCommand,
 ): Record<string, unknown> {
   const allowedParameterNames = new Set(
-    robot.actions?.go_to?.parameterNames.length
-      ? robot.actions.go_to.parameterNames
+    robot.actions?.goto?.parameterNames.length
+      ? robot.actions.goto.parameterNames
       : Object.keys(robot.opcua.skills?.go_to?.parameters ?? {}),
   );
   const inputs: Record<string, unknown> = {
@@ -1166,7 +1166,7 @@ function serializeGotoOptionalString(value: unknown): string {
 }
 
 function isGotoReadyForDispatch(robot: Robot): boolean {
-  return isGotoStateReady(robot.actionStates.go_to);
+  return isGotoStateReady(robot.actionStates.goto);
 }
 
 function isGotoStateReady(
@@ -1178,13 +1178,11 @@ function isGotoStateReady(
   if (!state) {
     return true;
   }
-
-  const normalizedStatus = (state.status ?? "").trim().toLowerCase();
   const currentState = (state.currentState ?? "").trim().toLowerCase();
   if (currentState === "ready" || currentState === "idle") {
     return true;
   }
-  return normalizedStatus === "idle" || normalizedStatus === "succeeded";
+  return state.status !== "running";
 }
 
 function validateJointArray(joints: number[]): void {
