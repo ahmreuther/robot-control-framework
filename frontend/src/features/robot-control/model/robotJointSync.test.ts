@@ -35,7 +35,7 @@ function robot(overrides: Partial<Robot> = {}): Robot {
   const defaultPanel = {
     useDegrees: false,
     takeControlActive: false,
-    viewportMode: 'origin' as const,
+    viewportMode: 'tcp' as const,
     showCollisionMap: false,
     showWorkspace: false,
     workspaceSampleCount: 1000000,

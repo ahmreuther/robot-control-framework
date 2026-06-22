@@ -60,7 +60,7 @@ function robot(robotId: string, offset = 0): Robot {
     panel: {
       useDegrees: false,
       takeControlActive: false,
-      viewportMode: 'origin',
+      viewportMode: 'tcp',
       showCollisionMap: false,
       showWorkspace: false,
       workspaceSampleCount: 1000000,

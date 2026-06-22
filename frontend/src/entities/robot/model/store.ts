@@ -16,12 +16,22 @@ function findRobotInstanceIdByMotionDeviceId(
   state: RobotStoreState,
   motionDeviceId: string,
 ): string | null {
-  for (const robot of Object.values(state.byId)) {
-    if (robot.motionDeviceId === motionDeviceId) {
-      return robot.robotId;
-    }
+  const matches = Object.values(state.byId).filter(
+    (robot) => robot.motionDeviceId === motionDeviceId,
+  );
+  if (matches.length === 0) {
+    return null;
   }
-  return null;
+
+  const activeMatch =
+    state.activeRobotId &&
+    matches.find((robot) => robot.robotId === state.activeRobotId);
+  if (activeMatch) {
+    return activeMatch.robotId;
+  }
+
+  const boundTwin = matches.find((robot) => robot.robotId !== motionDeviceId);
+  return (boundTwin ?? matches[0])?.robotId ?? null;
 }
 
 export function applyRobotMessage(

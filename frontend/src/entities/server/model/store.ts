@@ -514,7 +514,7 @@ export function applyServerMessage(
           ...state.byUrl,
           [message.server.serverUrl]: message.server,
         },
-        activeServerUrl: message.server.serverUrl,
+        activeServerUrl: state.activeServerUrl ?? message.server.serverUrl,
       };
 
     case 'robotsDiscovered': {

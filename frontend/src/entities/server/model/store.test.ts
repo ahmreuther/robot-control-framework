@@ -45,6 +45,33 @@ describe('server store routing', () => {
     expect(state.activeServerUrl).toBe(SERVER_URL);
   });
 
+  it('does not replace the active server when another server connects', () => {
+    const otherUrl = 'opc.tcp://127.0.0.1:4841';
+    const withFirst = applyServerMessage(initialServerStoreState, {
+      type: 'serverConnected',
+      server: {
+        serverUrl: SERVER_URL,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: false,
+        motionDeviceIds: [],
+      },
+    });
+
+    const withSecond = applyServerMessage(withFirst, {
+      type: 'serverConnected',
+      server: {
+        serverUrl: otherUrl,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: false,
+        motionDeviceIds: [],
+      },
+    });
+
+    expect(withSecond.activeServerUrl).toBe(SERVER_URL);
+  });
+
   it('updates robot ids from discovery even when serverConnected was not received first', () => {
     const state = applyServerMessage(initialServerStoreState, {
       type: 'robotsDiscovered',

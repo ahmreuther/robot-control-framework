@@ -517,7 +517,7 @@ function ViewportRobot({
         isSelected &&
         loadedRobot &&
         groupRef.current &&
-        robot.panel.viewportMode === "goalmarker" &&
+        robot.panel.viewportMode === "tcp" &&
         snapshot.activeSourceId !== JOINT_SOURCE_ID.IK
       ) {
         const nextGoalPosition = getToolPointWorldPosition(loadedRobot);
@@ -709,7 +709,7 @@ function ViewportRobot({
       !isSelected ||
       !loadedRobotState ||
       !groupRef.current ||
-      robot.panel.viewportMode !== "goalmarker" ||
+      robot.panel.viewportMode !== "tcp" ||
       managerActiveSourceId === JOINT_SOURCE_ID.IK
     ) {
       return;
@@ -953,7 +953,7 @@ function ViewportRobot({
     isSelected &&
     !!manager &&
     !!loadedRobotState &&
-    robot.panel.viewportMode === "goalmarker" &&
+    robot.panel.viewportMode === "tcp" &&
     managerActiveSourceId !== JOINT_SOURCE_ID.MANUAL &&
     managerActiveSourceId !== JOINT_SOURCE_ID.ANIMATION &&
     managerActiveSourceId !== JOINT_SOURCE_ID.RESET;
@@ -962,12 +962,12 @@ function ViewportRobot({
     isSelected &&
     !!manager &&
     !!loadedRobotState &&
-    robot.panel.viewportMode === "goalmarker" &&
+    robot.panel.viewportMode === "tcp" &&
     managerActiveSourceId !== JOINT_SOURCE_ID.ANIMATION &&
     managerActiveSourceId !== JOINT_SOURCE_ID.RESET;
 
   const handleDragStart = useCallback(() => {
-    if (!manager || robot.panel.viewportMode !== "goalmarker") {
+    if (!manager || robot.panel.viewportMode !== "tcp") {
       return;
     }
     beginManipulation(robot.robotId, JOINT_SOURCE_ID.DRAG);
@@ -990,7 +990,7 @@ function ViewportRobot({
 
   const handleUpdateJoint = useCallback(
     (joint: unknown, value: number) => {
-      if (!manager || robot.panel.viewportMode !== "goalmarker") return;
+      if (!manager || robot.panel.viewportMode !== "tcp") return;
 
       const candidate = joint as { name?: string | null };
       const jointName = candidate.name ?? null;
@@ -1105,7 +1105,7 @@ function ViewportRobot({
 
     if (
       !isSelected ||
-      robot.panel.viewportMode !== "goalmarker" ||
+      robot.panel.viewportMode !== "tcp" ||
       !ikModel ||
       !visibleRobot ||
       !robotGroup ||
@@ -1259,7 +1259,7 @@ function ViewportRobot({
     isSelected &&
     loadedRobotState &&
     robot.panel.goalMarkerEnabled &&
-    robot.panel.viewportMode === "goalmarker";
+    robot.panel.viewportMode === "tcp";
   const showOriginGizmo =
     isSelected && robot.panel.viewportMode === "origin";
   const originGizmoEnabled =

@@ -576,7 +576,7 @@ describe('ApplicationController', () => {
       panel: {
         useDegrees: false,
         takeControlActive: false,
-        viewportMode: 'origin',
+        viewportMode: 'tcp',
         showCollisionMap: false,
         showWorkspace: false,
         workspaceSampleCount: 1000000,
@@ -610,15 +610,15 @@ describe('ApplicationController', () => {
     controller.toggleRobotViewportMode(robotId);
     expect(
       controller.getSnapshot().robot.byId[robotId]?.panel.viewportMode,
-    ).toBe('goalmarker');
+    ).toBe('origin');
 
-    controller.setRobotViewportMode(robotId, 'origin');
+    controller.setRobotViewportMode(robotId, 'tcp');
     expect(
       controller.getSnapshot().robot.byId[robotId]?.panel.viewportMode,
-    ).toBe('origin');
+    ).toBe('tcp');
   });
 
-  it('resets the selected robot viewport mode back to origin on selection', () => {
+  it('keeps the selected robot viewport mode on selection', () => {
     const { controller } = setup();
 
     const robotA = controller.createRobot('Robot A', ROBOT_MODEL_OPTIONS[0], {
@@ -638,7 +638,7 @@ describe('ApplicationController', () => {
       yaw: 0,
     });
 
-    controller.setRobotViewportMode(robotA, 'goalmarker');
+    controller.setRobotViewportMode(robotA, 'origin');
     controller.selectRobot(robotB);
     controller.selectRobot(robotA);
 
@@ -675,6 +675,85 @@ describe('ApplicationController', () => {
     controller.selectServer(SERVER_URL);
 
     expect(controller.getSnapshot().server.activeServerUrl).toBe(SERVER_URL);
+    expect(controller.getSnapshot().robot.activeRobotId).toBe(null);
+  });
+
+  it('selects the matching server when a robot becomes active', () => {
+    const { socket, controller } = setup();
+
+    socket.receive({
+      type: 'serverConnected',
+      server: {
+        serverUrl: SERVER_URL,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: true,
+        motionDeviceIds: ['robot-a'],
+      },
+    });
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [robotSession('robot-a')],
+    });
+
+    const robotId = controller.createRobot('Manual EVA', ROBOT_MODEL_OPTIONS[0], {
+      x: 0,
+      y: 0,
+      z: 0,
+      roll: 0,
+      pitch: 0,
+      yaw: 0,
+    });
+    controller.bindRobotToMotionDevice(robotId, 'robot-a');
+
+    controller.selectRobot(robotId);
+
+    expect(controller.getSnapshot().server.activeServerUrl).toBe(SERVER_URL);
+  });
+
+  it('selects the first robot for the active server', () => {
+    const { socket, controller } = setup();
+    const otherUrl = 'opc.tcp://127.0.0.1:4841';
+
+    socket.receive({
+      type: 'serverConnected',
+      server: {
+        serverUrl: SERVER_URL,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: true,
+        motionDeviceIds: ['robot-b', 'robot-a'],
+      },
+    });
+    socket.receive({
+      type: 'serverConnected',
+      server: {
+        serverUrl: otherUrl,
+        status: 'connected',
+        namespaceUris: [],
+        isRoboticsServer: true,
+        motionDeviceIds: [],
+      },
+    });
+    socket.receive({
+      type: 'robotsDiscovered',
+      serverUrl: SERVER_URL,
+      robots: [
+        {
+          ...robotSession('robot-b'),
+          displayName: 'Robot B',
+        },
+        {
+          ...robotSession('robot-a'),
+          displayName: 'Robot A',
+        },
+      ],
+    });
+
+    controller.selectServer(SERVER_URL);
+
+    expect(controller.getSnapshot().robot.activeRobotId).toBe('robot-a');
   });
 
   it('tracks address-space browse and selection state by server', () => {

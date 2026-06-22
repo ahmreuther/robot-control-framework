@@ -388,7 +388,7 @@ export default function JointAnglesPanel() {
   const dragManipulationActive =
     managerState.activeSourceId === JOINT_SOURCE_ID.DRAG;
   const canEdit =
-    currentRobot.panel.viewportMode === "goalmarker" &&
+    currentRobot.panel.viewportMode === "tcp" &&
     managerState.activeSourceId !== JOINT_SOURCE_ID.RESET &&
     managerState.activeSourceId !== JOINT_SOURCE_ID.ANIMATION &&
     !dragManipulationActive;

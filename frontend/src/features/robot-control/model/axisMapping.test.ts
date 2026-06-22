@@ -134,7 +134,7 @@ describe('axis mapping', () => {
       panel: {
         useDegrees: false,
         takeControlActive: false,
-        viewportMode: 'origin',
+        viewportMode: 'tcp',
         showCollisionMap: false,
         showWorkspace: false,
         workspaceSampleCount: 1000000,

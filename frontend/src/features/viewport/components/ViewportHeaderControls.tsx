@@ -36,8 +36,12 @@ interface ViewportHeaderControlsProps {
 export default function ViewportHeaderControls({
   sceneState,
 }: ViewportHeaderControlsProps) {
-  const { activeRobot, updateRobotPanelState, toggleRobotViewportMode } =
-    useRobotControl();
+  const {
+    activeRobot,
+    setRobotViewportMode,
+    updateRobotPanelState,
+    toggleRobotViewportMode,
+  } = useRobotControl();
   const { config: solverConfig, updateConfig, resetConfig } = useSolverConfig();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalSectionOpen, setGoalSectionOpen] = useState(true);
@@ -69,7 +73,7 @@ export default function ViewportHeaderControls({
       }
 
       if (event.key === "h" || event.key === "H") {
-        if (activeRobot.panel.viewportMode !== "goalmarker") {
+        if (activeRobot.panel.viewportMode !== "tcp") {
           return;
         }
         event.preventDefault();
@@ -89,7 +93,7 @@ export default function ViewportHeaderControls({
       }
 
       if (event.key === "w" || event.key === "W") {
-        if (activeRobot.panel.viewportMode !== "goalmarker") {
+        if (activeRobot.panel.viewportMode !== "tcp") {
           return;
         }
         event.preventDefault();
@@ -139,7 +143,7 @@ export default function ViewportHeaderControls({
   ];
 
   const goalDisabled =
-    !activeRobot || activeRobot.panel.viewportMode !== "goalmarker";
+    !activeRobot || activeRobot.panel.viewportMode !== "tcp";
   const transformDisabled = !activeRobot;
   const goalHidden = activeRobot ? !activeRobot.panel.goalMarkerEnabled : true;
   const goalFullPose =
@@ -147,16 +151,27 @@ export default function ViewportHeaderControls({
   const goalRotate = activeRobot?.panel.transformMode === "rotate";
   const goalLocal = activeRobot?.panel.transformSpace === "local";
   const viewportModeLabel =
-    activeRobot?.panel.viewportMode === "goalmarker"
-      ? "Goal Marker"
+    activeRobot?.panel.viewportMode === "tcp"
+      ? "TCP"
       : "Origin";
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
-        <div className="border border-[rgb(var(--panel-border)/0.18)] bg-[rgb(var(--panel-bg)/0.55)] px-2 py-1 text-xs text-[rgb(var(--fg-muted))]">
+        <button
+          className="border border-[rgb(var(--panel-border)/0.18)] bg-[rgb(var(--panel-bg)/0.55)] px-2 py-1 text-xs text-[rgb(var(--fg-muted))] disabled:cursor-default disabled:opacity-60"
+          disabled={!activeRobot}
+          onClick={() => {
+            if (!activeRobot) return;
+            setRobotViewportMode(
+              activeRobot.robotId,
+              activeRobot.panel.viewportMode === "origin" ? "tcp" : "origin",
+            );
+          }}
+          type="button"
+        >
           Mode:{" "}
           <span className="text-[rgb(var(--fg))]">{viewportModeLabel}</span>
-        </div>
+        </button>
         <button
           className="button-ghost"
           onClick={() => setSettingsOpen((current) => !current)}

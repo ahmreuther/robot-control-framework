@@ -185,6 +185,10 @@ export class ApplicationController {
 
   selectServer(serverUrl: string | null): void {
     this.serverState = selectActiveServer(this.serverState, serverUrl);
+    this.robotState = {
+      ...this.robotState,
+      activeRobotId: this.getPreferredRobotIdForServer(serverUrl),
+    };
     this.emitState();
   }
 
@@ -309,6 +313,10 @@ export class ApplicationController {
       },
       activeRobotId: robotId,
     };
+    this.serverState = selectActiveServer(
+      this.serverState,
+      this.getSelectableServerUrlForRobot(nextRobot),
+    );
     this.jointRuntime.configureRobot(nextRobot);
     this.emitState();
     return robotId;
@@ -344,6 +352,12 @@ export class ApplicationController {
         [robotId]: nextRobot,
       },
     };
+    if (this.robotState.activeRobotId === robotId) {
+      this.serverState = selectActiveServer(
+        this.serverState,
+        this.getSelectableServerUrlForRobot(nextRobot),
+      );
+    }
     this.emitState();
   }
 
@@ -366,6 +380,10 @@ export class ApplicationController {
           ? (remainingRobotIds[0] ?? null)
           : this.robotState.activeRobotId,
     };
+    this.serverState = selectActiveServer(
+      this.serverState,
+      this.getSelectableServerUrlForRobotId(this.robotState.activeRobotId),
+    );
     this.emitState();
   }
 
@@ -377,18 +395,12 @@ export class ApplicationController {
 
     this.robotState = {
       ...this.robotState,
-      byId: {
-        ...this.robotState.byId,
-        [robotId]: {
-          ...robot,
-          panel: {
-            ...robot.panel,
-            viewportMode: "origin",
-          },
-        },
-      },
       activeRobotId: robotId,
     };
+    this.serverState = selectActiveServer(
+      this.serverState,
+      this.getSelectableServerUrlForRobot(robot),
+    );
     this.emitState();
   }
 
@@ -524,8 +536,7 @@ export class ApplicationController {
   toggleRobotViewportMode(robotId: string): void {
     const robot = this.requireRobot(robotId);
     this.updateRobotPanelState(robotId, {
-      viewportMode:
-        robot.panel.viewportMode === "origin" ? "goalmarker" : "origin",
+      viewportMode: robot.panel.viewportMode === "origin" ? "tcp" : "origin",
     });
   }
 
@@ -929,12 +940,22 @@ export class ApplicationController {
   private findRobotInstanceIdByMotionDeviceId(
     motionDeviceId: string,
   ): string | null {
-    for (const robot of Object.values(this.robotState.byId)) {
-      if (robot.motionDeviceId === motionDeviceId) {
-        return robot.robotId;
-      }
+    const matches = Object.values(this.robotState.byId).filter(
+      (robot) => robot.motionDeviceId === motionDeviceId,
+    );
+    if (matches.length === 0) {
+      return null;
     }
-    return null;
+
+    const activeMatch =
+      this.robotState.activeRobotId &&
+      matches.find((robot) => robot.robotId === this.robotState.activeRobotId);
+    if (activeMatch) {
+      return activeMatch.robotId;
+    }
+
+    const boundTwin = matches.find((robot) => robot.robotId !== motionDeviceId);
+    return (boundTwin ?? matches[0])?.robotId ?? null;
   }
 
   private rebuildRobotsFromDiscoveredSessions(
@@ -1050,6 +1071,35 @@ export class ApplicationController {
     for (const listener of this.listeners) {
       listener(snapshot);
     }
+  }
+
+  private getSelectableServerUrlForRobot(robot: Robot | null): string | null {
+    if (!robot) {
+      return null;
+    }
+    return this.serverState.byUrl[robot.serverUrl] ? robot.serverUrl : null;
+  }
+
+  private getSelectableServerUrlForRobotId(robotId: string | null): string | null {
+    if (!robotId) {
+      return null;
+    }
+    return this.getSelectableServerUrlForRobot(this.robotState.byId[robotId] ?? null);
+  }
+
+  private getPreferredRobotIdForServer(serverUrl: string | null): string | null {
+    if (serverUrl === null) {
+      return null;
+    }
+
+    const matchingRobots = Object.values(this.robotState.byId)
+      .filter((robot) => robot.serverUrl === serverUrl)
+      .sort((left, right) => {
+        const nameOrder = left.displayName.localeCompare(right.displayName);
+        return nameOrder !== 0 ? nameOrder : left.robotId.localeCompare(right.robotId);
+      });
+
+    return matchingRobots[0]?.robotId ?? null;
   }
 }
 

@@ -84,7 +84,7 @@ export interface RobotVisualBinding {
 export interface RobotPanelState {
   useDegrees: boolean;
   takeControlActive: boolean;
-  viewportMode: 'origin' | 'goalmarker';
+  viewportMode: 'origin' | 'tcp';
   showCollisionMap: boolean;
   showWorkspace: boolean;
   workspaceSampleCount: number;
@@ -140,7 +140,7 @@ export function createRobotFromSession(session: RobotSessionInfo): Robot {
     panel: {
       useDegrees: false,
       takeControlActive: false,
-      viewportMode: 'origin',
+      viewportMode: 'tcp',
       showCollisionMap: false,
       showWorkspace: false,
       workspaceSampleCount: 1000000,
