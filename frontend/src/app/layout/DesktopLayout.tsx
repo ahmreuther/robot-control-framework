@@ -90,14 +90,17 @@ export function DesktopLayout({
                         </Panel>
                         <ResizeHandle />
                         <Panel defaultSize={82} minSize={50}>
-                          <section className="panel h-full flex flex-col overflow-hidden">
+                          <section
+                            className="panel h-full flex flex-col overflow-hidden"
+                            data-viewport-panel="true"
+                          >
                             <header className="panel-header">
                               <div className="panel-title">Viewport</div>
                               <ViewportHeaderControls
                                 sceneState={viewportScene}
                               />
                             </header>
-                            <div className="min-h-0 flex-1">
+                            <div className="min-h-0 flex-1 overflow-hidden">
                               <Viewport sceneState={viewportScene} />
                             </div>
                           </section>

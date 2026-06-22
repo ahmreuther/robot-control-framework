@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { DisclosureSection } from "../../../shared/ui/DisclosureSection";
 import { Toggle } from "../../../shared/ui/Toggle";
@@ -47,6 +47,10 @@ export default function ViewportHeaderControls({
   const [goalSectionOpen, setGoalSectionOpen] = useState(true);
   const [viewportSectionOpen, setViewportSectionOpen] = useState(true);
   const [solverSectionOpen, setSolverSectionOpen] = useState(false);
+  const [settingsMaxHeight, setSettingsMaxHeight] = useState<number | null>(
+    null,
+  );
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   const solverNumberFields: Array<{
     key: Exclude<keyof SolverConfig, "useSVD">;
@@ -132,6 +136,50 @@ export default function ViewportHeaderControls({
     };
   }, [activeRobot, settingsOpen, toggleRobotViewportMode, updateRobotPanelState]);
 
+  useEffect(() => {
+    if (!settingsOpen) {
+      setSettingsMaxHeight(null);
+      return;
+    }
+
+    const root = rootRef.current;
+    const viewportPanel = root?.closest(
+      '[data-viewport-panel="true"]',
+    ) as HTMLElement | null;
+
+    function updateSettingsMaxHeight() {
+      if (!root || !viewportPanel) {
+        setSettingsMaxHeight(null);
+        return;
+      }
+
+      const rootRect = root.getBoundingClientRect();
+      const panelRect = viewportPanel.getBoundingClientRect();
+      const availableHeight = Math.floor(panelRect.bottom - rootRect.bottom - 8);
+      setSettingsMaxHeight(availableHeight > 0 ? availableHeight : null);
+    }
+
+    const frameId = window.requestAnimationFrame(updateSettingsMaxHeight);
+    const resizeObserver =
+      root && viewportPanel
+        ? new ResizeObserver(() => {
+            updateSettingsMaxHeight();
+          })
+        : null;
+    if (root) {
+      resizeObserver?.observe(root);
+    }
+    if (root && viewportPanel && viewportPanel !== root) {
+      resizeObserver?.observe(viewportPanel);
+    }
+    window.addEventListener("resize", updateSettingsMaxHeight);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateSettingsMaxHeight);
+    };
+  }, [settingsOpen, goalSectionOpen, viewportSectionOpen, solverSectionOpen]);
+
   const viewportEntries: Array<{
     key: ToggleableViewportSettingKey;
     label: string;
@@ -155,7 +203,7 @@ export default function ViewportHeaderControls({
       ? "TCP"
       : "Origin";
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <div className="flex items-center gap-2">
         <button
           className="border border-[rgb(var(--panel-border)/0.18)] bg-[rgb(var(--panel-bg)/0.55)] px-2 py-1 text-xs text-[rgb(var(--fg-muted))] disabled:cursor-default disabled:opacity-60"
@@ -181,9 +229,23 @@ export default function ViewportHeaderControls({
         </button>
       </div>
       {settingsOpen && (
-        <div className="absolute right-0 top-10 z-20">
-          <div className="panel w-80 max-h-[min(42rem,calc(100vh-8rem))] overflow-hidden">
-            <div className="panel-body flex max-h-[min(42rem,calc(100vh-8rem))] flex-col gap-2 overflow-y-auto">
+        <div className="absolute right-0 top-11 z-20">
+          <div
+            className="panel w-80 overflow-hidden"
+            style={
+              settingsMaxHeight !== null
+                ? { maxHeight: `${settingsMaxHeight}px` }
+                : undefined
+            }
+          >
+            <div
+              className="panel-body box-border flex flex-col gap-2 overflow-y-auto"
+              style={
+                settingsMaxHeight !== null
+                  ? { maxHeight: `${settingsMaxHeight}px` }
+                  : undefined
+              }
+            >
               <DisclosureSection
                 title="Gizmo Options"
                 open={goalSectionOpen}

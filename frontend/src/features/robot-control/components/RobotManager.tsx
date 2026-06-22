@@ -115,6 +115,7 @@ export default function RobotManager({
           const isActive = activeRobotId === robot.robotId;
           const syncing = isSyncing(robot.robotId);
           const takeControlActive = robot.panel.takeControlActive;
+          const syncBlockedByTakeControl = !takeControlActive && !syncing;
           const detailsOpen =
             openSectionsByRobotId[robot.robotId]?.details ?? false;
           const motionDevice =
@@ -146,16 +147,27 @@ export default function RobotManager({
                       }}
                     />
                   </label>
-                  <label className="flex items-center justify-between gap-3">
-                    <span>Sync</span>
-                    <Toggle
-                      checked={syncing}
-                      disabled={!isActive || !robot.visual.urdfUrl}
-                      onChange={() => {
-                        handleToggleSync(robot.robotId);
-                      }}
-                    />
-                  </label>
+                  <div className="group relative">
+                    <label className="flex items-center justify-between gap-3">
+                      <span>Sync</span>
+                      <Toggle
+                        checked={syncing}
+                        disabled={
+                          !isActive ||
+                          !robot.visual.urdfUrl ||
+                          syncBlockedByTakeControl
+                        }
+                        onChange={() => {
+                          handleToggleSync(robot.robotId);
+                        }}
+                      />
+                    </label>
+                    {isActive && robot.visual.urdfUrl && syncBlockedByTakeControl ? (
+                      <div className="hover-tooltip right-12 top-1/2 -translate-y-1/2">
+                        Enable Take Control to start Sync.
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 {!robot.visual.urdfUrl ? (

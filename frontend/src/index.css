@@ -262,6 +262,26 @@
     color: rgb(var(--fg));
   }
 
+  .hover-tooltip {
+    pointer-events: none;
+    position: absolute;
+    z-index: 10;
+    display: none;
+    max-width: 12rem;
+    border: 1px solid rgb(var(--panel-border) / 0.18);
+    background: rgb(var(--panel));
+    padding: 0.25rem 0.5rem;
+    font-size: 11px;
+    line-height: 1.4;
+    color: rgb(var(--fg-muted));
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.24);
+  }
+
+  .group:hover .hover-tooltip,
+  .group:focus-within .hover-tooltip {
+    display: block;
+  }
+
   .button-danger {
     @apply inline-flex h-6 w-full items-center justify-center border px-2 text-xs leading-none transition-colors duration-150;
     border-color: rgb(var(--bad) / 0.45);
